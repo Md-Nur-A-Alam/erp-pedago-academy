@@ -1,0 +1,1923 @@
+/**
+ * Pedago Academy — Sales Lead Distribution & Management (Interim)
+ * ---------------------------------------------------------------
+ * A lightweight interim system (Google Sheets + Apps Script Web App) to
+ * collect, distribute, and track sales leads across the telesales team —
+ * while the full ERP module (see the finalized spec doc) is built.
+ *
+ * This is a deliberately "light" version of the full specification:
+ *   - 3-Lead Batch auto-assignment: a Sales Executive gets topped up to 3
+ *     unactioned ("New") leads at a time — on login, and again the moment
+ *     their batch empties out (every lead in it has been given at least
+ *     one feedback/action). Least-loaded-first among eligible (batch not
+ *     full) online reps picks who a brand-new lead goes to immediately.
+ *   - Availability = Logged In + within configured Office Hours window.
+ *   - "Manual Campaign" leads AND "Auto campaign but nobody online" leads
+ *     both simply land in one Unassigned Queue (with a reason shown) —
+ *     instead of two separate mechanisms.
+ *   - No automated multi-tier inactivity escalation, no follow-up
+ *     capacity prediction, no fake-feedback detection — these are
+ *     judgment calls left to the Manager for now, reviewable directly in
+ *     the Sheets.
+ * Roles: Admin, Manager (Sales+Marketing Manager), Marketing Executive,
+ * Sales Executive.
+ *
+ * SETUP:
+ * 1. Open a new Google Sheet, go to Extensions > Apps Script.
+ * 2. Replace the default Code.gs content with this file.
+ * 3. Create a new HTML file named exactly "Index" and paste Index.html into it.
+ * 4. Run the `initializeSystem` function once from the Apps Script editor
+ *    (select it in the function dropdown, click Run) to create all sheets,
+ *    seed default Settings/Campaigns/Courses, and a default Admin login.
+ *    Authorize when prompted.
+ * 5. Deploy > New deployment > Web app. Execute as: Me. Who has access: Anyone.
+ * 6. Open the Web App URL — log in with the default Admin PIN shown in the
+ *    "Staff" sheet after step 4, then add real staff, campaigns and courses.
+ * 7. Office Hours / Weekly Off Day / Assignment Cut-off can be edited any
+ *    time directly in the "Settings" sheet — no code change needed.
+ *
+ * UPDATING LATER: to change the code without changing the Web App URL,
+ * edit Code.gs / Index.html here, then go to Deploy > Manage deployments,
+ * click the pencil (edit) icon on the existing deployment, set Version to
+ * "New version", and click Deploy. Do NOT create a brand-new deployment —
+ * that gives you a different URL and breaks any links already shared.
+ *
+ * TROUBLESHOOTING — "same lead got added twice / same phone, two contacts":
+ * This happens when Google Sheets silently converts a phone number like
+ * "01711223344" into a plain Number and drops the leading zero, so the
+ * next time that same customer calls in, the phone no longer matches the
+ * old text value and a brand-new Contact gets created instead of being
+ * recognized as a repeat. Fix in two steps from the Apps Script editor:
+ *   1. Run `fixPhoneNumberFormatting` once — this forces the Phone column
+ *      to Plain Text and repairs any already-corrupted numeric values
+ *      (restores the lost leading zero where it can tell).
+ *   2. Run `mergeDuplicateContacts` once — this finds Contact rows that
+ *      share the same real phone number, merges all their Inquiries and
+ *      Activities (call history) onto a single canonical Contact, and
+ *      removes the duplicate row(s). Review the merged contacts afterward
+ *      in the Contacts sheet — if two different Sales Executives had been
+ *      calling the same customer under separate duplicate rows, you may
+ *      want to manually confirm who should keep ownership.
+ * `initializeSystem` also calls `fixPhoneNumberFormatting` automatically
+ * every time it's run, so the formatting fix alone is safe to repeat.
+ */
+
+const SHEET_NAMES = {
+  STAFF: 'Staff',
+  CAMPAIGNS: 'Campaigns',
+  COURSES: 'Courses',
+  SETTINGS: 'Settings',
+  CONTACTS: 'Contacts',
+  INQUIRIES: 'Inquiries',
+  ACTIVITIES: 'Activities'
+};
+
+const CLOSED_STATUSES = ['Converted', 'Not Interested', 'Unreachable', 'Lost', 'Invalid/Junk'];
+const DAY_NAMES = ['Sunday', 'Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday'];
+const BATCH_SIZE = 3; // a Sales Executive gets topped up to this many unactioned ("New") leads at a time
+
+// Small Bangla label map for server-built messages only (the front-end has
+// its own, richer STATUS_LABELS map for the UI — this is just so a server
+// error message like "নম্বরটা আরেকটা লিডের, স্ট্যাটাস: X" reads in Bangla
+// instead of the raw English status key).
+const STATUS_LABELS_BN_ = {
+  New: 'নতুন', Unassigned: 'আনএসাইনড', Contacted: 'যোগাযোগ হয়েছে', Interested: 'আগ্রহী',
+  'Follow-up': 'ফলোআপ প্রয়োজন', Converted: 'কনভার্টেড', 'Not Interested': 'অনাগ্রহী',
+  Unreachable: 'নাগাল পাওয়া যায়নি', Lost: 'হারানো', 'Invalid/Junk': 'অবৈধ/জাঙ্ক'
+};
+
+// Priority levels a Sales Executive/Manager can tag a lead with (set
+// alongside a follow-up date on the feedback form). Stored as these exact
+// English keys on the Contact's "Priority" column; PRIORITY_SORT_ fixes
+// the My Task ordering (lower number = shown first), with an unset/blank
+// priority sorting last so every lead created before this feature existed
+// keeps its original order.
+const PRIORITY_SORT_ = { High: 0, Medium: 1, Low: 2, '': 3 };
+
+function ss_() {
+  return SpreadsheetApp.getActiveSpreadsheet();
+}
+
+function getOrCreateSheet_(name, headers) {
+  const sheet = ss_();
+  let sh = sheet.getSheetByName(name);
+  if (!sh) {
+    sh = sheet.insertSheet(name);
+    sh.appendRow(headers);
+    sh.setFrozenRows(1);
+  }
+  return sh;
+}
+
+// Non-destructive migration: adds any header from `headers` that's missing
+// from an already-existing sheet, as a new column at the end. Existing
+// columns/data/order are never touched — safe to call every time
+// initializeSystem runs (e.g. after adding a new field like Age).
+function ensureColumns_(sheetName, headers) {
+  const sh = ss_().getSheetByName(sheetName);
+  if (!sh) return;
+  const lastCol = sh.getLastColumn();
+  const existing = lastCol > 0 ? sh.getRange(1, 1, 1, lastCol).getValues()[0] : [];
+  headers.forEach(h => {
+    if (existing.indexOf(h) === -1) {
+      sh.getRange(1, sh.getLastColumn() + 1).setValue(h);
+      existing.push(h);
+    }
+  });
+}
+
+function initializeSystem() {
+  getOrCreateSheet_(SHEET_NAMES.STAFF, ['StaffID', 'Name', 'PIN', 'Role', 'Team', 'Active', 'IsOnline']);
+  getOrCreateSheet_(SHEET_NAMES.CAMPAIGNS, ['CampaignID', 'CampaignName', 'Source', 'DistributionMode', 'Active']);
+  getOrCreateSheet_(SHEET_NAMES.COURSES, ['CourseID', 'CourseName']);
+  getOrCreateSheet_(SHEET_NAMES.SETTINGS, ['Key', 'Value']);
+  getOrCreateSheet_(SHEET_NAMES.CONTACTS, [
+    'ContactID', 'Name', 'Phone', 'District', 'Status', 'AssignedTo', 'UnassignedReason',
+    'CampaignID', 'CourseID', 'CreatedAt', 'CreatedBy', 'LastActivityAt', 'NextFollowUpDate', 'Notes', 'Age'
+  ]);
+  getOrCreateSheet_(SHEET_NAMES.INQUIRIES, ['InquiryID', 'ContactID', 'CampaignID', 'Source', 'CourseID', 'SubmittedAt', 'CreatedBy']);
+  getOrCreateSheet_(SHEET_NAMES.ACTIVITIES, ['ActivityID', 'ContactID', 'StaffID', 'StaffName', 'Timestamp', 'CallStatus', 'Notes', 'StatusAfter', 'NextFollowUpDate']);
+
+  // Migration: older sheets created before the "Age" field existed won't
+  // have this column yet — add it at the end without touching anything else.
+  ensureColumns_(SHEET_NAMES.CONTACTS, ['Age']);
+
+  // Migration: "SecondaryPhones" (comma-separated alternate/family numbers
+  // for the same lead — see addSecondaryPhone()) and "Priority" (High/
+  // Medium/Low, set from the feedback form next to NextFollowUpDate — see
+  // logActivity() and getMyTasks()'s sort).
+  ensureColumns_(SHEET_NAMES.CONTACTS, ['SecondaryPhones', 'Priority']);
+
+  // Always re-apply Phone column text-formatting (safe to repeat) — this is
+  // what prevents Sheets from silently turning "01711223344" into a Number
+  // and dropping the leading zero, which was causing the same lead to be
+  // treated as two different contacts. Also auto-fixes any rows already
+  // corrupted this way.
+  fixPhoneNumberFormatting();
+
+  const staffSheet = ss_().getSheetByName(SHEET_NAMES.STAFF);
+  if (staffSheet.getLastRow() < 2) {
+    staffSheet.appendRow(['STF-001', 'Admin', '1234', 'Admin', '', 'Yes', 'No']);
+  }
+
+  const campSheet = ss_().getSheetByName(SHEET_NAMES.CAMPAIGNS);
+  if (campSheet.getLastRow() < 2) {
+    campSheet.appendRow(['CMP-001', 'সরাসরি/ম্যানুয়াল এন্ট্রি', 'Manual Entry', 'Auto', 'Yes']);
+    campSheet.appendRow(['CMP-002', 'উদাহরণ ক্যাম্পেইন (এডিট করুন)', 'Facebook/Meta Ads', 'Auto', 'Yes']);
+  }
+
+  const courseSheet = ss_().getSheetByName(SHEET_NAMES.COURSES);
+  if (courseSheet.getLastRow() < 2) {
+    courseSheet.appendRow(['CRS-001', 'সাধারণ অনুসন্ধান (General)']);
+  }
+
+  const settingsSheet = ss_().getSheetByName(SHEET_NAMES.SETTINGS);
+  if (settingsSheet.getLastRow() < 2) {
+    settingsSheet.appendRow(['OfficeStart', '11:00']);
+    settingsSheet.appendRow(['OfficeEnd', '19:00']);
+    settingsSheet.appendRow(['WeeklyOffDay', 'Friday']);
+    settingsSheet.appendRow(['CutoffMinutes', '30']);
+  }
+
+  // Always re-apply Settings Value-column text-formatting (safe to repeat) —
+  // same reasoning as the Phone fix above: prevents Sheets from silently
+  // turning a typed "09:00" into a Time value (which breaks office-hours
+  // math), and auto-repairs any Value cell already corrupted that way.
+  const settingsFixedCount = fixSettingsFormatting_();
+
+  return 'Initialized. Default Admin PIN is 1234 (StaffID STF-001) — change it from the Staff sheet. Office Hours/Off-Day/Cutoff are in the Settings sheet. Phone column formatting checked/fixed. Settings Value column formatting checked/fixed (' + settingsFixedCount + ' cell(s) repaired).';
+}
+
+function doGet() {
+  return HtmlService.createHtmlOutputFromFile('Index')
+    .setTitle('Pedago Academy — Lead Distribution')
+    .addMetaTag('viewport', 'width=device-width, initial-scale=1')
+    .setXFrameOptionsMode(HtmlService.XFrameOptionsMode.ALLOWALL);
+}
+
+// ---------- generic helpers ----------
+
+function sheetToObjects_(sheetName) {
+  const sh = ss_().getSheetByName(sheetName);
+  if (!sh || sh.getLastRow() < 2) return [];
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const rows = values.slice(1);
+  return rows
+    .filter(r => r.some(c => c !== '' && c !== null))
+    .map((r, idx) => {
+      const obj = { _row: idx + 2 };
+      headers.forEach((h, i) => { obj[h] = r[i]; });
+      return obj;
+    });
+}
+
+function nextId_(prefix, sheetName, idField) {
+  const rows = sheetToObjects_(sheetName);
+  let max = 0;
+  rows.forEach(r => {
+    const m = String(r[idField] || '').match(/(\d+)$/);
+    if (m) max = Math.max(max, parseInt(m[1], 10));
+  });
+  return prefix + '-' + String(max + 1).padStart(3, '0');
+}
+
+function fmtDate_(d) {
+  if (!d) return '';
+  if (!(d instanceof Date)) d = new Date(d);
+  if (isNaN(d.getTime())) return '';
+  return Utilities.formatDate(d, Session.getScriptTimeZone() || 'Asia/Dhaka', 'yyyy-MM-dd');
+}
+
+function fmtDateTime_(d) {
+  if (!d) return '';
+  if (!(d instanceof Date)) d = new Date(d);
+  if (isNaN(d.getTime())) return '';
+  return Utilities.formatDate(d, Session.getScriptTimeZone() || 'Asia/Dhaka', 'yyyy-MM-dd HH:mm');
+}
+
+function stripTime_(d) {
+  const x = new Date(d);
+  return new Date(x.getFullYear(), x.getMonth(), x.getDate());
+}
+
+function isSameDay_(d1, d2) {
+  if (!d1 || !d2) return false;
+  return stripTime_(d1).getTime() === stripTime_(d2).getTime();
+}
+
+function setCellByRow_(sh, headers, rowIndex, fieldName, value) {
+  const col = headers.indexOf(fieldName);
+  if (col === -1) return;
+  sh.getRange(rowIndex, col + 1).setValue(value);
+}
+
+// ---------- Settings ----------
+
+function getSetting_(key) {
+  const rows = sheetToObjects_(SHEET_NAMES.SETTINGS);
+  const row = rows.find(r => r.Key === key);
+  if (!row) return '';
+  let v = row.Value;
+  // Same family of bug as the Phone-column Number coercion: if "09:00" gets
+  // typed straight into the Settings sheet (or re-saved there), Google
+  // Sheets can silently reformat that cell as a Time value. Read back as a
+  // Date object, String(dateObj) would then produce something like
+  // "Sat Dec 30 1899 09:00:00 GMT+0553 (...)" instead of "09:00" — which
+  // silently breaks the "HH:mm".split(':') math in isWithinAssignmentWindow_
+  // and makes the assignment window look permanently closed. Format it back
+  // out as HH:mm instead of blindly String()-ing it.
+  if (v instanceof Date) {
+    return Utilities.formatDate(v, Session.getScriptTimeZone() || 'Asia/Dhaka', 'HH:mm');
+  }
+  return String(v);
+}
+
+// One-time (but safe to repeat) fix, mirroring fixPhoneNumberFormatting:
+// forces the Settings sheet's Value column to Plain Text so Sheets stops
+// silently turning a typed "09:00" into a Time-formatted cell, and repairs
+// any Value cell that's already been corrupted that way.
+function fixSettingsFormatting_() {
+  const sh = ss_().getSheetByName(SHEET_NAMES.SETTINGS);
+  if (!sh) return 0;
+  const totalRowsToFormat = Math.max(sh.getMaxRows(), 100);
+  sh.getRange(1, 2, totalRowsToFormat, 1).setNumberFormat('@');
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return 0;
+  const range = sh.getRange(2, 2, lastRow - 1, 1);
+  const values = range.getValues();
+  let fixedCount = 0;
+  const fixed = values.map(row => {
+    let v = row[0];
+    if (v instanceof Date) {
+      v = Utilities.formatDate(v, Session.getScriptTimeZone() || 'Asia/Dhaka', 'HH:mm');
+      fixedCount++;
+    }
+    return [v];
+  });
+  if (fixedCount > 0) range.setValues(fixed);
+  return fixedCount;
+}
+
+function isWithinAssignmentWindow_() {
+  const officeStart = getSetting_('OfficeStart') || '11:00';
+  const officeEnd = getSetting_('OfficeEnd') || '19:00';
+  const weeklyOff = getSetting_('WeeklyOffDay') || 'Friday';
+  const cutoffMin = Number(getSetting_('CutoffMinutes') || 30);
+  const now = new Date();
+  const dayName = DAY_NAMES[now.getDay()];
+  if (dayName === weeklyOff) return false;
+  const nowMinutes = now.getHours() * 60 + now.getMinutes();
+  const sParts = officeStart.split(':').map(Number);
+  const eParts = officeEnd.split(':').map(Number);
+  const startMinutes = sParts[0] * 60 + (sParts[1] || 0);
+  const endMinutes = (eParts[0] * 60 + (eParts[1] || 0)) - cutoffMin;
+  return nowMinutes >= startMinutes && nowMinutes <= endMinutes;
+}
+
+function getSettings() {
+  const rows = sheetToObjects_(SHEET_NAMES.SETTINGS);
+  const obj = {};
+  rows.forEach(r => { obj[r.Key] = r.Value; });
+  return obj;
+}
+
+function updateSettings(data) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.SETTINGS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const keyCol = headers.indexOf('Key');
+  const valCol = headers.indexOf('Value');
+  Object.keys(data).forEach(key => {
+    let found = false;
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][keyCol] === key) {
+        sh.getRange(i + 1, valCol + 1).setValue(data[key]);
+        found = true;
+        break;
+      }
+    }
+    if (!found) sh.appendRow([key, data[key]]);
+  });
+  return { ok: true };
+}
+
+// ---------- phone normalization ----------
+
+function normalizePhone_(phone) {
+  let raw = String(phone || '').replace(/[^\d+]/g, '');
+
+  // ---- Bangladeshi number (the common case) ----
+  let bd = raw.replace(/^\+?880/, '0');
+  // Common export bug (Excel/Sheets storing the Phone column as a Number):
+  // a valid "01712182938" gets written out as bare "1712182938" — exactly
+  // 10 digits, missing only the leading zero. Restore it before validating.
+  if (/^\d{10}$/.test(bd)) bd = '0' + bd;
+  if (/^0\d{10}$/.test(bd)) return bd;
+
+  // ---- International number (expat parents etc.) ----
+  // Not a BD-shaped number — accept it as a plausible international number
+  // (8-15 digits, the ITU E.164 bound) and store it E.164-style with a
+  // leading "+", so it's visibly distinct from local numbers and still
+  // compares consistently on both sides (findContactByPhone_ normalizes
+  // whatever it's given the same way).
+  const intl = raw.replace(/\+/g, '');
+  if (/^\d{8,15}$/.test(intl)) return '+' + intl;
+
+  return null;
+}
+
+// Student age: best-effort parse, loosely validated (1-100). Returns '' (not
+// null) when missing/invalid so it can be written straight into a sheet
+// cell without extra handling, and never blocks a lead from being saved —
+// age is informational, not a required field.
+function normalizeAge_(age) {
+  const n = parseInt(String(age || '').replace(/[^\d]/g, ''), 10);
+  if (!n || n < 1 || n > 100) return '';
+  return n;
+}
+
+// ---------- secondary phones (same person/family's alternate numbers) ----------
+// Stored as one comma-separated string in the Contact's "SecondaryPhones"
+// cell (each entry already normalizePhone_()-d), so no new sheet/relation
+// is needed — consistent with how lightweight this interim app otherwise
+// stays. See addSecondaryPhone()/removeSecondaryPhone() for how it's
+// edited, and findContactByPhone_() for how it's matched against.
+
+function parseSecondaryPhones_(raw) {
+  return String(raw || '').split(',').map(s => s.trim()).filter(s => s);
+}
+
+function formatSecondaryPhones_(arr) {
+  return arr.join(', ');
+}
+
+// One-time (but safe to repeat) fix: force the Contacts sheet's Phone
+// column to Plain Text format, and repair any values that Sheets already
+// silently converted to a Number (which drops a leading zero). Without
+// this, "01711223344" can get stored as the number 1711223344, so the next
+// inquiry from that same customer no longer matches the old record and a
+// duplicate Contact is created instead of being recognized as a repeat.
+function fixPhoneNumberFormatting() {
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  if (!sh) return 'Contacts শিট পাওয়া যায়নি।';
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  const phoneCol = headers.indexOf('Phone') + 1;
+  if (phoneCol < 1) return 'Phone কলাম পাওয়া যায়নি।';
+
+  // Format the column as Plain Text for existing + a generous number of
+  // future rows, so Sheets stops auto-converting new entries too.
+  const totalRowsToFormat = Math.max(sh.getMaxRows(), 2000);
+  sh.getRange(1, phoneCol, totalRowsToFormat, 1).setNumberFormat('@');
+
+  const lastRow = sh.getLastRow();
+  if (lastRow < 2) return 'ফরম্যাট সেট করা হয়েছে। এখনো কোনো Contact নেই।';
+
+  const range = sh.getRange(2, phoneCol, lastRow - 1, 1);
+  const values = range.getValues();
+  let fixedCount = 0;
+  const fixed = values.map(row => {
+    let v = row[0];
+    if (typeof v === 'number') {
+      let s = String(Math.round(v));
+      if (s.length === 10) s = '0' + s; // restore the very likely lost leading zero
+      v = s;
+      fixedCount++;
+    } else if (v) {
+      v = String(v).trim();
+    }
+    return [v];
+  });
+  if (fixedCount > 0) range.setValues(fixed);
+  return 'Phone কলাম Text ফরম্যাটে সেট করা হলো। ' + fixedCount + ' টি সারির ভুলভাবে-সংখ্যায় রূপান্তরিত ফোন নম্বর ঠিক করা হয়েছে।';
+}
+
+// One-time cleanup: find Contact rows that share the same real phone number
+// (this happens after the Number-conversion bug above has already created
+// duplicates) and merge them — all Inquiries and Activities from the
+// duplicate(s) are re-pointed onto a single canonical Contact (the oldest
+// one), then the duplicate row(s) are deleted. Run `fixPhoneNumberFormatting`
+// first so new duplicates stop forming, then run this once to clean up
+// existing ones. Review the merged contacts afterward — if two different
+// Sales Executives had separately been calling the same customer, you may
+// want to manually confirm who should keep ownership.
+function mergeDuplicateContacts() {
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  const groups = {};
+  contacts.forEach(c => {
+    const norm = normalizePhone_(c.Phone) || String(c.Phone || '').trim();
+    if (!norm) return;
+    if (!groups[norm]) groups[norm] = [];
+    groups[norm].push(c);
+  });
+
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const inqSh = ss_().getSheetByName(SHEET_NAMES.INQUIRIES);
+  const actSh = ss_().getSheetByName(SHEET_NAMES.ACTIVITIES);
+  let mergedGroups = 0, rowsRemoved = 0;
+  const rowsToDelete = [];
+
+  Object.keys(groups).forEach(phone => {
+    const group = groups[phone];
+    if (group.length < 2) return;
+    group.sort((a, b) => new Date(a.CreatedAt) - new Date(b.CreatedAt));
+    const canonical = group[0];
+    const duplicates = group.slice(1);
+    mergedGroups++;
+
+    duplicates.forEach(dup => {
+      // repoint Inquiries onto the canonical Contact
+      if (inqSh) {
+        const inqValues = inqSh.getDataRange().getValues();
+        const inqHeaders = inqValues[0];
+        const inqContactCol = inqHeaders.indexOf('ContactID');
+        for (let i = 1; i < inqValues.length; i++) {
+          if (inqValues[i][inqContactCol] === dup.ContactID) {
+            inqSh.getRange(i + 1, inqContactCol + 1).setValue(canonical.ContactID);
+          }
+        }
+      }
+      // repoint Activities (call history) onto the canonical Contact
+      if (actSh) {
+        const actValues = actSh.getDataRange().getValues();
+        const actHeaders = actValues[0];
+        const actContactCol = actHeaders.indexOf('ContactID');
+        for (let i = 1; i < actValues.length; i++) {
+          if (actValues[i][actContactCol] === dup.ContactID) {
+            actSh.getRange(i + 1, actContactCol + 1).setValue(canonical.ContactID);
+          }
+        }
+      }
+      rowsToDelete.push(dup._row);
+      rowsRemoved++;
+    });
+
+    // If the canonical row ended up unassigned but a duplicate had an owner, carry that over.
+    if (!canonical.AssignedTo) {
+      const assignedDup = duplicates.find(d => d.AssignedTo);
+      if (assignedDup) {
+        const values = sh.getDataRange().getValues();
+        const headers = values[0];
+        setCellByRow_(sh, headers, canonical._row, 'AssignedTo', assignedDup.AssignedTo);
+        setCellByRow_(sh, headers, canonical._row, 'Status', assignedDup.Status);
+        setCellByRow_(sh, headers, canonical._row, 'UnassignedReason', '');
+      }
+    }
+  });
+
+  // Delete duplicate rows bottom-up so earlier row indices don't shift.
+  rowsToDelete.sort((a, b) => b - a).forEach(r => sh.deleteRow(r));
+
+  if (mergedGroups === 0) return 'কোনো ডুপ্লিকেট Contact পাওয়া যায়নি।';
+  return mergedGroups + ' টি ফোন নম্বরে ডুপ্লিকেট পাওয়া গেছে, ' + rowsRemoved + ' টি ডুপ্লিকেট সারি মার্জ করে মুছে ফেলা হয়েছে। সব Inquiry ও Activity (কল হিস্ট্রি) ক্যানোনিকাল Contact-এ সরানো হয়েছে — Contacts শিটে একবার চেক করে নিন।';
+}
+
+// ---------- auth ----------
+
+function getStaffNames() {
+  return sheetToObjects_(SHEET_NAMES.STAFF)
+    .filter(s => String(s.Active).toLowerCase() !== 'no')
+    .map(s => ({ id: s.StaffID, name: s.Name }));
+}
+
+function login(staffId, pin) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.STAFF);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('StaffID');
+  const pinCol = headers.indexOf('PIN');
+  const activeCol = headers.indexOf('Active');
+  const onlineCol = headers.indexOf('IsOnline');
+  const roleCol = headers.indexOf('Role');
+  const nameCol = headers.indexOf('Name');
+  const teamCol = headers.indexOf('Team');
+
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === staffId) {
+      if (String(values[i][pinCol]) !== String(pin)) return { ok: false, message: 'ভুল PIN' };
+      if (String(values[i][activeCol]).toLowerCase() === 'no') return { ok: false, message: 'এই অ্যাকাউন্ট নিষ্ক্রিয়' };
+      sh.getRange(i + 1, onlineCol + 1).setValue('Yes');
+      // Login = Available (per spec) — immediately top this rep's batch up
+      // to BATCH_SIZE fresh leads from the queue, if their batch is empty.
+      const batchFilled = values[i][roleCol] === 'SalesExecutive' ? fillBatchForStaff_(values[i][idCol]) : 0;
+      return {
+        ok: true, staffId: values[i][idCol], name: values[i][nameCol],
+        role: values[i][roleCol], team: values[i][teamCol] || '', batchFilled: batchFilled
+      };
+    }
+  }
+  return { ok: false, message: 'স্টাফ পাওয়া যায়নি' };
+}
+
+function logout(staffId) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.STAFF);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('StaffID');
+  const onlineCol = headers.indexOf('IsOnline');
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === staffId) {
+      sh.getRange(i + 1, onlineCol + 1).setValue('No');
+      return { ok: true };
+    }
+  }
+  return { ok: false };
+}
+
+// ---------- staff management (Admin) ----------
+
+function getAllStaff() {
+  return sheetToObjects_(SHEET_NAMES.STAFF).map(s => ({
+    id: s.StaffID, name: s.Name, role: s.Role, team: s.Team || '',
+    active: String(s.Active), online: String(s.IsOnline)
+  }));
+}
+
+function addStaff(data) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.STAFF);
+  const existing = sheetToObjects_(SHEET_NAMES.STAFF);
+  if (existing.some(s => String(s.Name).trim().toLowerCase() === String(data.name).trim().toLowerCase())) {
+    return { ok: false, message: 'এই নামে স্টাফ আগে থেকেই আছে' };
+  }
+  const pin = String(data.pin || '').trim();
+  if (!/^\d{4,6}$/.test(pin)) return { ok: false, message: 'PIN অবশ্যই ৪-৬ সংখ্যার হতে হবে' };
+  const id = nextId_('STF', SHEET_NAMES.STAFF, 'StaffID');
+  sh.appendRow([id, data.name, pin, data.role, data.team || '', 'Yes', 'No']);
+  return { ok: true, id: id };
+}
+
+function setStaffActive(staffId, active) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.STAFF);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('StaffID');
+  const activeCol = headers.indexOf('Active');
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === staffId) {
+      sh.getRange(i + 1, activeCol + 1).setValue(active ? 'Yes' : 'No');
+      return { ok: true };
+    }
+  }
+  return { ok: false, message: 'স্টাফ পাওয়া যায়নি' };
+}
+
+// ---------- campaigns & courses ----------
+
+function getCampaigns() {
+  return sheetToObjects_(SHEET_NAMES.CAMPAIGNS).filter(c => String(c.Active).toLowerCase() !== 'no');
+}
+
+function getCampaignsWithStats() {
+  const campaigns = sheetToObjects_(SHEET_NAMES.CAMPAIGNS);
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  return campaigns.map(c => {
+    const mine = contacts.filter(ct => ct.CampaignID === c.CampaignID);
+    const converted = mine.filter(ct => ct.Status === 'Converted').length;
+    return {
+      id: c.CampaignID, name: c.CampaignName, source: c.Source,
+      mode: c.DistributionMode, active: String(c.Active),
+      total: mine.length, converted: converted,
+      conversionRate: mine.length ? Math.round((converted / mine.length) * 1000) / 10 : 0
+    };
+  });
+}
+
+function addCampaign(data) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.CAMPAIGNS);
+  const id = nextId_('CMP', SHEET_NAMES.CAMPAIGNS, 'CampaignID');
+  sh.appendRow([id, data.name, data.source || '', data.mode === 'Manual' ? 'Manual' : 'Auto', 'Yes']);
+  return { ok: true, id: id };
+}
+
+function setCampaignMode(campaignId, mode, role) {
+  if (role !== 'Manager' && role !== 'Admin') return { ok: false, message: 'অনুমতি নেই — শুধু Manager/Admin Mode বদলাতে পারবেন' };
+  const sh = ss_().getSheetByName(SHEET_NAMES.CAMPAIGNS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('CampaignID');
+  const modeCol = headers.indexOf('DistributionMode');
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === campaignId) {
+      sh.getRange(i + 1, modeCol + 1).setValue(mode === 'Manual' ? 'Manual' : 'Auto');
+      return { ok: true };
+    }
+  }
+  return { ok: false, message: 'Campaign পাওয়া যায়নি' };
+}
+
+function getCourses() {
+  return sheetToObjects_(SHEET_NAMES.COURSES);
+}
+
+function addCourse(name) {
+  if (!name) return { ok: false, message: 'কোর্সের নাম দিন' };
+  const sh = ss_().getSheetByName(SHEET_NAMES.COURSES);
+  const id = nextId_('CRS', SHEET_NAMES.COURSES, 'CourseID');
+  sh.appendRow([id, name]);
+  return { ok: true, id: id };
+}
+
+// ---------- assignment engine ----------
+
+// Picks the SalesExecutive who should receive ONE freshly-created lead right
+// now: must be Active + Online + within Office Hours, AND must not already
+// have a full batch of BATCH_SIZE unactioned ("New") leads sitting with
+// them — someone whose batch is full is skipped (they'll get topped up by
+// fillBatchForStaff_ once they clear it), never just piled onto further.
+// Among the remaining eligible reps, the one with the fewest total open
+// (non-Closed) leads is picked, for overall fairness.
+function getLeastLoadedSalesStaff_(team) {
+  if (!isWithinAssignmentWindow_()) return null;
+  let staffList = sheetToObjects_(SHEET_NAMES.STAFF)
+    .filter(s => s.Role === 'SalesExecutive' && String(s.Active).toLowerCase() !== 'no' && String(s.IsOnline).toLowerCase() === 'yes');
+  if (team) staffList = staffList.filter(s => s.Team === team);
+  if (!staffList.length) return null;
+
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  const openCounts = {}, unactionedCounts = {};
+  staffList.forEach(s => { openCounts[s.StaffID] = 0; unactionedCounts[s.StaffID] = 0; });
+  contacts.forEach(c => {
+    if (!openCounts.hasOwnProperty(c.AssignedTo)) return;
+    if (CLOSED_STATUSES.indexOf(c.Status) === -1) openCounts[c.AssignedTo]++;
+    if (c.Status === 'New') unactionedCounts[c.AssignedTo]++;
+  });
+
+  const eligible = staffList.filter(s => unactionedCounts[s.StaffID] < BATCH_SIZE);
+  if (!eligible.length) return null; // everyone online is already carrying a full batch
+
+  let best = eligible[0].StaffID, bestCount = openCounts[best];
+  eligible.forEach(s => { if (openCounts[s.StaffID] < bestCount) { best = s.StaffID; bestCount = openCounts[s.StaffID]; } });
+  return best;
+}
+
+function runAssignmentFlow_(campaignId, previousOwnerId) {
+  if (previousOwnerId) {
+    const prevStaff = sheetToObjects_(SHEET_NAMES.STAFF).find(s => s.StaffID === previousOwnerId);
+    if (prevStaff && String(prevStaff.Active).toLowerCase() !== 'no') {
+      return { assignedTo: previousOwnerId, status: 'New', reason: '' };
+    }
+  }
+  const campaign = sheetToObjects_(SHEET_NAMES.CAMPAIGNS).find(c => c.CampaignID === campaignId);
+  if (campaign && campaign.DistributionMode === 'Manual') {
+    return { assignedTo: '', status: 'Unassigned', reason: 'Manual Campaign — ম্যানুয়ালি Assign করুন' };
+  }
+  const staffId = getLeastLoadedSalesStaff_(null);
+  if (!staffId) {
+    return { assignedTo: '', status: 'Unassigned', reason: 'এই মুহূর্তে কোনো Sales Executive Online/Office Time-এর মধ্যে/ব্যাচ (৩টি) ফাঁকা নেই — ব্যাচ খালি হলে বা কেউ লগইন করলে স্বয়ংক্রিয়ভাবে চলে যাবে' };
+  }
+  return { assignedTo: staffId, status: 'New', reason: '' };
+}
+
+// Tops up a Sales Executive's current batch to BATCH_SIZE, pulling the
+// oldest eligible (Auto-mode, not Manual-campaign) leads from the
+// Unassigned Queue — but ONLY if their current batch is already fully
+// actioned (zero leads still sitting at Status "New"). This is what makes
+// "login -> 3 leads, finish them -> 3 more" happen automatically: called
+// right after login, and again right after any feedback is logged (in case
+// that feedback was the last unactioned lead in their batch).
+function fillBatchForStaff_(staffId) {
+  if (!staffId) return 0;
+  if (!isWithinAssignmentWindow_()) return 0;
+  const staff = sheetToObjects_(SHEET_NAMES.STAFF).find(s => s.StaffID === staffId);
+  if (!staff || staff.Role !== 'SalesExecutive') return 0;
+  if (String(staff.Active).toLowerCase() === 'no') return 0;
+  if (String(staff.IsOnline).toLowerCase() !== 'yes') return 0;
+
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  const unactioned = contacts.filter(c => c.AssignedTo === staffId && c.Status === 'New').length;
+  if (unactioned > 0) return 0; // still working through the current batch
+
+  const campaigns = sheetToObjects_(SHEET_NAMES.CAMPAIGNS);
+  const queue = contacts
+    .filter(c => !c.AssignedTo && c.Status === 'Unassigned')
+    .filter(c => {
+      const camp = campaigns.find(cm => cm.CampaignID === c.CampaignID);
+      return !camp || camp.DistributionMode !== 'Manual'; // Manual-campaign leads stay manual-only
+    })
+    .sort((a, b) => new Date(a.CreatedAt) - new Date(b.CreatedAt))
+    .slice(0, BATCH_SIZE);
+  if (!queue.length) return 0;
+
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  queue.forEach(c => {
+    setCellByRow_(sh, headers, c._row, 'AssignedTo', staffId);
+    setCellByRow_(sh, headers, c._row, 'Status', 'New');
+    setCellByRow_(sh, headers, c._row, 'UnassignedReason', '');
+  });
+  return queue.length;
+}
+
+// ---------- contacts / leads ----------
+
+// Matches against a Contact's PRIMARY phone AND any SecondaryPhones (see
+// above) — so an inquiry/import/lookup from a family member's alternate
+// number is recognized as the same existing lead instead of creating a
+// duplicate Contact. Every caller of this (addLead, bulkImportLeads's own
+// in-memory phoneIndex, lookupLeadByPhone) benefits automatically.
+function findContactByPhone_(phone) {
+  const target = normalizePhone_(phone) || String(phone || '').trim();
+  if (!target) return undefined;
+  return sheetToObjects_(SHEET_NAMES.CONTACTS).find(c => {
+    const cPhone = normalizePhone_(c.Phone) || String(c.Phone || '').trim();
+    if (cPhone === target) return true;
+    return parseSecondaryPhones_(c.SecondaryPhones).indexOf(target) !== -1;
+  });
+}
+
+function logInquiry_(contactId, campaignId, source, courseId, createdBy) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.INQUIRIES);
+  const id = nextId_('INQ', SHEET_NAMES.INQUIRIES, 'InquiryID');
+  sh.appendRow([id, contactId, campaignId || '', source || '', courseId || '', new Date(), createdBy || '']);
+}
+
+function addLead(data) {
+  // data: {name, phone, district, age, campaignId, courseId, staffId, staffName, role}
+  const phone = normalizePhone_(data.phone);
+  if (!phone) return { ok: false, message: 'সঠিক ফোন নম্বর দিন (যেমন 01XXXXXXXXX)' };
+  if (!data.name) return { ok: false, message: 'নাম আবশ্যক' };
+  const age = normalizeAge_(data.age);
+
+  const now = new Date();
+  const contactSh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const existing = findContactByPhone_(phone);
+  const campaign = sheetToObjects_(SHEET_NAMES.CAMPAIGNS).find(c => c.CampaignID === data.campaignId);
+  const source = campaign ? campaign.Source : '';
+
+  // ---- Sales Executive: quick self-assigned entry ----
+  if (data.role === 'SalesExecutive') {
+    if (existing) {
+      if (!existing.AssignedTo || age) {
+        const values = contactSh.getDataRange().getValues();
+        const headers = values[0];
+        if (!existing.AssignedTo) {
+          setCellByRow_(contactSh, headers, existing._row, 'AssignedTo', data.staffId);
+          setCellByRow_(contactSh, headers, existing._row, 'Status', 'New');
+          setCellByRow_(contactSh, headers, existing._row, 'UnassignedReason', '');
+        }
+        if (age) setCellByRow_(contactSh, headers, existing._row, 'Age', age);
+      }
+      logInquiry_(existing.ContactID, data.campaignId, source, data.courseId, data.staffName);
+      return { ok: true, contactId: existing.ContactID, message: 'বিদ্যমান লিড পাওয়া গেছে, তথ্য যোগ হলো' };
+    }
+    const contactId = nextId_('LD', SHEET_NAMES.CONTACTS, 'ContactID');
+    contactSh.appendRow([
+      contactId, data.name, phone, data.district || '', 'New', data.staffId, '',
+      data.campaignId || '', data.courseId || '', now, data.staffName || '', now, '', '', age
+    ]);
+    logInquiry_(contactId, data.campaignId, source, data.courseId, data.staffName);
+    return { ok: true, contactId: contactId, assignedTo: data.staffId };
+  }
+
+  // ---- Marketing Executive / Manager / Admin ----
+  if (!existing) {
+    const result = runAssignmentFlow_(data.campaignId, null);
+    const contactId = nextId_('LD', SHEET_NAMES.CONTACTS, 'ContactID');
+    contactSh.appendRow([
+      contactId, data.name, phone, data.district || '', result.status, result.assignedTo, result.reason,
+      data.campaignId || '', data.courseId || '', now, data.staffName || '', now, '', '', age
+    ]);
+    logInquiry_(contactId, data.campaignId, source, data.courseId, data.staffName);
+    return { ok: true, contactId: contactId, assignedTo: result.assignedTo, status: result.status };
+  }
+
+  const values = contactSh.getDataRange().getValues();
+  const headers = values[0];
+  if (age) setCellByRow_(contactSh, headers, existing._row, 'Age', age);
+
+  if (CLOSED_STATUSES.indexOf(existing.Status) !== -1) {
+    // Reactivation
+    const result = runAssignmentFlow_(data.campaignId, existing.AssignedTo);
+    setCellByRow_(contactSh, headers, existing._row, 'Status', result.status);
+    setCellByRow_(contactSh, headers, existing._row, 'AssignedTo', result.assignedTo);
+    setCellByRow_(contactSh, headers, existing._row, 'UnassignedReason', result.reason);
+    setCellByRow_(contactSh, headers, existing._row, 'CampaignID', data.campaignId || '');
+    setCellByRow_(contactSh, headers, existing._row, 'CourseID', data.courseId || '');
+    logInquiry_(existing.ContactID, data.campaignId, source, data.courseId, data.staffName);
+    return { ok: true, contactId: existing.ContactID, reactivated: true, assignedTo: result.assignedTo, status: result.status };
+  }
+
+  // Still open (New/Contacted/Interested/Follow-up) — same-day noise vs. new-day signal
+  const lastTouch = existing.LastActivityAt || existing.CreatedAt;
+  if (!isSameDay_(lastTouch, now)) {
+    setCellByRow_(contactSh, headers, existing._row, 'NextFollowUpDate', now);
+  }
+  logInquiry_(existing.ContactID, data.campaignId, source, data.courseId, data.staffName);
+  return { ok: true, contactId: existing.ContactID, message: 'বিদ্যমান লিড — নতুন Inquiry লগ হলো' };
+}
+
+// Minimal "does this number already exist" lookup for a Sales Executive
+// handling a referred lead (walk-in/word-of-mouth), so they can check
+// BEFORE adding it whether it's already someone's lead — without giving
+// Sales Executives the full "সকল লিড" page (which would expose every
+// other rep's notes/history). Deliberately returns only what's needed to
+// make that call: who owns it, its current status, which campaign, and
+// when it was created — no notes, no activity history.
+function lookupLeadByPhone(phone) {
+  const normalized = normalizePhone_(phone);
+  if (!normalized) return { ok: false, message: 'সঠিক ফোন নম্বর দিন (যেমন 01XXXXXXXXX)' };
+  const c = findContactByPhone_(normalized);
+  if (!c) return { ok: true, found: false };
+
+  const staffMap = {};
+  sheetToObjects_(SHEET_NAMES.STAFF).forEach(s => { staffMap[s.StaffID] = s.Name; });
+  const campaign = sheetToObjects_(SHEET_NAMES.CAMPAIGNS).find(cm => cm.CampaignID === c.CampaignID);
+  const cPhone = normalizePhone_(c.Phone) || String(c.Phone || '').trim();
+
+  return {
+    ok: true, found: true,
+    matchedVia: (cPhone === normalized) ? 'primary' : 'secondary', // which number actually matched
+    name: c.Name,
+    status: c.Status,
+    statusLabel: STATUS_LABELS_BN_[c.Status] || c.Status,
+    assignedToName: c.AssignedTo ? (staffMap[c.AssignedTo] || c.AssignedTo) : '(এসাইন করা হয়নি)',
+    campaignName: campaign ? campaign.CampaignName : '',
+    createdAt: fmtDate_(c.CreatedAt)
+  };
+}
+
+// Records a family/alternate number for an EXISTING lead (e.g. a parent's
+// other phone, or a different household member's number for the same
+// student) — see parseSecondaryPhones_ above. A future inquiry/bulk-import/
+// lookup from this number will then be recognized as this SAME lead
+// (findContactByPhone_ checks both), instead of silently creating a
+// duplicate Contact with no shared history.
+function addSecondaryPhone(contactId, phone, staffName) {
+  const normalized = normalizePhone_(phone);
+  if (!normalized) return { ok: false, message: 'সঠিক ফোন নম্বর দিন (যেমন 01XXXXXXXXX)' };
+
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('ContactID');
+  let targetRow = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === contactId) { targetRow = i + 1; break; }
+  }
+  if (targetRow === -1) return { ok: false, message: 'লিড পাওয়া যায়নি' };
+
+  const row = values[targetRow - 1];
+  const primaryPhone = normalizePhone_(row[headers.indexOf('Phone')]) || String(row[headers.indexOf('Phone')] || '').trim();
+  if (normalized === primaryPhone) {
+    return { ok: false, message: 'এই নম্বরটি ইতিমধ্যে এই লিডের প্রধান ফোন নম্বর' };
+  }
+
+  // Must not already belong to a DIFFERENT contact (as primary or
+  // secondary) — that would silently mix two different people's call
+  // history together under one lead.
+  const other = findContactByPhone_(normalized);
+  if (other && other.ContactID !== contactId) {
+    return {
+      ok: false,
+      message: 'এই নম্বরটি ইতিমধ্যে আরেকটি লিডের সাথে যুক্ত — ' + other.Name + ' (স্ট্যাটাস: ' + (STATUS_LABELS_BN_[other.Status] || other.Status) + ')'
+    };
+  }
+
+  const secCol = headers.indexOf('SecondaryPhones');
+  const current = parseSecondaryPhones_(row[secCol]);
+  if (current.indexOf(normalized) !== -1) {
+    return { ok: false, message: 'এই নম্বরটি আগে থেকেই বিকল্প নম্বর হিসেবে যোগ করা আছে' };
+  }
+  current.push(normalized);
+  setCellByRow_(sh, headers, targetRow, 'SecondaryPhones', formatSecondaryPhones_(current));
+  logActivityRow_(contactId, '', staffName || '', 'Note', (staffName || 'কেউ একজন') + ' বিকল্প নম্বর যোগ করেছেন: ' + normalized, row[headers.indexOf('Status')], '');
+  return { ok: true, secondaryPhones: current };
+}
+
+function removeSecondaryPhone(contactId, phone, staffName) {
+  const normalized = normalizePhone_(phone) || String(phone || '').trim();
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('ContactID');
+  let targetRow = -1;
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === contactId) { targetRow = i + 1; break; }
+  }
+  if (targetRow === -1) return { ok: false, message: 'লিড পাওয়া যায়নি' };
+
+  const row = values[targetRow - 1];
+  const secCol = headers.indexOf('SecondaryPhones');
+  const current = parseSecondaryPhones_(row[secCol]).filter(p => p !== normalized);
+  setCellByRow_(sh, headers, targetRow, 'SecondaryPhones', formatSecondaryPhones_(current));
+  logActivityRow_(contactId, '', staffName || '', 'Note', (staffName || 'কেউ একজন') + ' বিকল্প নম্বর সরিয়েছেন: ' + normalized, row[headers.indexOf('Status')], '');
+  return { ok: true, secondaryPhones: current };
+}
+
+// Rewritten for performance — this used to call addLead() once per CSV
+// line, and addLead() (via findContactByPhone_, getLeastLoadedSalesStaff_,
+// and nextId_) re-reads the ENTIRE Contacts sheet from scratch several
+// times EVERY call. That was fine while Contacts was small, but once the
+// historical "পুরাতন লিড" migration pushed it past ~3500 rows, cost scaled
+// with (sheet size × rows imported) instead of just (rows imported) — so a
+// 500-row import file started timing out after only ~80-90 rows.
+//
+// Fix: read each sheet exactly ONCE up front, do all phone-matching/
+// assignment/least-loaded-staff math in memory (mirroring addLead /
+// runAssignmentFlow_ / getLeastLoadedSalesStaff_ exactly, just against
+// local data instead of re-reading the sheet), and write every brand-new
+// Contact/Inquiry row back in a single batch at the end instead of one
+// appendRow() per line. A duplicate phone further down the SAME pasted
+// list is still detected correctly (checked against both the
+// already-in-sheet contacts AND any new ones created earlier in this same
+// run), matching the old row-by-row behaviour — just far fewer sheet reads.
+function bulkImportLeads(pasteText, staffId, staffName) {
+  const lines = String(pasteText || '').split('\n').map(l => l.trim()).filter(l => l.length);
+  let added = 0, skipped = 0, reactivated = 0, unassigned = 0;
+  const skippedDetails = []; // {line, reason} — so the UI can show WHY a row didn't go in, not just a count
+  if (!lines.length) {
+    return { ok: true, added: 0, skipped: 0, reactivated: 0, unassigned: 0, skippedDetails: [] };
+  }
+
+  const contactSh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const inqSh = ss_().getSheetByName(SHEET_NAMES.INQUIRIES);
+  const contactsAtStart = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  const inquiriesAtStart = sheetToObjects_(SHEET_NAMES.INQUIRIES);
+  const campaigns = sheetToObjects_(SHEET_NAMES.CAMPAIGNS);
+  const courses = sheetToObjects_(SHEET_NAMES.COURSES);
+  const allStaff = sheetToObjects_(SHEET_NAMES.STAFF);
+  const staffList = allStaff.filter(s => s.Role === 'SalesExecutive' && String(s.Active).toLowerCase() !== 'no' && String(s.IsOnline).toLowerCase() === 'yes');
+  const allStaffById = {};
+  allStaff.forEach(s => { allStaffById[s.StaffID] = s; });
+  const windowOpen = isWithinAssignmentWindow_();
+
+  const campaignsById = {}; campaigns.forEach(c => { campaignsById[c.CampaignID] = c; });
+  const campaignsByName = {}; campaigns.forEach(c => { campaignsByName[c.CampaignName] = c; });
+  const coursesByName = {}; courses.forEach(c => { coursesByName[c.CourseName] = c; });
+
+  // Same per-staff load counters getLeastLoadedSalesStaff_ computes, seeded
+  // from the current sheet state and then kept updated in memory as this
+  // run hands out assignments, so the distribution stays balanced across
+  // the whole pasted list instead of everyone piling onto whoever happened
+  // to be least-loaded at the very start.
+  const openCounts = {}, unactionedCounts = {};
+  staffList.forEach(s => { openCounts[s.StaffID] = 0; unactionedCounts[s.StaffID] = 0; });
+  contactsAtStart.forEach(c => {
+    if (openCounts.hasOwnProperty(c.AssignedTo)) {
+      if (CLOSED_STATUSES.indexOf(c.Status) === -1) openCounts[c.AssignedTo]++;
+      if (c.Status === 'New') unactionedCounts[c.AssignedTo]++;
+    }
+  });
+
+  function pickLeastLoaded_() {
+    if (!windowOpen) return null;
+    const eligible = staffList.filter(s => unactionedCounts[s.StaffID] < BATCH_SIZE);
+    if (!eligible.length) return null;
+    let best = eligible[0].StaffID, bestCount = openCounts[best];
+    eligible.forEach(s => { if (openCounts[s.StaffID] < bestCount) { best = s.StaffID; bestCount = openCounts[s.StaffID]; } });
+    return best;
+  }
+
+  // Mirrors runAssignmentFlow_() exactly, against the in-memory counters above.
+  function assignFlow_(campaignId, previousOwnerId) {
+    if (previousOwnerId) {
+      const prevStaff = allStaffById[previousOwnerId];
+      if (prevStaff && String(prevStaff.Active).toLowerCase() !== 'no') {
+        if (openCounts.hasOwnProperty(previousOwnerId)) { openCounts[previousOwnerId]++; unactionedCounts[previousOwnerId]++; }
+        return { assignedTo: previousOwnerId, status: 'New', reason: '' };
+      }
+    }
+    const campaign = campaignsById[campaignId];
+    if (campaign && campaign.DistributionMode === 'Manual') {
+      return { assignedTo: '', status: 'Unassigned', reason: 'Manual Campaign — ম্যানুয়ালি Assign করুন' };
+    }
+    const staffPick = pickLeastLoaded_();
+    if (!staffPick) {
+      return { assignedTo: '', status: 'Unassigned', reason: 'এই মুহূর্তে কোনো Sales Executive Online/Office Time-এর মধ্যে/ব্যাচ (৩টি) ফাঁকা নেই — ব্যাচ খালি হলে বা কেউ লগইন করলে স্বয়ংক্রিয়ভাবে চলে যাবে' };
+    }
+    openCounts[staffPick]++; unactionedCounts[staffPick]++;
+    return { assignedTo: staffPick, status: 'New', reason: '' };
+  }
+
+  let maxContactNum = 0;
+  contactsAtStart.forEach(c => { const m = String(c.ContactID || '').match(/(\d+)$/); if (m) maxContactNum = Math.max(maxContactNum, parseInt(m[1], 10)); });
+  let maxInquiryNum = 0;
+  inquiriesAtStart.forEach(r => { const m = String(r.InquiryID || '').match(/(\d+)$/); if (m) maxInquiryNum = Math.max(maxInquiryNum, parseInt(m[1], 10)); });
+  function nextContactId_() { maxContactNum++; return 'LD-' + String(maxContactNum).padStart(3, '0'); }
+  function nextInquiryId_() { maxInquiryNum++; return 'INQ-' + String(maxInquiryNum).padStart(3, '0'); }
+
+  // phone -> contact lookup. "existing" entries are already-in-sheet rows
+  // (updated immediately via setCellByRow_, so a later duplicate phone
+  // further down this same paste sees the fresh state, same as before).
+  // "pending" entries are brand-new leads created during THIS run — they
+  // live only as shadow objects until the single batch write at the end.
+  const phoneIndex = {};
+  contactsAtStart.forEach(c => {
+    const key = normalizePhone_(c.Phone) || String(c.Phone || '').trim();
+    if (key && !phoneIndex[key]) phoneIndex[key] = { kind: 'existing', ref: c };
+    // Also index any SecondaryPhones (see findContactByPhone_) so a pasted
+    // row whose number is actually someone's already-recorded alternate
+    // number attaches to that same existing lead instead of creating a
+    // duplicate Contact.
+    parseSecondaryPhones_(c.SecondaryPhones).forEach(sp => {
+      if (sp && !phoneIndex[sp]) phoneIndex[sp] = { kind: 'existing', ref: c };
+    });
+  });
+
+  const pendingContacts = [];
+  const pendingInquiries = [];
+  const contactHeaders = ['ContactID', 'Name', 'Phone', 'District', 'Status', 'AssignedTo', 'UnassignedReason', 'CampaignID', 'CourseID', 'CreatedAt', 'CreatedBy', 'LastActivityAt', 'NextFollowUpDate', 'Notes', 'Age'];
+
+  lines.forEach(line => {
+    const parts = line.split(',').map(p => p.trim());
+    const name = parts[0], rawPhone = parts[1], campaignName = parts[2] || '';
+    const courseName = parts[3] || '', district = parts[4] || '', ageRaw = parts[5] || '';
+    if (!name || !rawPhone) {
+      skipped++;
+      skippedDetails.push({ line: line, reason: 'নাম বা ফোন নম্বর ফাঁকা (এই লাইনটা হেডার সারি হতে পারে)' });
+      return;
+    }
+    const phone = normalizePhone_(rawPhone);
+    if (!phone) {
+      skipped++;
+      skippedDetails.push({ line: line, reason: 'সঠিক ফোন নম্বর দিন (যেমন 01XXXXXXXXX)' });
+      return;
+    }
+    const age = normalizeAge_(ageRaw);
+    const campaign = campaignsByName[campaignName];
+    const course = coursesByName[courseName];
+    const campaignId = campaign ? campaign.CampaignID : '';
+    const courseId = course ? course.CourseID : '';
+    const source = campaign ? campaign.Source : '';
+    const now = new Date();
+    const found = phoneIndex[phone];
+
+    if (!found) {
+      const result = assignFlow_(campaignId, null);
+      const contactId = nextContactId_();
+      const shadow = {
+        ContactID: contactId, Name: name, Phone: phone, District: district || '',
+        Status: result.status, AssignedTo: result.assignedTo, UnassignedReason: result.reason,
+        CampaignID: campaignId, CourseID: courseId, CreatedAt: now, CreatedBy: staffName || '',
+        LastActivityAt: now, NextFollowUpDate: '', Notes: '', Age: age
+      };
+      pendingContacts.push(shadow);
+      phoneIndex[phone] = { kind: 'pending', ref: shadow };
+      pendingInquiries.push([nextInquiryId_(), contactId, campaignId, source, courseId, now, staffName || '']);
+      added++;
+      if (result.status === 'Unassigned') unassigned++;
+      return;
+    }
+
+    const existing = found.ref;
+    if (age) {
+      if (found.kind === 'existing') setCellByRow_(contactSh, contactHeaders, existing._row, 'Age', age);
+      existing.Age = age;
+    }
+
+    if (CLOSED_STATUSES.indexOf(existing.Status) !== -1) {
+      const result = assignFlow_(campaignId, existing.AssignedTo);
+      if (found.kind === 'existing') {
+        setCellByRow_(contactSh, contactHeaders, existing._row, 'Status', result.status);
+        setCellByRow_(contactSh, contactHeaders, existing._row, 'AssignedTo', result.assignedTo);
+        setCellByRow_(contactSh, contactHeaders, existing._row, 'UnassignedReason', result.reason);
+        setCellByRow_(contactSh, contactHeaders, existing._row, 'CampaignID', campaignId);
+        setCellByRow_(contactSh, contactHeaders, existing._row, 'CourseID', courseId);
+      }
+      existing.Status = result.status;
+      existing.AssignedTo = result.assignedTo;
+      existing.UnassignedReason = result.reason;
+      existing.CampaignID = campaignId;
+      existing.CourseID = courseId;
+      pendingInquiries.push([nextInquiryId_(), existing.ContactID, campaignId, source, courseId, now, staffName || '']);
+      added++; reactivated++;
+      if (result.status === 'Unassigned') unassigned++;
+      return;
+    }
+
+    // still open — same-day noise vs. new-day signal (same rule as addLead)
+    const lastTouch = existing.LastActivityAt || existing.CreatedAt;
+    if (!isSameDay_(lastTouch, now)) {
+      if (found.kind === 'existing') setCellByRow_(contactSh, contactHeaders, existing._row, 'NextFollowUpDate', now);
+      existing.NextFollowUpDate = now;
+    }
+    pendingInquiries.push([nextInquiryId_(), existing.ContactID, campaignId, source, courseId, now, staffName || '']);
+    added++;
+  });
+
+  if (pendingContacts.length) {
+    const startRow = contactSh.getLastRow() + 1;
+    const rows = pendingContacts.map(c => contactHeaders.map(h => (c[h] !== undefined ? c[h] : '')));
+    contactSh.getRange(startRow, 1, rows.length, contactHeaders.length).setValues(rows);
+  }
+  if (pendingInquiries.length) {
+    const startRow = inqSh.getLastRow() + 1;
+    inqSh.getRange(startRow, 1, pendingInquiries.length, pendingInquiries[0].length).setValues(pendingInquiries);
+  }
+
+  return { ok: true, added: added, skipped: skipped, reactivated: reactivated, unassigned: unassigned, skippedDetails: skippedDetails.slice(0, 25) };
+}
+
+// ---------- unassigned / manual queue ----------
+
+// READ-ONLY diagnostic — makes NO changes to the sheet. Run this from the
+// Apps Script editor, then open View > Logs (or Ctrl+Enter) to see the full
+// output (the little toast after Run only shows a short preview). It lists,
+// for every currently-unassigned Contact, the raw Phone cell value and its
+// JavaScript type, plus CreatedAt/Status, so we can see exactly what is
+// actually stored before writing another fix — rather than guessing again.
+function diagnosePhoneIssues() {
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  const unassigned = contacts.filter(c => !c.AssignedTo);
+  const lines = unassigned.slice(0, 60).map(c => {
+    let phoneRepr = c.Phone;
+    if (phoneRepr instanceof Date) phoneRepr = 'DATE(' + phoneRepr.toISOString() + ')';
+    return '_row=' + c._row + ' | ContactID=' + c.ContactID + ' | Name=' + c.Name +
+      ' | Phone=[' + phoneRepr + '] (typeof ' + (c.Phone instanceof Date ? 'Date' : typeof c.Phone) + ')' +
+      ' | Status=' + c.Status + ' | CreatedAt=' + c.CreatedAt + ' | UnassignedReason=' + c.UnassignedReason;
+  });
+  const report = 'মোট আনএসাইনড Contact: ' + unassigned.length +
+    ' (প্রথম ' + lines.length + ' টি দেখানো হচ্ছে)\n\n' + lines.join('\n');
+  Logger.log(report);
+  return report;
+}
+
+// READ-ONLY diagnostic — makes NO changes to the sheet. Run this from the
+// Apps Script editor, then View > Logs, whenever auto-assign/batch-fill
+// seems to not be working. Reports: the script's effective timezone and
+// what time/day it currently computes (the #1 cause of "auto-assign isn't
+// working" is usually the Apps Script PROJECT time zone not being set to
+// Asia/Dhaka — Project Settings (⚙️) in the Apps Script editor — which
+// throws off the Office Hours window check below even though the Settings
+// sheet itself looks correct), the live Office Hours/Off-Day/Cutoff
+// settings and whether the assignment window is currently open, every
+// SalesExecutive's Active/Online state and current batch load, and a
+// summary of what's sitting in the Unassigned Queue and why.
+function diagnoseAutoAssign() {
+  const lines = [];
+  const now = new Date();
+  lines.push('স্ক্রিপ্ট টাইমজোন (Project Settings): ' + Session.getScriptTimeZone());
+  lines.push('এই মুহূর্তে সার্ভার সময় (ISO): ' + now.toISOString());
+  lines.push('এই মুহূর্তে স্ক্রিপ্ট যেটাকে স্থানীয় সময়/দিন ধরছে: ' +
+    Utilities.formatDate(now, Session.getScriptTimeZone() || 'Asia/Dhaka', 'yyyy-MM-dd HH:mm, EEEE'));
+  lines.push('যদি উপরের সময়/দিনটা আসল বাংলাদেশ সময়ের সাথে না মেলে, তাহলে Apps Script এডিটরে' +
+    ' Project Settings (⚙️) থেকে Time zone = (GMT+06:00) Dhaka সেট করে আবার চেষ্টা করুন — এটাই' +
+    ' সবচেয়ে সাধারণ কারণ auto-assign/batch-fill কাজ না করার।');
+
+  const officeStart = getSetting_('OfficeStart') || '11:00';
+  const officeEnd = getSetting_('OfficeEnd') || '19:00';
+  const weeklyOff = getSetting_('WeeklyOffDay') || 'Friday';
+  const cutoffMin = Number(getSetting_('CutoffMinutes') || 30);
+  lines.push('');
+  lines.push('Settings — OfficeStart=' + officeStart + ', OfficeEnd=' + officeEnd +
+    ', WeeklyOffDay=' + weeklyOff + ', CutoffMinutes=' + cutoffMin);
+  lines.push('isWithinAssignmentWindow_() এই মুহূর্তে: ' + isWithinAssignmentWindow_());
+
+  const staff = sheetToObjects_(SHEET_NAMES.STAFF).filter(s => s.Role === 'SalesExecutive');
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  lines.push('');
+  lines.push('Sales Executive-দের অবস্থা:');
+  staff.forEach(s => {
+    const unactioned = contacts.filter(c => c.AssignedTo === s.StaffID && c.Status === 'New').length;
+    const open = contacts.filter(c => c.AssignedTo === s.StaffID && CLOSED_STATUSES.indexOf(c.Status) === -1).length;
+    lines.push('  ' + s.Name + ' (' + s.StaffID + ') — Active=' + s.Active + ', Online=' + s.IsOnline +
+      ', বর্তমান ব্যাচে না-কল-দেওয়া (New)=' + unactioned + '/' + BATCH_SIZE + ', মোট Open=' + open);
+  });
+
+  const campaigns = sheetToObjects_(SHEET_NAMES.CAMPAIGNS);
+  const queue = contacts.filter(c => !c.AssignedTo && c.Status === 'Unassigned');
+  const manualCount = queue.filter(c => {
+    const camp = campaigns.find(cm => cm.CampaignID === c.CampaignID);
+    return camp && camp.DistributionMode === 'Manual';
+  }).length;
+  lines.push('');
+  lines.push('আনএসাইনড কিউতে মোট: ' + queue.length +
+    ' (এর মধ্যে Manual-mode ক্যাম্পেইনের, যেগুলো কখনো অটো-পুল হবে না: ' + manualCount +
+    ' — বাকি ' + (queue.length - manualCount) + ' টি Auto-eligible, ব্যাচ খালি হলে/লগইন করলে স্বয়ংক্রিয়ভাবে যাবে)');
+  const sample = queue.slice(0, 10).map(c => {
+    const camp = campaigns.find(cm => cm.CampaignID === c.CampaignID);
+    return '  ' + c.Name + ' | Phone=' + c.Phone + ' | Campaign=' + (camp ? camp.CampaignName + ' (' + camp.DistributionMode + ')' : '(কোনো ক্যাম্পেইন নেই — Auto-eligible)') + ' | CreatedAt=' + c.CreatedAt;
+  });
+  lines.push(sample.join('\n'));
+
+  const report = lines.join('\n');
+  Logger.log(report);
+  return report;
+}
+
+// One-time cleanup: delete only the Contact rows that are BOTH (a) currently
+// Unassigned AND (b) have a Phone value that fails normalizePhone_ validation
+// (i.e. it's not a real 01XXXXXXXXX number — like the corrupted
+// timestamp-looking values from the bad CSV). This is deliberately narrow:
+// it will NEVER touch a Contact that has a valid phone number, and it will
+// NEVER touch a Contact that is already Assigned/New/Contacted/etc., even if
+// that Contact's phone also looks wrong — those should be fixed by hand
+// instead of auto-deleted. Their Inquiries/Activities (if any) are deleted
+// too, since a corrupted phone means there's nothing valid to merge them
+// onto. Run this BEFORE re-uploading the corrected CSV, so the bad rows
+// don't linger as dead clutter in the Unassigned queue.
+function deleteCorruptedUnassignedLeads() {
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const inqSh = ss_().getSheetByName(SHEET_NAMES.INQUIRIES);
+  const actSh = ss_().getSheetByName(SHEET_NAMES.ACTIVITIES);
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+
+  const bad = contacts.filter(c => c.Status === 'Unassigned' && !normalizePhone_(c.Phone));
+  if (bad.length === 0) return 'Status=Unassigned এবং Phone অবৈধ — এমন কোনো Contact পাওয়া যায়নি। মুছে ফেলার কিছু নেই।';
+
+  const badIds = bad.map(c => c.ContactID);
+  let inqRemoved = 0, actRemoved = 0;
+
+  if (inqSh) {
+    const inqValues = inqSh.getDataRange().getValues();
+    const inqHeaders = inqValues[0];
+    const inqContactCol = inqHeaders.indexOf('ContactID');
+    const inqRowsToDelete = [];
+    for (let i = 1; i < inqValues.length; i++) {
+      if (badIds.indexOf(inqValues[i][inqContactCol]) !== -1) inqRowsToDelete.push(i + 1);
+    }
+    inqRowsToDelete.sort((a, b) => b - a).forEach(r => inqSh.deleteRow(r));
+    inqRemoved = inqRowsToDelete.length;
+  }
+  if (actSh) {
+    const actValues = actSh.getDataRange().getValues();
+    const actHeaders = actValues[0];
+    const actContactCol = actHeaders.indexOf('ContactID');
+    const actRowsToDelete = [];
+    for (let i = 1; i < actValues.length; i++) {
+      if (badIds.indexOf(actValues[i][actContactCol]) !== -1) actRowsToDelete.push(i + 1);
+    }
+    actRowsToDelete.sort((a, b) => b - a).forEach(r => actSh.deleteRow(r));
+    actRemoved = actRowsToDelete.length;
+  }
+
+  const report = bad.map(c => 'ContactID=' + c.ContactID + ' | Name=' + c.Name + ' | Phone(বাতিল)=' + c.Phone).join('\n');
+  bad.sort((a, b) => b._row - a._row).forEach(c => sh.deleteRow(c._row));
+
+  Logger.log('নিচের Contact গুলো মুছে ফেলা হয়েছে:\n' + report);
+  return bad.length + ' টি নষ্ট (Unassigned + অবৈধ Phone) Contact মুছে ফেলা হয়েছে, সাথে ' +
+    inqRemoved + ' টি Inquiry ও ' + actRemoved + ' টি Activity। মুছে ফেলা নামগুলোর তালিকা Logs-এ (View > Logs) দেখা যাবে — চাইলে এখন নতুন/ঠিক করা CSV আপলোড করতে পারেন।';
+}
+
+// One-time repair for a bug now fixed at the source (see logActivity() and
+// the modalStatus pre-fill in Index.html): the "নতুন স্ট্যাটাস" dropdown
+// used to default to the lead's CURRENT status, which for a freshly
+// assigned lead is "New" — so a rep who logged a real call/feedback but
+// never bothered to change that dropdown ended up re-saving "New" as the
+// status. Since fillBatchForStaff_ only tops a rep's batch back up to 3
+// once their un-actioned ("New") count hits exactly 0, these silently-stuck
+// leads permanently blocked that rep from ever receiving new leads again,
+// even though they were genuinely being worked.
+//
+// This finds every Contact that is still "New" but already has at least
+// one real Activity logged (CallStatus set and not just the automatic
+// "Note" entries from queue-assign/reassign), moves it to "Contacted" (a
+// safe, correctable default — Status can still be fixed to the exact right
+// value next time that lead's modal is opened and saved), then immediately
+// tops up every affected Sales Executive's batch from the Unassigned Queue
+// so the backlog starts moving right away. Safe to run more than once —
+// a second run will find nothing left to fix.
+function fixStuckNewStatusLeads() {
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('ContactID');
+  const statusCol = headers.indexOf('Status');
+  const nameCol = headers.indexOf('Name');
+  const assignedCol = headers.indexOf('AssignedTo');
+
+  const realActivityContactIds = {};
+  sheetToObjects_(SHEET_NAMES.ACTIVITIES).forEach(a => {
+    if (a.CallStatus && a.CallStatus !== 'Note') realActivityContactIds[a.ContactID] = true;
+  });
+
+  const fixedNames = [];
+  const affectedStaff = {};
+
+  for (let i = 1; i < values.length; i++) {
+    const contactId = values[i][idCol];
+    if (values[i][statusCol] === 'New' && realActivityContactIds[contactId]) {
+      setCellByRow_(sh, headers, i + 1, 'Status', 'Contacted');
+      fixedNames.push(values[i][nameCol] + ' (' + contactId + ')');
+      if (values[i][assignedCol]) affectedStaff[values[i][assignedCol]] = true;
+    }
+  }
+
+  let batchFilledTotal = 0;
+  const batchFillReport = [];
+  Object.keys(affectedStaff).forEach(staffId => {
+    const n = fillBatchForStaff_(staffId);
+    batchFilledTotal += n;
+    if (n > 0) batchFillReport.push(staffId + ': ' + n + ' টি নতুন লিড');
+  });
+
+  Logger.log('ঠিক করা হলো: ' + fixedNames.length + ' টি লিড (New -> Contacted)');
+  if (fixedNames.length) Logger.log(fixedNames.join(', '));
+  Logger.log('এর ফলে ব্যাচ টপ-আপ হলো মোট ' + batchFilledTotal + ' টি লিড:\n' + batchFillReport.join('\n'));
+
+  return fixedNames.length + ' টি লিডের স্ট্যাটাস New থেকে Contacted-এ ঠিক করা হয়েছে, এবং এর ফলে ' +
+    batchFilledTotal + ' টি লিড সাথে সাথে আনএসাইনড কিউ থেকে সংশ্লিষ্ট Sales Executive-দের ব্যাচে পাঠানো হয়েছে। বিস্তারিত Logs-এ (View > Logs) দেখা যাবে।';
+}
+
+// One-time repair: re-importing a CSV whose phone numbers matched
+// already-Closed (Converted/Not Interested/Unreachable/Lost/Invalid-Junk)
+// leads triggers the "Reactivation" path in runAssignmentFlow_/
+// bulkImportLeads, which — by design — sends a returning lead straight
+// back to its previous owner WITHOUT checking the BATCH_SIZE (৩) cap
+// (a returning customer should go back to the rep who knows them, even if
+// their batch is technically full — this is intentional and stays as-is,
+// no matter how recently that customer was last contacted; a lead
+// re-showing interest even just a day after being closed still needs to
+// be assignable). But a bulk re-import of MANY such leads at once (as
+// happened when a previously timed-out import file was re-uploaded in
+// full after the performance fix) can leave individual Sales Executives
+// holding far more than ৩ unactioned ("New") leads simultaneously, which
+// is the specific one-off situation this function cleans up.
+//
+// NOTE: an earlier version of this function also exempted leads with
+// recent (last 3-5 days) real activity from being requeued. That exemption
+// was removed — per-lead recency is NOT a reason to treat a reactivated
+// lead differently; it was only ever meant to patch today's one-off
+// re-upload overload. This walks every Sales Executive and, for anyone
+// over the cap, unconditionally sends the oldest excess "New" leads back
+// to the Unassigned Queue — where the normal batch-fill mechanism will
+// redistribute them (possibly back to the same rep, possibly to whoever
+// has room next) as soon as there's space. Does NOT touch anyone who is
+// at or under the cap.
+function fixOverBatchLeads() {
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('ContactID');
+  const statusCol = headers.indexOf('Status');
+  const assignedCol = headers.indexOf('AssignedTo');
+  const createdCol = headers.indexOf('CreatedAt');
+  const nameCol = headers.indexOf('Name');
+
+  const staff = sheetToObjects_(SHEET_NAMES.STAFF).filter(s => s.Role === 'SalesExecutive');
+  const report = [];
+  let totalRequeued = 0;
+
+  staff.forEach(s => {
+    const rows = [];
+    for (let i = 1; i < values.length; i++) {
+      if (values[i][assignedCol] === s.StaffID && values[i][statusCol] === 'New') {
+        rows.push({ row: i + 1, createdAt: values[i][createdCol], name: values[i][nameCol], id: values[i][idCol] });
+      }
+    }
+    if (rows.length <= BATCH_SIZE) return;
+
+    rows.sort((a, b) => new Date(a.createdAt) - new Date(b.createdAt)); // oldest first
+    const toRequeue = rows.slice(BATCH_SIZE); // keep the oldest BATCH_SIZE, requeue the rest
+
+    toRequeue.forEach(r => {
+      setCellByRow_(sh, headers, r.row, 'Status', 'Unassigned');
+      setCellByRow_(sh, headers, r.row, 'AssignedTo', '');
+      setCellByRow_(sh, headers, r.row, 'UnassignedReason', 'ব্যাচ-ক্যাপ (৩টি) ছাড়িয়ে গিয়েছিল — স্বয়ংক্রিয়ভাবে Queue-এ ফেরত আনা হলো');
+    });
+    totalRequeued += toRequeue.length;
+    report.push(s.Name + ' (' + s.StaffID + ') — ছিল ' + rows.length + ' টি New, রাখা হলো ' + BATCH_SIZE +
+      ' টি (সবচেয়ে পুরনো), Queue-এ ফেরত গেলো ' + toRequeue.length + ' টি');
+  });
+
+  const summary = report.length
+    ? report.join('\n')
+    : 'কোনো Sales Executive-এর ব্যাচ-ক্যাপ ছাড়িয়ে যায়নি — ঠিক করার কিছু পাওয়া যায়নি।';
+  Logger.log(summary);
+  Logger.log('মোট Unassigned Queue-এ ফেরত আনা হলো: ' + totalRequeued + ' টি লিড।');
+
+  return 'মোট ' + totalRequeued + ' টি লিড ব্যাচ-ক্যাপ ছাড়িয়ে ছিল, সেগুলো Unassigned Queue-এ ফেরত আনা হয়েছে। বিস্তারিত Logs-এ (View > Logs) দেখা যাবে।\n\n' + summary;
+}
+
+function getUnassignedQueue() {
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS).filter(c => !c.AssignedTo);
+  const campaigns = sheetToObjects_(SHEET_NAMES.CAMPAIGNS);
+  const courses = sheetToObjects_(SHEET_NAMES.COURSES);
+  return contacts.map(c => {
+    const camp = campaigns.find(cm => cm.CampaignID === c.CampaignID);
+    const course = courses.find(cr => cr.CourseID === c.CourseID);
+    return {
+      contactId: c.ContactID, name: c.Name, phone: String(c.Phone || ''), district: c.District,
+      campaignName: camp ? camp.CampaignName : '', courseName: course ? course.CourseName : '',
+      reason: c.UnassignedReason, createdAt: fmtDate_(c.CreatedAt)
+    };
+  }).sort((a, b) => a.createdAt < b.createdAt ? -1 : 1);
+}
+
+function assignFromQueue(contactId, staffId, assignedByName) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('ContactID');
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === contactId) {
+      setCellByRow_(sh, headers, i + 1, 'AssignedTo', staffId);
+      setCellByRow_(sh, headers, i + 1, 'Status', 'New');
+      setCellByRow_(sh, headers, i + 1, 'UnassignedReason', '');
+      logActivityRow_(contactId, '', assignedByName, 'Note', 'Assigned via Unassigned Queue by ' + assignedByName, 'New', '');
+      return { ok: true };
+    }
+  }
+  return { ok: false, message: 'লিড পাওয়া যায়নি' };
+}
+
+// ---------- activity / feedback ----------
+
+function logActivityRow_(contactId, staffId, staffName, callStatus, notes, statusAfter, nextFollowUpDate) {
+  const sh = ss_().getSheetByName(SHEET_NAMES.ACTIVITIES);
+  const id = nextId_('ACT', SHEET_NAMES.ACTIVITIES, 'ActivityID');
+  sh.appendRow([id, contactId, staffId, staffName, new Date(), callStatus || '', notes || '', statusAfter || '', nextFollowUpDate || '']);
+}
+
+function logActivity(data) {
+  // data: {contactId, staffId, staffName, callStatus, notes, statusAfter, nextFollowUpDate}
+  if (!data.contactId || !data.statusAfter) return { ok: false, message: 'Contact ও নতুন Status আবশ্যক' };
+  // Safety net: a real feedback/call log can never legitimately set the
+  // status back to "New" — "New" only ever means "nobody has acted on this
+  // yet", which logActivity() by definition contradicts. (The front-end no
+  // longer offers "New" as a choice here, but this guards against any old
+  // cached page or other caller still sending it, since that exact bug once
+  // silently stuck several reps' batches — see fixStuckNewStatusLeads().)
+  if (data.statusAfter === 'New') data.statusAfter = 'Contacted';
+  // Safety net: require a next-follow-up date whenever the call actually
+  // connected and the resulting status is still open (not Closed) —
+  // otherwise a lead the rep genuinely talked to (customer said "জানাবো"/
+  // "পরে কল দিব" etc.) silently ends up with no next-action date and
+  // clutters "মাই টাস্ক" every single day forever with no real plan. See
+  // diagnoseStuckOpenLeads() — this is exactly the pattern that diagnostic
+  // surfaced (সর্বশেষ কল স্ট্যাটাস Connected, Status Contacted/Interested,
+  // কোনো NextFollowUpDate নেই)। The front-end already blocks this before
+  // submitting; this is the server-side guarantee in case of an old cached
+  // page or any other caller.
+  if (data.callStatus === 'Connected' && CLOSED_STATUSES.indexOf(data.statusAfter) === -1 && !data.nextFollowUpDate) {
+    return { ok: false, message: 'কল Connected হয়েছে এবং স্ট্যাটাস এখনও বন্ধ (Closed) হয়নি — এক্ষেত্রে পরবর্তী ফলোআপ তারিখ অবশ্যই দিতে হবে।' };
+  }
+  const now = new Date();
+  const nextFollowUp = data.nextFollowUpDate ? new Date(data.nextFollowUpDate) : '';
+  logActivityRow_(data.contactId, data.staffId, data.staffName, data.callStatus, data.notes, data.statusAfter, nextFollowUp);
+
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('ContactID');
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === data.contactId) {
+      setCellByRow_(sh, headers, i + 1, 'Status', data.statusAfter);
+      setCellByRow_(sh, headers, i + 1, 'LastActivityAt', now);
+      if (nextFollowUp) setCellByRow_(sh, headers, i + 1, 'NextFollowUpDate', nextFollowUp);
+      if (data.notes) setCellByRow_(sh, headers, i + 1, 'Notes', data.notes);
+      // Priority (High/Medium/Low) sits right next to the follow-up date on
+      // the feedback form — see getMyTasks()'s sort for how it's used.
+      // Blank/undefined just leaves whatever Priority the lead already had.
+      if (data.priority !== undefined) setCellByRow_(sh, headers, i + 1, 'Priority', data.priority || '');
+      // Lets a Sales Executive correct a placeholder/wrong name (e.g. "অজানা
+      // শিক্ষার্থী" from a bulk-imported historical lead) right from the
+      // feedback form, the moment they actually talk to the customer and
+      // learn the real name — instead of it staying wrong forever.
+      const nameCol = headers.indexOf('Name');
+      if (data.name && nameCol !== -1 && String(values[i][nameCol] || '').trim() !== data.name) {
+        setCellByRow_(sh, headers, i + 1, 'Name', data.name);
+      }
+      // This feedback may have just cleared the rep's last unactioned ("New")
+      // lead — check immediately and top their batch back up to 3 if so.
+      const batchFilled = fillBatchForStaff_(data.staffId);
+      return { ok: true, batchFilled: batchFilled };
+    }
+  }
+  return { ok: false, message: 'লিড পাওয়া যায়নি' };
+}
+
+function getContactActivities(contactId) {
+  return sheetToObjects_(SHEET_NAMES.ACTIVITIES)
+    .filter(a => a.ContactID === contactId)
+    .map(a => ({
+      staffName: a.StaffName, timestamp: fmtDateTime_(a.Timestamp), callStatus: a.CallStatus,
+      notes: a.Notes, statusAfter: a.StatusAfter, nextFollowUpDate: fmtDate_(a.NextFollowUpDate)
+    }))
+    .sort((a, b) => a.timestamp < b.timestamp ? 1 : -1);
+}
+
+function reassignLead(contactId, newStaffId, byName, role) {
+  if (role !== 'Manager' && role !== 'Admin') return { ok: false, message: 'অনুমতি নেই — শুধু Manager/Admin Reassign করতে পারবেন' };
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  const values = sh.getDataRange().getValues();
+  const headers = values[0];
+  const idCol = headers.indexOf('ContactID');
+  for (let i = 1; i < values.length; i++) {
+    if (values[i][idCol] === contactId) {
+      setCellByRow_(sh, headers, i + 1, 'AssignedTo', newStaffId);
+      setCellByRow_(sh, headers, i + 1, 'UnassignedReason', '');
+      logActivityRow_(contactId, '', byName, 'Note', byName + ' কর্তৃক Reassign করা হয়েছে', values[i][headers.indexOf('Status')], '');
+      return { ok: true };
+    }
+  }
+  return { ok: false, message: 'লিড পাওয়া যায়নি' };
+}
+
+// ---------- lists / dashboards ----------
+
+function getLeadsForRole(staffId, role, team) {
+  let contacts = sheetToObjects_(SHEET_NAMES.CONTACTS).filter(c => c.AssignedTo);
+  if (role === 'SalesExecutive') {
+    contacts = contacts.filter(c => c.AssignedTo === staffId);
+  } else if (role === 'Manager' && team) {
+    const teamStaffIds = sheetToObjects_(SHEET_NAMES.STAFF).filter(s => s.Team === team).map(s => s.StaffID);
+    contacts = contacts.filter(c => teamStaffIds.indexOf(c.AssignedTo) !== -1);
+  }
+  const staffMap = {};
+  sheetToObjects_(SHEET_NAMES.STAFF).forEach(s => { staffMap[s.StaffID] = s.Name; });
+  const campaigns = sheetToObjects_(SHEET_NAMES.CAMPAIGNS);
+  const courses = sheetToObjects_(SHEET_NAMES.COURSES);
+  const today = stripTime_(new Date());
+
+  return contacts.map(c => {
+    const camp = campaigns.find(cm => cm.CampaignID === c.CampaignID);
+    const course = courses.find(cr => cr.CourseID === c.CourseID);
+    const nf = c.NextFollowUpDate ? new Date(c.NextFollowUpDate) : null;
+    const overdue = nf && stripTime_(nf) < today && CLOSED_STATUSES.indexOf(c.Status) === -1;
+    return {
+      contactId: c.ContactID, name: c.Name, phone: String(c.Phone || ''), district: c.District, age: c.Age || '',
+      campaignName: camp ? camp.CampaignName : '', courseName: course ? course.CourseName : '',
+      assignedTo: c.AssignedTo, assignedToName: staffMap[c.AssignedTo] || '(অজানা)',
+      status: c.Status, createdAt: fmtDate_(c.CreatedAt),
+      nextFollowUpDate: nf ? fmtDate_(nf) : '', overdue: !!overdue, notes: c.Notes,
+      lastActivityAt: c.LastActivityAt ? fmtDate_(c.LastActivityAt) : '',
+      priority: c.Priority || '', secondaryPhones: parseSecondaryPhones_(c.SecondaryPhones)
+    };
+  }).sort((a, b) => {
+    if (a.overdue !== b.overdue) return a.overdue ? -1 : 1;
+    return (a.nextFollowUpDate || '9999').localeCompare(b.nextFollowUpDate || '9999');
+  });
+}
+
+function getFollowUps(staffId, role, team) {
+  const all = getLeadsForRole(staffId, role, team);
+  const today = fmtDate_(new Date());
+  return all.filter(l => l.nextFollowUpDate && l.nextFollowUpDate <= today && CLOSED_STATUSES.indexOf(l.status) === -1);
+}
+
+// Contacts that already have a genuine call/feedback logged today (i.e. a
+// real Activity, not the automatic "Note" entries written by queue-assign
+// or reassign). Used by getMyTasks to drop a lead off today's task list
+// the moment it's actually been worked, regardless of what its resulting
+// status or next-follow-up-date ends up being.
+function getContactIdsWithActivityToday_() {
+  const today = fmtDate_(new Date());
+  const ids = {};
+  sheetToObjects_(SHEET_NAMES.ACTIVITIES).forEach(a => {
+    if (a.CallStatus && a.CallStatus !== 'Note' && fmtDate_(a.Timestamp) === today) {
+      ids[a.ContactID] = true;
+    }
+  });
+  return ids;
+}
+
+// "মাই টাস্ক" — today's actionable list for a Sales Executive: newly
+// assigned leads, leads with no follow-up plan yet, and leads whose
+// follow-up is due/overdue — but NOT a lead already worked today (see
+// getContactIdsWithActivityToday_ above). It naturally empties out as the
+// day's calls get logged, and anything closed or scheduled for a future
+// date stays out. The full history always remains visible via
+// getLeadsForRole ("আমার লিড") regardless of this list.
+function getMyTasks(staffId, role, team) {
+  const all = getLeadsForRole(staffId, role, team);
+  const today = fmtDate_(new Date());
+  const actionedToday = getContactIdsWithActivityToday_();
+  return all
+    .filter(l => CLOSED_STATUSES.indexOf(l.status) === -1)
+    .filter(l => !actionedToday[l.contactId]) // already actioned today -> done for today
+    .filter(l => l.status === 'New' || !l.nextFollowUpDate || l.nextFollowUpDate <= today)
+    .map(l => {
+      let taskReason;
+      if (l.status === 'New') taskReason = 'নতুন এসাইনড';
+      else if (!l.nextFollowUpDate) taskReason = 'ফলোআপ নির্ধারিত নেই';
+      else if (l.nextFollowUpDate < today) taskReason = 'বকেয়া ফলোআপ';
+      else taskReason = 'আজকের ফলোআপ';
+      return Object.assign({}, l, { taskReason: taskReason });
+    })
+    .sort((a, b) => {
+      const order = { 'বকেয়া ফলোআপ': 0, 'নতুন এসাইনড': 1, 'আজকের ফলোআপ': 2, 'ফলোআপ নির্ধারিত নেই': 3 };
+      const reasonDiff = order[a.taskReason] - order[b.taskReason];
+      if (reasonDiff !== 0) return reasonDiff;
+      // Within the same group (e.g. "আজকের ফলোআপ"), higher-priority leads
+      // float to the top — this is the "নির্ধারিত ফলোআপ তারিখে খুব
+      // গুরুত্বপূর্ণ লিডগুলো ওপরে থাকবে" behavior. A lead with no priority
+      // set (the default, for every pre-existing lead) sorts last, so this
+      // never reorders anything until priorities actually get used.
+      const prDiff = PRIORITY_SORT_[a.priority] - PRIORITY_SORT_[b.priority];
+      if (prDiff !== 0) return prDiff;
+      return a.createdAt.localeCompare(b.createdAt);
+    });
+}
+
+// READ-ONLY diagnostic — makes NO changes to the sheet. For every Sales
+// Executive, breaks down "মাই টাস্ক" (see getMyTasks above) by WHY each
+// lead is showing up there: newly assigned ("New"), no follow-up date set
+// at all, an overdue follow-up date, or due today. Run this when My Task
+// counts look too high (e.g. 20-30 per rep) to see whether it's really a
+// batch-cap problem (few "নতুন এসাইনড") or a backlog of leads with no/
+// overdue follow-up plan (likely left over from the বাল্ক ইম্পোর্ট/পুরাতন
+// লিড migration, or from reactivated leads whose NextFollowUpDate was
+// never set) — fixOverBatchLeads only ever touches the first category
+// ("নতুন এসাইনড"), so a high "ফলোআপ নির্ধারিত নেই"/"বকেয়া ফলোআপ" count
+// explains why that fix alone didn't bring My Task counts down.
+function diagnoseMyTaskLoad() {
+  const staff = sheetToObjects_(SHEET_NAMES.STAFF).filter(s => s.Role === 'SalesExecutive');
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  const today = fmtDate_(new Date());
+  const actionedToday = getContactIdsWithActivityToday_();
+
+  const lines = [];
+  let grandTotal = 0, grandNew = 0, grandNoFollowUp = 0, grandOverdue = 0, grandDueToday = 0;
+
+  staff.forEach(s => {
+    const mine = contacts.filter(c =>
+      c.AssignedTo === s.StaffID && CLOSED_STATUSES.indexOf(c.Status) === -1 && !actionedToday[c.ContactID]);
+    let nNew = 0, nNoFollowUp = 0, nOverdue = 0, nDueToday = 0;
+    mine.forEach(c => {
+      const nf = c.NextFollowUpDate ? fmtDate_(c.NextFollowUpDate) : '';
+      const inTask = c.Status === 'New' || !nf || nf <= today;
+      if (!inTask) return;
+      if (c.Status === 'New') nNew++;
+      else if (!nf) nNoFollowUp++;
+      else if (nf < today) nOverdue++;
+      else nDueToday++;
+    });
+    const total = nNew + nNoFollowUp + nOverdue + nDueToday;
+    if (total > 0) {
+      lines.push('  ' + s.Name + ' (' + s.StaffID + ') — মোট মাই টাস্কে: ' + total +
+        ' | নতুন এসাইনড: ' + nNew + ' | ফলোআপ নির্ধারিত নেই: ' + nNoFollowUp +
+        ' | বকেয়া ফলোআপ: ' + nOverdue + ' | আজকের ফলোআপ: ' + nDueToday);
+    }
+    grandTotal += total; grandNew += nNew; grandNoFollowUp += nNoFollowUp; grandOverdue += nOverdue; grandDueToday += nDueToday;
+  });
+
+  const summary = 'সব Sales Executive মিলিয়ে মাই টাস্কে মোট: ' + grandTotal +
+    ' (নতুন এসাইনড: ' + grandNew + ', ফলোআপ নির্ধারিত নেই: ' + grandNoFollowUp +
+    ', বকেয়া ফলোআপ: ' + grandOverdue + ', আজকের ফলোআপ: ' + grandDueToday + ')\n\n' + lines.join('\n');
+  Logger.log(summary);
+  return summary;
+}
+
+// READ-ONLY diagnostic — makes NO changes to the sheet. Digs into the
+// "ফলোআপ নির্ধারিত নেই"/"বকেয়া ফলোআপ" leads that diagnoseMyTaskLoad()
+// surfaces, to tell apart two different root causes for "যোগাযোগ দরকার নেই"
+// leads (ভুল নাম্বার/অনাগ্রহী) sitting in My Task:
+//
+//   (A) A genuine bug — Status IS one of CLOSED_STATUSES (or something that
+//       was MEANT to be, e.g. a typo/extra space) but the lead still shows
+//       up. getMyTasks already filters on CLOSED_STATUSES, so this only
+//       happens if a Status value in the sheet doesn't exactly match one of
+//       the known statuses.
+//   (B) A workflow gap — Status is still open (e.g. "Contacted") because,
+//       on the কল/ফিডব্যাক ফর্ম, "কল স্ট্যাটাস" (Wrong Number etc.) and
+//       "নতুন স্ট্যাটাস" (the actual Status field) are two separate
+//       dropdowns that don't auto-sync — a rep can log "কল স্ট্যাটাস =
+//       ভুল নম্বর" and forget to also change "নতুন স্ট্যাটাস" to
+//       "অবৈধ/জাঙ্ক", leaving the lead open with no follow-up date, so it
+//       re-appears in My Task every single day forever.
+//
+// Run this, read the log, and that tells us which of (A) or (B) — or both —
+// is actually happening before deciding on a fix.
+function diagnoseDeadEndLeads() {
+  const KNOWN_STATUSES = ['Unassigned', 'New', 'Contacted', 'Interested', 'Follow-up',
+    'Converted', 'Not Interested', 'Unreachable', 'Lost', 'Invalid/Junk'];
+
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS).filter(c => c.AssignedTo);
+  const activities = sheetToObjects_(SHEET_NAMES.ACTIVITIES);
+
+  // latest real (non-"Note") activity per contact, by timestamp
+  const latestActivity = {};
+  activities.forEach(a => {
+    if (!a.ContactID || a.CallStatus === 'Note') return;
+    const prev = latestActivity[a.ContactID];
+    if (!prev || new Date(a.Timestamp) > new Date(prev.Timestamp)) latestActivity[a.ContactID] = a;
+  });
+
+  // (A) bug check: any Status string that doesn't exactly match a known one
+  const unknownStatusRows = contacts.filter(c => KNOWN_STATUSES.indexOf(c.Status) === -1);
+
+  // (B) workflow-gap check: still-open (non-closed) leads, with no
+  // NextFollowUpDate, whose latest logged "কল স্ট্যাটাস" was "Wrong Number"
+  // but whose Status was never actually moved to "Invalid/Junk" (or any
+  // other closed status) — these are the classic "forgot to close it out"
+  // leads that will clutter My Task forever.
+  const openNoFollowUp = contacts.filter(c =>
+    CLOSED_STATUSES.indexOf(c.Status) === -1 && !c.NextFollowUpDate);
+
+  const byLastCallStatus = {};
+  let wrongNumberNotClosed = 0;
+  openNoFollowUp.forEach(c => {
+    const la = latestActivity[c.ContactID];
+    const key = la ? (la.CallStatus || '(ফাঁকা)') : '(কোনো অ্যাক্টিভিটি লগ হয়নি)';
+    byLastCallStatus[key] = (byLastCallStatus[key] || 0) + 1;
+    if (la && la.CallStatus === 'Wrong Number') wrongNumberNotClosed++;
+  });
+
+  const lines = [];
+  lines.push('=== (A) স্ট্যাটাস-বানান/বাগ চেক ===');
+  if (unknownStatusRows.length === 0) {
+    lines.push('কোনো অজানা/ভুল বানানের Status পাওয়া যায়নি — CLOSED_STATUSES ফিল্টারিং-এ কোনো বাগ নেই।');
+  } else {
+    lines.push('নিচের ' + unknownStatusRows.length + ' টি লিডের Status কোনো পরিচিত মানের সাথে মিলছে না (সম্ভবত টাইপো/এক্সট্রা স্পেস) — এজন্য হয়তো CLOSED_STATUSES চেক এড়িয়ে যাচ্ছে:');
+    unknownStatusRows.slice(0, 20).forEach(c => {
+      lines.push('  ' + c.Name + ' (' + c.ContactID + ') — Status="' + c.Status + '"');
+    });
+    if (unknownStatusRows.length > 20) lines.push('  ... আরও ' + (unknownStatusRows.length - 20) + ' টি');
+  }
+
+  lines.push('');
+  lines.push('=== (B) ওপেন + ফলোআপ-তারিখ-বিহীন লিড (মোট ' + openNoFollowUp.length + ' টি) — সর্বশেষ কল স্ট্যাটাস অনুযায়ী ===');
+  Object.keys(byLastCallStatus).sort((a, b) => byLastCallStatus[b] - byLastCallStatus[a]).forEach(k => {
+    lines.push('  ' + k + ': ' + byLastCallStatus[k] + ' টি');
+  });
+  lines.push('');
+  lines.push('"ভুল নম্বর" কল স্ট্যাটাস লগ হয়েছে কিন্তু Status এখনও "Invalid/Junk"-এ বদলানো হয়নি এমন লিড: ' + wrongNumberNotClosed + ' টি।');
+  lines.push('(এগুলোই সম্ভবত সমস্যা — "কল স্ট্যাটাস" আর "নতুন স্ট্যাটাস" আলাদা ফিল্ড হওয়ায় রেপ একটা দিয়েছেন, আরেকটা বদলাননি।)');
+
+  const summary = lines.join('\n');
+  Logger.log(summary);
+  return summary;
+}
+
+// READ-ONLY diagnostic — makes NO changes to the sheet. diagnoseDeadEndLeads()
+// ruled out both a CLOSED_STATUSES bug and the narrow "Wrong Number logged but
+// never closed" theory (0 matches) — but its 68-lead "ওপেন + ফলোআপ-তারিখ-বিহীন"
+// bucket still includes Status="New" leads, which is NORMAL/expected (a
+// freshly-assigned lead has no follow-up date yet by design — that's the
+// "নতুন এসাইনড" My Task category, not a problem). This function strips those
+// out and looks ONLY at leads that are open, have NO follow-up date, AND have
+// already moved past "New" (Contacted/Interested/Follow-up) — i.e. a rep has
+// already engaged with them at least once, yet nobody ever closed them out or
+// scheduled a next call. It breaks these down by current Status and latest
+// CallStatus, and prints a sample of actual leads (name/phone/assigned
+// rep/notes) so a few real cases can be eyeballed directly.
+function diagnoseStuckOpenLeads() {
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS).filter(c => c.AssignedTo);
+  const activities = sheetToObjects_(SHEET_NAMES.ACTIVITIES);
+  const staffMap = {};
+  sheetToObjects_(SHEET_NAMES.STAFF).forEach(s => { staffMap[s.StaffID] = s.Name; });
+
+  const latestActivity = {};
+  activities.forEach(a => {
+    if (!a.ContactID || a.CallStatus === 'Note') return;
+    const prev = latestActivity[a.ContactID];
+    if (!prev || new Date(a.Timestamp) > new Date(prev.Timestamp)) latestActivity[a.ContactID] = a;
+  });
+
+  const stuck = contacts.filter(c =>
+    CLOSED_STATUSES.indexOf(c.Status) === -1 && c.Status !== 'New' && !c.NextFollowUpDate);
+
+  const byStatus = {}, byCallStatus = {};
+  stuck.forEach(c => {
+    byStatus[c.Status] = (byStatus[c.Status] || 0) + 1;
+    const la = latestActivity[c.ContactID];
+    const key = la ? (la.CallStatus || '(ফাঁকা)') : '(কোনো অ্যাক্টিভিটি লগ হয়নি)';
+    byCallStatus[key] = (byCallStatus[key] || 0) + 1;
+  });
+
+  const lines = [];
+  lines.push('=== engaged-তে-যাওয়া (Status != New) + ওপেন + ফলোআপ-তারিখ-বিহীন লিড — মোট ' + stuck.length + ' টি ===');
+  lines.push('(এই ' + stuck.length + ' টি-ই সম্ভবত আসল সমস্যা — এদের একবার অন্তত কল/ফিডব্যাক হয়েছে, Status "New"-এর বেশি এগিয়েছে, কিন্তু কখনো Closed বা পরবর্তী ফলোআপ-তারিখ সেট করা হয়নি, ফলে প্রতিদিন My Task-এ ফিরে আসছে।)');
+  lines.push('');
+  lines.push('-- বর্তমান Status অনুযায়ী --');
+  Object.keys(byStatus).sort((a, b) => byStatus[b] - byStatus[a]).forEach(k => {
+    lines.push('  ' + k + ': ' + byStatus[k] + ' টি');
+  });
+  lines.push('');
+  lines.push('-- সর্বশেষ কল স্ট্যাটাস অনুযায়ী --');
+  Object.keys(byCallStatus).sort((a, b) => byCallStatus[b] - byCallStatus[a]).forEach(k => {
+    lines.push('  ' + k + ': ' + byCallStatus[k] + ' টি');
+  });
+  lines.push('');
+  lines.push('-- সম্পূর্ণ তালিকা (এসাইনড রেপ অনুযায়ী গ্রুপ করা, যাতে তাদের নিজেদের দিয়ে ম্যানুয়ালি ঠিক করানো যায়) --');
+  const byAssignee = {};
+  stuck.forEach(c => {
+    const an = staffMap[c.AssignedTo] || c.AssignedTo;
+    (byAssignee[an] = byAssignee[an] || []).push(c);
+  });
+  Object.keys(byAssignee).sort().forEach(an => {
+    lines.push('  [' + an + ' — ' + byAssignee[an].length + ' টি]');
+    byAssignee[an].forEach(c => {
+      const la = latestActivity[c.ContactID];
+      lines.push('    ' + c.Name + ' (' + c.ContactID + ') | ফোন=' + c.Phone +
+        ' | Status=' + c.Status + ' | সর্বশেষ কল স্ট্যাটাস=' + (la ? la.CallStatus : '-') +
+        ' | নোট=' + (c.Notes || (la ? la.Notes : '') || '(ফাঁকা)'));
+    });
+  });
+
+  const summary = lines.join('\n');
+  Logger.log(summary);
+  return summary;
+}
+
+// startDate/endDate (optional, 'yyyy-MM-dd' strings from the date-range filter
+// on the পারফরম্যান্স page) narrow the stats to leads CREATED in that window,
+// so a Manager/Admin can see "this week's" or "this month's" numbers instead
+// of only lifetime totals.
+function getPerformance(team, startDate, endDate) {
+  let staff = sheetToObjects_(SHEET_NAMES.STAFF).filter(s => s.Role === 'SalesExecutive');
+  if (team) staff = staff.filter(s => s.Team === team);
+  let contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  if (startDate) contacts = contacts.filter(c => c.CreatedAt && fmtDate_(c.CreatedAt) >= startDate);
+  if (endDate) contacts = contacts.filter(c => c.CreatedAt && fmtDate_(c.CreatedAt) <= endDate);
+  const today = fmtDate_(new Date());
+  return staff.map(s => {
+    const mine = contacts.filter(c => c.AssignedTo === s.StaffID);
+    const converted = mine.filter(c => c.Status === 'Converted').length;
+    const open = mine.filter(c => CLOSED_STATUSES.indexOf(c.Status) === -1).length;
+    const overdue = mine.filter(c => CLOSED_STATUSES.indexOf(c.Status) === -1 && c.NextFollowUpDate && fmtDate_(c.NextFollowUpDate) <= today).length;
+    return {
+      staffId: s.StaffID, name: s.Name, active: String(s.Active).toLowerCase() !== 'no',
+      online: String(s.IsOnline).toLowerCase() === 'yes',
+      total: mine.length, converted: converted, open: open, overdue: overdue,
+      conversionRate: mine.length ? Math.round((converted / mine.length) * 1000) / 10 : 0
+    };
+  }).sort((a, b) => b.total - a.total);
+}
+
+// READ-ONLY diagnostic for "নম্বর চেক" (lookupLeadByPhone) returning nothing /
+// not finding a number that should exist. Run from the Apps Script editor
+// with a known phone number (the exact digits the Sales Executive typed,
+// e.g. diagnosePhoneLookup('01712345678')), then check View > Logs
+// (or Executions). Changes nothing.
+function diagnosePhoneLookup(phone) {
+  Logger.log('========== diagnosePhoneLookup ==========');
+  Logger.log('ইনপুট দেওয়া হয়েছে: "%s"', phone);
+
+  const normalized = normalizePhone_(phone);
+  Logger.log('normalizePhone_("%s") -> %s', phone, normalized);
+  if (!normalized) {
+    Logger.log('এই ইনপুটকে normalizePhone_ বৈধ নম্বর হিসেবে চিনতে পারেনি (৮-১৫ ডিজিট বা সঠিক BD ফরম্যাট দরকার) — lookupLeadByPhone এক্ষেত্রে {ok:false} রিটার্ন করবে, যা "নম্বর চেক" পেজে লাল এরর বক্সে দেখানো হয় (৬ সেকেন্ড পর মিলিয়ে যায় — দ্রুত মিলিয়ে গেলে এটাই কারণ হতে পারে)।');
+    return 'শেষ — উপরের কারণে থেমে গেছে।';
+  }
+
+  const sh = ss_().getSheetByName(SHEET_NAMES.CONTACTS);
+  if (!sh) { Logger.log('Contacts শিট-ই পাওয়া যায়নি!'); return 'শেষ।'; }
+  const headers = sh.getRange(1, 1, 1, sh.getLastColumn()).getValues()[0];
+  Logger.log('Contacts শিটের হেডার সারি: %s', JSON.stringify(headers));
+  if (headers.indexOf('Phone') === -1) Logger.log('সতর্কতা: "Phone" নামে কোনো কলাম নেই — এটা গুরুতর সমস্যা, normal lookup/addLead-ও কাজ করবে না।');
+  if (headers.indexOf('SecondaryPhones') === -1) Logger.log('সতর্কতা: "SecondaryPhones" কলাম এখনও নেই — initializeSystem এই ডিপ্লয়ের পর (আবার) Run করা হয়নি মনে হচ্ছে।');
+
+  const contacts = sheetToObjects_(SHEET_NAMES.CONTACTS);
+  Logger.log('Contacts শিটে মোট (ফাঁকা বাদে) সারি: %s', contacts.length);
+
+  const rawExact = contacts.filter(c => String(c.Phone).trim() === String(phone).trim());
+  Logger.log('ইনপুটের সাথে raw/অক্ষরে-অক্ষরে মিল (নরমালাইজ না করে): %s টা — %s',
+    rawExact.length, JSON.stringify(rawExact.map(c => ({ name: c.Name, id: c.ContactID }))));
+
+  const normMatch = contacts.filter(c => (normalizePhone_(c.Phone) || String(c.Phone || '').trim()) === normalized);
+  Logger.log('normalizePhone_ দিয়ে প্রাইমারি নম্বরে মিল: %s টা — %s',
+    normMatch.length, JSON.stringify(normMatch.map(c => ({ name: c.Name, id: c.ContactID, rawPhone: c.Phone, type: typeof c.Phone }))));
+
+  const secMatch = contacts.filter(c => parseSecondaryPhones_(c.SecondaryPhones).indexOf(normalized) !== -1);
+  Logger.log('বিকল্প (Secondary) নম্বরে মিল: %s টা — %s',
+    secMatch.length, JSON.stringify(secMatch.map(c => ({ name: c.Name, id: c.ContactID, secondaryPhones: c.SecondaryPhones }))));
+
+  const last4 = normalized.replace(/\D/g, '').slice(-4);
+  const near = contacts.filter(c => String(c.Phone || '').replace(/\D/g, '').slice(-4) === last4);
+  Logger.log('শেষ ৪ ডিজিট ("%s") দিয়ে কাছাকাছি মিল (সর্বোচ্চ ১০টা, ফরম্যাট/টাইপ পার্থক্য ধরার জন্য): %s',
+    last4, JSON.stringify(near.slice(0, 10).map(c => ({ name: c.Name, id: c.ContactID, rawPhone: c.Phone, type: typeof c.Phone }))));
+
+  const final = findContactByPhone_(phone);
+  Logger.log('findContactByPhone_("%s") (lookupLeadByPhone যা আসলে ব্যবহার করে) চূড়ান্ত ফলাফল: %s',
+    phone, final ? (final.Name + ' (' + final.ContactID + ')') : 'কিছুই পাওয়া যায়নি (undefined)');
+  Logger.log('========== শেষ ==========');
+  return 'View > Logs (বা Executions ট্যাব) দেখুন — সম্পূর্ণ রিপোর্ট ওখানে।';
+ 
+}
+function testPhoneLookup() {
+  diagnosePhoneLookup('01794397200');
+}
