@@ -1085,12 +1085,28 @@
     `id` <span class="highlight-type">BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY</span>,
     `lead_code` <span class="highlight-type">VARCHAR(50) UNIQUE NOT NULL</span>,
     `customer_name` <span class="highlight-type">VARCHAR(150) NOT NULL</span>,
+    `guardian_name` <span class="highlight-type">VARCHAR(150) NULL</span>,
     `primary_phone` <span class="highlight-type">VARCHAR(25) NOT NULL</span>,
+    `whatsapp_number` <span class="highlight-type">VARCHAR(25) NULL</span>,
     `alternate_phone` <span class="highlight-type">VARCHAR(25) NULL</span>,
     `status` <span class="highlight-type">ENUM('New', 'Assigned', 'Contacted', 'Follow-up', 'Enrolled - Pending Payment', 'Payment Under Review', 'Converted', 'Not Interested', 'Lost') DEFAULT 'New'</span>,
     `current_owner_id` <span class="highlight-type">BIGINT UNSIGNED NULL</span>,
     `team_id` <span class="highlight-type">BIGINT UNSIGNED NULL</span>,
     `created_at` <span class="highlight-type">TIMESTAMP NULL</span>
+);
+
+<span class="highlight-comment">-- Lead Actions & Feedbacks (Immutable History)</span>
+<span class="highlight-keyword">CREATE TABLE</span> <span class="highlight-table">`lead_feedbacks`</span> (
+    `id` <span class="highlight-type">BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY</span>,
+    `lead_id` <span class="highlight-type">BIGINT UNSIGNED NOT NULL</span>,
+    `user_id` <span class="highlight-type">BIGINT UNSIGNED NOT NULL</span>,
+    `call_status` <span class="highlight-type">VARCHAR(50) NOT NULL</span>,
+    `customer_interest` <span class="highlight-type">VARCHAR(50) NOT NULL</span>,
+    `customer_concern` <span class="highlight-type">TEXT NULL</span>,
+    `sales_note` <span class="highlight-type">TEXT NOT NULL</span>,
+    `next_action` <span class="highlight-type">VARCHAR(50) NOT NULL</span>,
+    `action_date` <span class="highlight-type">TIMESTAMP NULL</span>,
+    `created_at` <span class="highlight-type">TIMESTAMP DEFAULT CURRENT_TIMESTAMP</span>
 );
 
 <span class="highlight-comment">-- 4. Enrollments & Installments Table</span>
@@ -1102,6 +1118,16 @@
     `final_deal_amount` <span class="highlight-type">DECIMAL(10,2) NOT NULL</span>,
     `total_installments` <span class="highlight-type">INT UNSIGNED DEFAULT 1</span>,
     `status` <span class="highlight-type">ENUM('Pending Payment', 'Payment Under Review', 'Enrolled') DEFAULT 'Pending Payment'</span>
+);
+
+<span class="highlight-comment">-- Payment Dates</span>
+<span class="highlight-keyword">CREATE TABLE</span> <span class="highlight-table">`payments`</span> (
+    `id` <span class="highlight-type">BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY</span>,
+    `enrollment_id` <span class="highlight-type">BIGINT UNSIGNED NOT NULL</span>,
+    `amount` <span class="highlight-type">DECIMAL(10,2) NOT NULL</span>,
+    `payment_date` <span class="highlight-type">TIMESTAMP NULL</span>,
+    `verified_date` <span class="highlight-type">TIMESTAMP NULL</span>,
+    `created_at` <span class="highlight-type">TIMESTAMP DEFAULT CURRENT_TIMESTAMP</span>
 );
             </pre>
         </section>

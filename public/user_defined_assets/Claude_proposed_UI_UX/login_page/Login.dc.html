@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Pedago ERP — Login</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,600;0,700;1,400&amp;family=Noto+Sans+Bengali:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.vp{container-type:inline-size;width:100%;background:#F8F8F8;font-family:'Poppins','Noto Sans Bengali',sans-serif;color:#222;overflow:hidden}
+.vp *{box-sizing:border-box}
+.st{--u:calc(100cqw / 1465);position:relative;width:100%;max-width:1465px;margin:0 auto;height:calc(974*var(--u))}
+.c1,.c2{position:absolute;background:linear-gradient(135deg,#5B52E6,#3F2FC0)}
+.c1{left:calc(-163*var(--u));top:calc(-145*var(--u));width:calc(326*var(--u));height:calc(290*var(--u));border-radius:50%}
+.c2{left:calc(1380*var(--u));top:calc(795*var(--u));width:calc(240*var(--u));height:calc(350*var(--u));border-radius:50%;background:linear-gradient(160deg,#4A22A8,#3A1C93)}
+.hero{position:absolute;left:calc(681*var(--u));top:calc(80*var(--u));width:calc(683*var(--u));height:calc(811*var(--u));border-radius:calc(8*var(--u));overflow:hidden;background:#0B3FA8;box-shadow:0 calc(8*var(--u)) calc(24*var(--u)) rgba(20,40,120,.18)}
+.hero img{display:block;width:100%;height:100%;object-fit:cover}
+.card{position:absolute;left:calc(101*var(--u));top:calc(151*var(--u));width:calc(615*var(--u));height:calc(669*var(--u));background:#fff;border-radius:calc(8*var(--u));box-shadow:0 calc(6*var(--u)) calc(26*var(--u)) rgba(0,0,0,.09);z-index:2;display:flex;flex-direction:column;padding:0 calc(76*var(--u)) 0 calc(71*var(--u))}
+h1{margin:calc(70*var(--u)) 0 0;height:calc(40*var(--u));line-height:calc(40*var(--u));text-align:center;font-size:calc(26*var(--u));font-weight:600;color:#333;text-decoration:underline;text-decoration-thickness:calc(2*var(--u));text-underline-offset:calc(8*var(--u))}
+.in{position:relative;display:flex;align-items:center;height:calc(83*var(--u));margin-top:calc(62*var(--u));background:#fff;border-left:calc(4*var(--u)) solid #0B42BE;border-radius:calc(6*var(--u));box-shadow:0 calc(5*var(--u)) calc(18*var(--u)) rgba(30,70,170,.13);padding-left:calc(35*var(--u))}
+.in+.in{margin-top:calc(29*var(--u))}
+.in svg{flex:none;width:calc(32*var(--u));height:calc(32*var(--u));color:#8A8A8A;margin-right:calc(28*var(--u))}
+.in i{flex:none;width:calc(2*var(--u));height:calc(18*var(--u));background:#7F93CC;margin-right:calc(24*var(--u))}
+.in input{flex:1;min-width:0;height:100%;border:0;outline:0;background:transparent;font:italic 400 calc(18*var(--u)) 'Poppins',sans-serif;color:#222}
+.in input::placeholder{color:#767676;opacity:1}
+.in:focus-within{box-shadow:0 0 0 3px rgba(11,66,190,.35),0 calc(5*var(--u)) calc(18*var(--u)) rgba(30,70,170,.13)}
+.hid{position:absolute;left:-9999px}
+.row{display:flex;justify-content:space-between;align-items:center;height:calc(30*var(--u));margin-top:calc(56*var(--u));padding:0 calc(10*var(--u)) 0 calc(3*var(--u))}
+.rm{position:relative;display:flex;align-items:center;gap:calc(21*var(--u));font-size:calc(18*var(--u));color:#444;cursor:pointer}
+.rm input{position:absolute;opacity:0;width:calc(25*var(--u));height:calc(25*var(--u));margin:0}
+.cb{display:flex;align-items:center;justify-content:center;width:calc(25*var(--u));height:calc(25*var(--u));border-radius:calc(3*var(--u));background:#6B6B6B;color:#fff}
+.cb svg{width:calc(17*var(--u));height:calc(17*var(--u))}
+.rm input:not(:checked)+.cb{background:#fff;border:2px solid #6B6B6B}.rm input:not(:checked)+.cb svg{display:none}
+.rm input:focus-visible+.cb,.fp:focus-visible,.go:focus-visible{outline:3px solid #0B42BE;outline-offset:3px}
+.fp{font-size:calc(17*var(--u));font-weight:600;color:#222;text-decoration:underline;text-underline-offset:calc(4*var(--u))}
+.go{align-self:center;display:flex;align-items:center;justify-content:center;gap:calc(10*var(--u));width:calc(175*var(--u));height:calc(58*var(--u));margin-top:calc(55*var(--u));border:0;border-radius:calc(4*var(--u));background:#0B42BE;color:#fff;font:700 calc(17*var(--u)) 'Poppins',sans-serif;letter-spacing:.01em;box-shadow:0 calc(6*var(--u)) calc(14*var(--u)) rgba(11,66,190,.35);cursor:pointer;transition:background .15s}
+.go:hover{background:#0A369B}.go svg{width:calc(24*var(--u));height:calc(24*var(--u))}
+@media (max-width:860px){
+.vp{padding:16px}.st{--u:.6px;height:auto;display:flex;flex-direction:column;gap:16px;max-width:440px}
+.c1,.c2{display:none}
+.card,.hero{position:static;width:100%;height:auto}.card{padding:40px 24px 44px}
+.in{height:56px;padding-left:16px}.in svg{margin-right:14px}.in i{margin-right:12px}.in input{font-size:16px}
+h1{font-size:24px;margin-top:0}.rm{font-size:15px;gap:12px}.fp{font-size:15px}.row{margin-top:24px}
+.go{width:160px;height:52px;font-size:16px;margin-top:28px}.in,.in+.in{margin-top:18px}h1+.in{margin-top:32px}
+.hero{aspect-ratio:4/5}
+}
+@media (prefers-reduced-motion:reduce){.go{transition:none}}
+</style>
+</helmet>
+<div class="vp"><main class="st">
+<span class="c1" aria-hidden="true"></span><span class="c2" aria-hidden="true"></span>
+<aside class="hero"><img src="./assets/d7cc29ba1b5e28dcd4517bd7a048d141.png" alt="Welcome to Pedago Academy ERP System. Smarter management, better learning."></aside>
+<section class="card" aria-labelledby="t">
+<h1 id="t">Login please</h1>
+<div class="in"><label class="hid" for="ph">Phone number</label><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="6" width="28" height="20" rx="2"></rect><path d="M2.5 7l13.5 11L29.5 7M2.5 25l9.5-9.5M29.5 25L20 15.5"></path></svg><i aria-hidden="true"></i><input id="ph" type="tel" inputmode="tel" autocomplete="username" placeholder="Input your phone number"></div>
+<div class="in"><label class="hid" for="pw">Password</label><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="11" cy="11" r="7"></circle><circle cx="9" cy="9" r="1.6"></circle><path d="M15.5 16.5L27 28M23 24l3-3M20 21l3-3"></path></svg><i aria-hidden="true"></i><input id="pw" type="password" autocomplete="current-password" placeholder="Input your password"></div>
+<div class="row"><label class="rm"><input type="checkbox" checked=""><span class="cb"><svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 10.5l4 4 8-9"></path></svg></span>Remember me</label><a class="fp" href="#">Forgot Password?</a></div>
+<button class="go" type="button"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 12h10M9 8l4 4-4 4"></path><path d="M15 4h4a1 1 0 0 1 1 1v14a1 1 0 0 1-1 1h-4" fill="currentColor"></path></svg>LOG IN</button>
+</section>
+</main></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":960}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

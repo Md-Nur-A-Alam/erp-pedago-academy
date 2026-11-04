@@ -537,43 +537,38 @@
                 <!-- Dynamic SVG connector lines populated via JS -->
             </svg>
 
-            <!-- 1. USERS (Yellow/People) -->
-            <div class="entity-card" id="entity-users" style="top: 80px; left: 80px;" data-table="users">
+            <!-- 1. EMPLOYEES (Yellow/People) -->
+            <div class="entity-card" id="entity-employees" style="top: 80px; left: 80px;" data-table="employees">
                 <div class="entity-header header-yellow">
-                    <span class="header-icon">▦</span> USERS
+                    <span class="header-icon">▦</span> EMPLOYEES
                 </div>
                 <div class="entity-body">
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> user_id</span><span class="attr-type-col">BIGINT FK UK</span></div>
                     <div class="attr-row"><span class="attr-name-col">office_id</span><span class="attr-type-col">VARCHAR(50) UK</span></div>
-                    <div class="attr-row"><span class="attr-name-col">name</span><span class="attr-type-col">VARCHAR(150)</span></div>
-                    <div class="attr-row"><span class="attr-name-col">email</span><span class="attr-type-col">VARCHAR(150) UK</span></div>
-                    <div class="attr-row"><span class="attr-name-col">phone</span><span class="attr-type-col">VARCHAR(25) UK</span></div>
-                    <div class="attr-row"><span class="attr-name-col">secondary_contact_number</span><span class="attr-type-col">VARCHAR(25)</span></div>
-                    <div class="attr-row"><span class="attr-name-col">emergency_contact_number</span><span class="attr-type-col">VARCHAR(25)</span></div>
-                    <div class="attr-row"><span class="attr-name-col">dob</span><span class="attr-type-col">DATE</span></div>
+                    <div class="attr-row"><span class="attr-name-col">name</span><span class="attr-type-col">VARCHAR(255)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">designation</span><span class="attr-type-col">VARCHAR(100)</span></div>
                     <div class="attr-row"><span class="attr-name-col">joining_date</span><span class="attr-type-col">DATE</span></div>
-                    <div class="attr-row"><span class="attr-name-col">nid_number</span><span class="attr-type-col">VARCHAR(50) UK</span></div>
-                    <div class="attr-row"><span class="attr-name-col">blood_group</span><span class="attr-type-col">VARCHAR(10)</span></div>
-                    <div class="attr-row"><span class="attr-name-col">present_address</span><span class="attr-type-col">TEXT</span></div>
-                    <div class="attr-row"><span class="attr-name-col">permanent_address</span><span class="attr-type-col">TEXT</span></div>
                     <div class="attr-row"><span class="attr-name-col">role</span><span class="attr-type-col">ENUM</span></div>
+                    <div class="attr-row"><span class="attr-name-col">status</span><span class="attr-type-col">ENUM</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> shift_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">created_at</span><span class="attr-type-col">TIMESTAMP</span></div>
                     <div class="attr-row"><span class="attr-name-col">edited_at</span><span class="attr-type-col">TIMESTAMP</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> edited_by</span><span class="attr-type-col">BIGINT FK</span></div>
                 </div>
             </div>
 
-            <!-- 2. USER_SHIFTS (Yellow/People) -->
-            <div class="entity-card" id="entity-user_shifts" style="top: 640px; left: 80px;" data-table="user_shifts">
+            <!-- 2. EMPLOYEE_ROSTERS (Yellow/People) -->
+            <div class="entity-card" id="entity-employee_rosters" style="top: 640px; left: 80px;" data-table="employee_rosters">
                 <div class="entity-header header-yellow">
-                    <span class="header-icon">▦</span> USER_SHIFTS
+                    <span class="header-icon">▦</span> EMPLOYEE_ROSTERS
                 </div>
                 <div class="entity-body">
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> user_id</span><span class="attr-type-col">BIGINT FK UK</span></div>
-                    <div class="attr-row"><span class="attr-name-col">shift_start_time</span><span class="attr-type-col">TIME</span></div>
-                    <div class="attr-row"><span class="attr-name-col">shift_end_time</span><span class="attr-type-col">TIME</span></div>
-                    <div class="attr-row"><span class="attr-name-col">is_on_duty_today</span><span class="attr-type-col">BOOLEAN</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> shift_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">roster_date</span><span class="attr-type-col">DATE</span></div>
+                    <div class="attr-row"><span class="attr-name-col">is_on_duty</span><span class="attr-type-col">BOOLEAN</span></div>
                     <div class="attr-row"><span class="attr-name-col">availability_status</span><span class="attr-type-col">ENUM</span></div>
                 </div>
             </div>
@@ -616,9 +611,12 @@
                 </div>
                 <div class="entity-body">
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> source_id</span><span class="attr-type-col">BIGINT PK</span></div>
-                    <div class="attr-row"><span class="attr-name-col">channel</span><span class="attr-type-col">ENUM (fb,wp,etc)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">channel</span><span class="attr-type-col">ENUM (fb,wp,googleads,etc)</span></div>
                     <div class="attr-row"><span class="attr-name-col">campaign_name</span><span class="attr-type-col">VARCHAR(150)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">distribution_mode</span><span class="attr-type-col">ENUM (Auto,Manual)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">is_active</span><span class="attr-type-col">BOOLEAN</span></div>
                     <div class="attr-row"><span class="attr-name-col">created_at</span><span class="attr-type-col">TIMESTAMP</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> created_by</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">edited_at</span><span class="attr-type-col">TIMESTAMP</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> edited_by</span><span class="attr-type-col">BIGINT FK</span></div>
                 </div>
@@ -653,7 +651,9 @@
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> source_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">student_name</span><span class="attr-type-col">VARCHAR(150)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">guardian_name</span><span class="attr-type-col">VARCHAR(150) NULL</span></div>
                     <div class="attr-row"><span class="attr-name-col">contact_number</span><span class="attr-type-col">VARCHAR(25)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">whatsapp_number</span><span class="attr-type-col">VARCHAR(25) NULL</span></div>
                     <div class="attr-row"><span class="attr-name-col">alternative_contact_number</span><span class="attr-type-col">VARCHAR(25)</span></div>
                     <div class="attr-row"><span class="attr-name-col">email</span><span class="attr-type-col">VARCHAR(120)</span></div>
                     <div class="attr-row"><span class="attr-name-col">age</span><span class="attr-type-col">INT</span></div>
@@ -675,7 +675,7 @@
                 </div>
                 <div class="entity-body">
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> user_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">batch_size</span><span class="attr-type-col">INT (n=3)</span></div>
                     <div class="attr-row"><span class="attr-name-col">status</span><span class="attr-type-col">ENUM</span></div>
                     <div class="attr-row"><span class="attr-name-col">assigned_at</span><span class="attr-type-col">TIMESTAMP</span></div>
@@ -705,11 +705,12 @@
                 <div class="entity-body">
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> lead_id</span><span class="attr-type-col">BIGINT FK</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> user_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">call_status</span><span class="attr-type-col">VARCHAR(50)</span></div>
                     <div class="attr-row"><span class="attr-name-col">customer_interest</span><span class="attr-type-col">VARCHAR(50)</span></div>
                     <div class="attr-row"><span class="attr-name-col">sales_note</span><span class="attr-type-col">TEXT</span></div>
                     <div class="attr-row"><span class="attr-name-col">next_action</span><span class="attr-type-col">VARCHAR(50)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">action_date</span><span class="attr-type-col">TIMESTAMP NULL</span></div>
                 </div>
             </div>
 
@@ -721,7 +722,7 @@
                 <div class="entity-body">
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> lead_id</span><span class="attr-type-col">BIGINT FK</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> user_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">followup_date_time</span><span class="attr-type-col">DATETIME</span></div>
                     <div class="attr-row"><span class="attr-name-col">is_done</span><span class="attr-type-col">BOOLEAN</span></div>
                     <div class="attr-row"><span class="attr-name-col">overdue_alert_sent</span><span class="attr-type-col">BOOLEAN</span></div>
@@ -736,8 +737,8 @@
                 <div class="entity-body">
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> lead_id</span><span class="attr-type-col">BIGINT FK</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> from_user_id</span><span class="attr-type-col">BIGINT FK</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> to_user_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> from_employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> to_employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> from_team_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> to_team_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">is_admin_override</span><span class="attr-type-col">BOOLEAN (No TL Appr)</span></div>
@@ -789,9 +790,11 @@
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> enrollment_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> installment_schedule_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">amount</span><span class="attr-type-col">DECIMAL(10,2)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">payment_date</span><span class="attr-type-col">TIMESTAMP NULL</span></div>
                     <div class="attr-row"><span class="attr-name-col">payment_method</span><span class="attr-type-col">ENUM</span></div>
                     <div class="attr-row"><span class="attr-name-col">transaction_id</span><span class="attr-type-col">VARCHAR(100)</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> verified_by_user_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> verified_by_employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">verified_date</span><span class="attr-type-col">TIMESTAMP NULL</span></div>
                     <div class="attr-row"><span class="attr-name-col">status</span><span class="attr-type-col">ENUM</span></div>
                 </div>
             </div>
@@ -807,7 +810,7 @@
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> matched_lead_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">match_reason</span><span class="attr-type-col">VARCHAR(255)</span></div>
                     <div class="attr-row"><span class="attr-name-col">status</span><span class="attr-type-col">ENUM</span></div>
-                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> reviewed_by_user_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> reviewed_by_employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
                 </div>
             </div>
 
@@ -821,6 +824,59 @@
                     <div class="attr-row"><span class="attr-name-col">key</span><span class="attr-type-col">VARCHAR(100) UK</span></div>
                     <div class="attr-row"><span class="attr-name-col">value</span><span class="attr-type-col">TEXT</span></div>
                     <div class="attr-row"><span class="attr-name-col">updated_at</span><span class="attr-type-col">TIMESTAMP</span></div>
+                </div>
+            </div>
+
+            <div class="entity-card" id="entity-users" style="top: 80px; left: 2420px;" data-table="users">
+                <div class="entity-header header-yellow"><span class="header-icon">▦</span> USERS</div>
+                <div class="entity-body">
+                    <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">phone_number</span><span class="attr-type-col">VARCHAR(25) UK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">password</span><span class="attr-type-col">VARCHAR(255)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">must_change_password</span><span class="attr-type-col">BOOLEAN</span></div>
+                    <div class="attr-row"><span class="attr-name-col">remember_token</span><span class="attr-type-col">VARCHAR(100)</span></div>
+                </div>
+            </div>
+
+            <div class="entity-card" id="entity-employee_details" style="top: 480px; left: 2420px;" data-table="employee_details">
+                <div class="entity-header header-yellow"><span class="header-icon">▦</span> EMPLOYEE_DETAILS</div>
+                <div class="entity-body">
+                    <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> employee_id</span><span class="attr-type-col">BIGINT FK UK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">email</span><span class="attr-type-col">VARCHAR(255)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">emergency_contact_name</span><span class="attr-type-col">VARCHAR(150)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">emergency_contact_number</span><span class="attr-type-col">VARCHAR(25)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">dob</span><span class="attr-type-col">DATE</span></div>
+                    <div class="attr-row"><span class="attr-name-col">nid_number</span><span class="attr-type-col">TEXT encrypted</span></div>
+                    <div class="attr-row"><span class="attr-name-col">blood_group</span><span class="attr-type-col">VARCHAR(10)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">present_address</span><span class="attr-type-col">TEXT</span></div>
+                    <div class="attr-row"><span class="attr-name-col">permanent_address</span><span class="attr-type-col">TEXT</span></div>
+                </div>
+            </div>
+
+            <div class="entity-card" id="entity-employee_change_requests" style="top: 80px; left: 2810px;" data-table="employee_change_requests">
+                <div class="entity-header header-yellow"><span class="header-icon">▦</span> EMPLOYEE_CHANGE_REQUESTS</div>
+                <div class="entity-body">
+                    <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">requested_by_employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">requested_changes</span><span class="attr-type-col">JSON</span></div>
+                    <div class="attr-row"><span class="attr-name-col">reason</span><span class="attr-type-col">TEXT</span></div>
+                    <div class="attr-row"><span class="attr-name-col">status</span><span class="attr-type-col">ENUM</span></div>
+                    <div class="attr-row"><span class="attr-name-col">reviewed_by_employee_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">review_note</span><span class="attr-type-col">TEXT</span></div>
+                    <div class="attr-row"><span class="attr-name-col">reviewed_at</span><span class="attr-type-col">TIMESTAMP</span></div>
+                </div>
+            </div>
+
+            <div class="entity-card" id="entity-shifts" style="top: 480px; left: 2810px;" data-table="shifts">
+                <div class="entity-header header-yellow"><span class="header-icon">▦</span> SHIFTS</div>
+                <div class="entity-body">
+                    <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">shift_start_time</span><span class="attr-type-col">TIME</span></div>
+                    <div class="attr-row"><span class="attr-name-col">shift_end_time</span><span class="attr-type-col">TIME</span></div>
+                    <div class="attr-row"><span class="attr-name-col">working_hours</span><span class="attr-type-col">DECIMAL(5,2)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">is_active</span><span class="attr-type-col">BOOLEAN</span></div>
                 </div>
             </div>
 
@@ -852,12 +908,12 @@
     <!-- Tabular Data Dictionary View -->
     <div id="dictionary-view">
         <div class="dict-container">
-            <h2 style="font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 24px;">Pedago ERP Database Dictionary (v3.1)</h2>
+            <h2 style="font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 24px;">Pedago ERP Database Dictionary (v4.0)</h2>
 
-            <!-- Users Table -->
+            <!-- Employee and account tables -->
             <div class="dict-title-bar">
                 <div class="dict-title"><span>▦</span> USERS</div>
-                <span class="badge-type">Core Table</span>
+                <span class="badge-type">Authentication</span>
             </div>
             <table class="dict-table">
                 <thead>
@@ -865,24 +921,76 @@
                 </thead>
                 <tbody>
                     <tr><td>id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>PK</td><td>Auto</td><td>Primary Key</td></tr>
-                    <tr><td>office_id</td><td>VARCHAR(50)</td><td>NO</td><td>UK</td><td>-</td><td>Employee ID (e.g. EMP-1042)</td></tr>
-                    <tr><td>name</td><td>VARCHAR(150)</td><td>NO</td><td>-</td><td>-</td><td>User Full Legal Name</td></tr>
-                    <tr><td>email</td><td>VARCHAR(150)</td><td>NO</td><td>UK</td><td>-</td><td>Login Email</td></tr>
-                    <tr><td>phone</td><td>VARCHAR(25)</td><td>NO</td><td>UK</td><td>-</td><td>Primary Phone</td></tr>
-                    <tr><td>secondary_contact_number</td><td>VARCHAR(25)</td><td>YES</td><td>-</td><td>NULL</td><td>Alternative Phone</td></tr>
-                    <tr><td>emergency_contact_number</td><td>VARCHAR(25)</td><td>YES</td><td>-</td><td>NULL</td><td>Emergency Contact</td></tr>
-                    <tr><td>dob</td><td>DATE</td><td>YES</td><td>-</td><td>NULL</td><td>Date of Birth</td></tr>
-                    <tr><td>joining_date</td><td>DATE</td><td>NO</td><td>-</td><td>-</td><td>Joining Date</td></tr>
-                    <tr><td>nid_number</td><td>VARCHAR(50)</td><td>YES</td><td>UK</td><td>NULL</td><td>National ID Number</td></tr>
-                    <tr><td>blood_group</td><td>VARCHAR(10)</td><td>YES</td><td>-</td><td>NULL</td><td>Blood Group (A+, B+, etc.)</td></tr>
-                    <tr><td>present_address</td><td>TEXT</td><td>YES</td><td>-</td><td>NULL</td><td>Present Living Address</td></tr>
-                    <tr><td>permanent_address</td><td>TEXT</td><td>YES</td><td>-</td><td>NULL</td><td>Permanent Home Address</td></tr>
-                    <tr><td>role</td><td>ENUM</td><td>NO</td><td>-</td><td>'Sales Executive'</td><td>Admin, Supervisor, Team Leader, Sales Executive, Accounts</td></tr>
-                    <tr><td>created_at</td><td>TIMESTAMP</td><td>NO</td><td>-</td><td>CURRENT_TIMESTAMP</td><td>Creation Time</td></tr>
-                    <tr><td>edited_at</td><td>TIMESTAMP</td><td>YES</td><td>-</td><td>NULL</td><td>Edit Time</td></tr>
-                    <tr><td>edited_by</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK</td><td>NULL</td><td>Admin User ID who edited</td></tr>
+                    <tr><td>phone_number</td><td>VARCHAR(25)</td><td>YES</td><td>UK</td><td>NULL</td><td>Normalized login phone number</td></tr>
+                    <tr><td>password</td><td>VARCHAR(255)</td><td>NO</td><td>-</td><td>-</td><td>One-way password hash</td></tr>
+                    <tr><td>must_change_password</td><td>BOOLEAN</td><td>NO</td><td>-</td><td>TRUE</td><td>Require password change at first login</td></tr>
+                    <tr><td>remember_token</td><td>VARCHAR(100)</td><td>YES</td><td>-</td><td>NULL</td><td>Authentication remember token</td></tr>
                 </tbody>
             </table>
+            <p>To bootstrap the first administrator, set <code>INITIAL_ADMIN_PHONE</code> and a strong <code>INITIAL_ADMIN_PASSWORD</code> in the environment, then run <code>php artisan db:seed</code>. The account must change this password at first login. Remove the bootstrap password from the environment after seeding. The seeder will not promote an existing non-admin account.</p>
+            <p>The employee-table migration preserves employee IDs and normalizes legacy login phone numbers by removing whitespace, parentheses, and hyphens. It stops before changing the schema if a non-null phone number is invalid or if two numbers normalize to the same value; correct the affected employee records and rerun the migration.</p>
+
+            <div class="dict-title-bar">
+                <div class="dict-title"><span>▦</span> EMPLOYEES</div>
+                <span class="badge-type">Employment and permissions</span>
+            </div>
+            <table class="dict-table">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>PK</td><td>Auto</td><td>Employee ID used by business records</td></tr>
+                    <tr><td>user_id</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK, UK</td><td>NULL</td><td>One-to-one login account link</td></tr>
+                    <tr><td>office_id</td><td>VARCHAR(50)</td><td>YES</td><td>UK</td><td>NULL</td><td>Official office ID</td></tr>
+                    <tr><td>name</td><td>VARCHAR(255)</td><td>NO</td><td>-</td><td>-</td><td>Employee name</td></tr>
+                    <tr><td>designation</td><td>VARCHAR(100)</td><td>YES</td><td>-</td><td>NULL</td><td>Job title, separate from system role</td></tr>
+                    <tr><td>joining_date</td><td>DATE</td><td>YES</td><td>-</td><td>NULL</td><td>Employment start date</td></tr>
+                    <tr><td>role</td><td>ENUM</td><td>NO</td><td>-</td><td>'Sales Executive'</td><td>Admin, Supervisor, Team Leader, Sales Executive, Accounts, MarketingExecutive</td></tr>
+                    <tr><td>status</td><td>ENUM</td><td>NO</td><td>-</td><td>'Active'</td><td>Active, Inactive, Suspended</td></tr>
+                    <tr><td>shift_id</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK</td><td>NULL</td><td>Default shift</td></tr>
+                    <tr><td>edited_by</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK</td><td>NULL</td><td>Employee who last edited this record</td></tr>
+                </tbody>
+            </table>
+
+            <div class="dict-title-bar">
+                <div class="dict-title"><span>▦</span> EMPLOYEE_DETAILS</div>
+                <span class="badge-type">Personal profile</span>
+            </div>
+            <table class="dict-table">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>employee_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>FK, UK</td><td>-</td><td>Unique employee profile</td></tr>
+                    <tr><td>email</td><td>VARCHAR(255)</td><td>YES</td><td>UK</td><td>NULL</td><td>Optional personal email</td></tr>
+                    <tr><td>secondary_contact_number</td><td>VARCHAR(25)</td><td>YES</td><td>-</td><td>NULL</td><td>Alternative contact</td></tr>
+                    <tr><td>emergency_contact_name</td><td>VARCHAR(150)</td><td>YES</td><td>-</td><td>NULL</td><td>Emergency contact name</td></tr>
+                    <tr><td>emergency_contact_number</td><td>VARCHAR(25)</td><td>YES</td><td>-</td><td>NULL</td><td>Emergency contact number</td></tr>
+                    <tr><td>dob</td><td>DATE</td><td>YES</td><td>-</td><td>NULL</td><td>Date of birth</td></tr>
+                    <tr><td>nid_number</td><td>TEXT</td><td>YES</td><td>-</td><td>NULL</td><td>Encrypted National ID</td></tr>
+                    <tr><td>blood_group</td><td>VARCHAR(10)</td><td>YES</td><td>-</td><td>NULL</td><td>Blood group</td></tr>
+                    <tr><td>present_address, permanent_address</td><td>TEXT</td><td>YES</td><td>-</td><td>NULL</td><td>Residential addresses</td></tr>
+                </tbody>
+            </table>
+
+            <div class="dict-title-bar">
+                <div class="dict-title"><span>▦</span> EMPLOYEE_CHANGE_REQUESTS</div>
+                <span class="badge-type">Approval audit</span>
+            </div>
+            <table class="dict-table">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>employee_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>FK</td><td>-</td><td>Employee whose record is changing</td></tr>
+                    <tr><td>requested_by_employee_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>FK</td><td>-</td><td>Requesting employee</td></tr>
+                    <tr><td>requested_changes</td><td>JSON</td><td>NO</td><td>-</td><td>-</td><td>Proposed approved-only changes</td></tr>
+                    <tr><td>reason</td><td>TEXT</td><td>YES</td><td>-</td><td>NULL</td><td>Employee's explanation</td></tr>
+                    <tr><td>status</td><td>ENUM</td><td>NO</td><td>INDEX</td><td>'Pending'</td><td>Pending, Approved, Rejected</td></tr>
+                    <tr><td>reviewed_by_employee_id</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK</td><td>NULL</td><td>Higher-role reviewer</td></tr>
+                    <tr><td>review_note, reviewed_at</td><td>TEXT, TIMESTAMP</td><td>YES</td><td>-</td><td>NULL</td><td>Decision note and time</td></tr>
+                </tbody>
+            </table>
+            <p style="color: var(--text-sub); font-size: 13px; line-height: 1.7; margin: 0 0 28px;">
+                Onboarding: Admin creates the account with a temporary password; first login forces a password change and completion of date of birth, emergency contact, blood group, and both addresses. Personal details can be edited directly. Name, office ID, designation, joining date, role, employment status, and login phone require approval by a higher role. Admin edits are immediate. Approval order: Admin &gt; Supervisor &gt; Team Leader &gt; Sales Executive / Accounts / MarketingExecutive; self-approval is not allowed. Accounts and MarketingExecutive share the Sales Executive approval rank.
+            </p>
+            <p style="color: var(--text-sub); font-size: 13px; line-height: 1.7; margin: 0 0 28px;">
+                MarketingExecutive responsibilities in the interim Apps Script include bulk lead import, individual lead entry/reactivation, campaign creation, and associating inquiries with campaign/source/course data for automatic or unassigned-queue routing. Campaign creation and lead import routes are not yet implemented in the Laravel ERP; this role is currently available for employee provisioning only.
+            </p>
 
             <!-- Leads Source Table -->
             <div class="dict-title-bar">
@@ -916,7 +1024,9 @@
                     <tr><td>id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>PK</td><td>Auto</td><td>Primary Key</td></tr>
                     <tr><td>source_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>FK</td><td>-</td><td>References leads_source.source_id</td></tr>
                     <tr><td>student_name</td><td>VARCHAR(150)</td><td>NO</td><td>-</td><td>-</td><td>Student or Customer Name</td></tr>
+                    <tr><td>guardian_name</td><td>VARCHAR(150)</td><td>YES</td><td>-</td><td>NULL</td><td>Parent or guardian name</td></tr>
                     <tr><td>contact_number</td><td>VARCHAR(25)</td><td>NO</td><td>INDEX</td><td>-</td><td>Primary contact phone</td></tr>
+                    <tr><td>whatsapp_number</td><td>VARCHAR(25)</td><td>YES</td><td>-</td><td>NULL</td><td>WhatsApp contact number, when different from the primary number</td></tr>
                     <tr><td>alternative_contact_number</td><td>VARCHAR(25)</td><td>YES</td><td>INDEX</td><td>NULL</td><td>Alternative contact phone</td></tr>
                     <tr><td>email</td><td>VARCHAR(120)</td><td>YES</td><td>-</td><td>NULL</td><td>Contact email</td></tr>
                     <tr><td>age</td><td>INT UNSIGNED</td><td>YES</td><td>-</td><td>NULL</td><td>Student age</td></tr>
@@ -986,25 +1096,30 @@ END;</pre>
     <!-- Scripting for Canvas, Connectors, Drag/Zoom and Highlighting -->
     <script>
         const relationships = [
-            { from: 'entity-users', to: 'entity-user_shifts', label: '1:1' },
-            { from: 'entity-users', to: 'entity-teams', label: '1:1 TL' },
-            { from: 'entity-users', to: 'entity-supervisor_teams', label: '1:N' },
+            { from: 'entity-users', to: 'entity-employees', label: '1:1' },
+            { from: 'entity-employees', to: 'entity-employee_details', label: '1:1' },
+            { from: 'entity-employees', to: 'entity-employee_change_requests', label: '1:N' },
+            { from: 'entity-employees', to: 'entity-employee_rosters', label: '1:N' },
+            { from: 'entity-shifts', to: 'entity-employees', label: '1:N default shift' },
+            { from: 'entity-shifts', to: 'entity-employee_rosters', label: '1:N roster' },
+            { from: 'entity-employees', to: 'entity-teams', label: '1:1 TL' },
+            { from: 'entity-employees', to: 'entity-supervisor_teams', label: '1:N' },
             { from: 'entity-teams', to: 'entity-supervisor_teams', label: '1:N' },
             { from: 'entity-leads_source', to: 'entity-leads', label: '1:N Source' },
             { from: 'entity-teams', to: 'entity-leads', label: '1:N Team' },
-            { from: 'entity-users', to: 'entity-leads', label: '1:N Owner' },
+            { from: 'entity-employees', to: 'entity-leads', label: '1:N Owner' },
             { from: 'entity-courses', to: 'entity-leads', label: '1:N Course' },
-            { from: 'entity-users', to: 'entity-lead_batches', label: '1:N' },
+            { from: 'entity-employees', to: 'entity-lead_batches', label: '1:N' },
             { from: 'entity-lead_batches', to: 'entity-lead_batch_items', label: '1:N' },
             { from: 'entity-leads', to: 'entity-lead_batch_items', label: '1:N' },
             { from: 'entity-leads', to: 'entity-lead_feedbacks', label: '1:N' },
-            { from: 'entity-users', to: 'entity-lead_feedbacks', label: '1:N' },
+            { from: 'entity-employees', to: 'entity-lead_feedbacks', label: '1:N' },
             { from: 'entity-leads', to: 'entity-lead_followups', label: '1:N' },
-            { from: 'entity-users', to: 'entity-lead_followups', label: '1:N' },
+            { from: 'entity-employees', to: 'entity-lead_followups', label: '1:N' },
             { from: 'entity-leads', to: 'entity-lead_transfers', label: '1:N' },
             { from: 'entity-leads', to: 'entity-enrollments', label: '1:1' },
             { from: 'entity-courses', to: 'entity-enrollments', label: '1:N' },
-            { from: 'entity-users', to: 'entity-enrollments', label: '1:N Sales' },
+            { from: 'entity-employees', to: 'entity-enrollments', label: '1:N Sales' },
             { from: 'entity-enrollments', to: 'entity-installment_schedules', label: '1:N' },
             { from: 'entity-enrollments', to: 'entity-payments', label: '1:N' },
             { from: 'entity-installment_schedules', to: 'entity-payments', label: '1:N' },

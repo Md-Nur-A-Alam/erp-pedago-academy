@@ -375,7 +375,9 @@ CREATE TABLE `leads` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `lead_code` VARCHAR(50) UNIQUE NOT NULL,
     `customer_name` VARCHAR(150) NOT NULL,
+    `guardian_name` VARCHAR(150) NULL,
     `primary_phone` VARCHAR(25) NOT NULL,
+    `whatsapp_number` VARCHAR(25) NULL,
     `alternate_phone` VARCHAR(25) NULL,
     `email` VARCHAR(120) NULL,
     `location` VARCHAR(150) NULL,
@@ -393,6 +395,20 @@ CREATE TABLE `leads` (
     `updated_at` TIMESTAMP NULL,
     INDEX `idx_phones` (`primary_phone`, `alternate_phone`),
     INDEX `idx_status_owner` (`status`, `current_owner_id`)
+);
+
+-- Lead Actions & Feedbacks (Immutable History)
+CREATE TABLE `lead_feedbacks` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `lead_id` BIGINT UNSIGNED NOT NULL,
+    `user_id` BIGINT UNSIGNED NOT NULL,
+    `call_status` VARCHAR(50) NOT NULL,
+    `customer_interest` VARCHAR(50) NOT NULL,
+    `customer_concern` TEXT NULL,
+    `sales_note` TEXT NOT NULL,
+    `next_action` VARCHAR(50) NOT NULL,
+    `action_date` TIMESTAMP NULL,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 -- 7. Batches Table
@@ -509,7 +525,8 @@ CREATE TABLE `payments` (
     `verified_by_user_id` BIGINT UNSIGNED NULL,
     `status` ENUM('Pending', 'Verified', 'Rejected') DEFAULT 'Pending',
     `rejection_reason` TEXT NULL,
-    `verified_at` TIMESTAMP NULL,
+    `payment_date` TIMESTAMP NULL,
+    `verified_date` TIMESTAMP NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     `updated_at` TIMESTAMP NULL
 );

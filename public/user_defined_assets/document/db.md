@@ -1,9 +1,9 @@
 # Pedago Academy ERP — Database ER Diagram & Data Dictionary
 
 **Database Target:** MySQL 8.x (`pedago_erp_db`)  
-**Context:** Sales Lead Distribution & Management Module (v-03)  
+**Context:** Pedago Academy ERP employee onboarding and sales management
 **Encoding:** `utf8mb4_unicode_ci`  
-**Date:** October 2026 (Updated with Extended HR & Lead Source Specifications)  
+**Date:** November 2026 (Updated with phone login, employee profiles, and approval workflow)
 
 ---
 
@@ -11,97 +11,135 @@
 
 ```mermaid
 erDiagram
-    USERS ||--o{ TEAMS : "leads (1:1 optional)"
-    USERS ||--o{ SUPERVISOR_TEAMS : "supervises (1:N)"
+    USERS ||--|| EMPLOYEES : "has_employee_record (1:1)"
+    EMPLOYEES ||--|| EMPLOYEE_DETAILS : "has_profile (1:1)"
+    EMPLOYEES ||--o{ EMPLOYEE_CHANGE_REQUESTS : "requests_changes (1:N)"
+    EMPLOYEES ||--o{ TEAMS : "leads (1:1 optional)"
+    EMPLOYEES ||--o{ SUPERVISOR_TEAMS : "supervises (1:N)"
     TEAMS ||--o{ SUPERVISOR_TEAMS : "supervised_by (1:N)"
-    USERS ||--|| USER_SHIFTS : "has_roster (1:1)"
+    EMPLOYEES ||--o{ EMPLOYEE_ROSTERS : "has_roster (1:N)"
     
     LEADS_SOURCE ||--o{ LEADS : "originates_from (1:N)"
     TEAMS ||--o{ LEADS : "assigned_to_team (1:N)"
-    USERS ||--o{ LEADS : "owns_currently (1:N)"
+    EMPLOYEES ||--o{ LEADS : "owns_currently (1:N)"
     COURSES ||--o{ LEADS : "interested_in (1:N)"
     
-    USERS ||--o{ LEAD_BATCHES : "receives_batch (1:N)"
+    EMPLOYEES ||--o{ LEAD_BATCHES : "receives_batch (1:N)"
     LEAD_BATCHES ||--o{ LEAD_BATCH_ITEMS : "contains_items (1:N)"
     LEADS ||--o{ LEAD_BATCH_ITEMS : "batched_in (1:N)"
     
     LEADS ||--o{ LEAD_FEEDBACKS : "has_activity_history (1:N)"
-    USERS ||--o{ LEAD_FEEDBACKS : "logged_by (1:N)"
+    EMPLOYEES ||--o{ LEAD_FEEDBACKS : "logged_by (1:N)"
     
     LEADS ||--o{ LEAD_FOLLOWUPS : "scheduled_followups (1:N)"
-    USERS ||--o{ LEAD_FOLLOWUPS : "assigned_to (1:N)"
+    EMPLOYEES ||--o{ LEAD_FOLLOWUPS : "assigned_to (1:N)"
     
     LEADS ||--o{ LEAD_TRANSFERS : "transferred_record (1:N)"
-    USERS ||--o{ LEAD_TRANSFERS : "from_user (1:N)"
-    USERS ||--o{ LEAD_TRANSFERS : "to_user (1:N)"
+    EMPLOYEES ||--o{ LEAD_TRANSFERS : "from_employee (1:N)"
+    EMPLOYEES ||--o{ LEAD_TRANSFERS : "to_employee (1:N)"
     TEAMS ||--o{ LEAD_TRANSFERS : "from_team (1:N)"
     TEAMS ||--o{ LEAD_TRANSFERS : "to_team (1:N)"
-    USERS ||--o{ LEAD_TRANSFERS : "sender_tl_approved (1:N)"
-    USERS ||--o{ LEAD_TRANSFERS : "receiver_tl_approved (1:N)"
+    EMPLOYEES ||--o{ LEAD_TRANSFERS : "sender_tl_approved (1:N)"
+    EMPLOYEES ||--o{ LEAD_TRANSFERS : "receiver_tl_approved (1:N)"
     
     LEADS ||--|| ENROLLMENTS : "converts_to (1:1)"
     COURSES ||--o{ ENROLLMENTS : "enrolled_course (1:N)"
-    USERS ||--o{ ENROLLMENTS : "converted_by (1:N)"
+    EMPLOYEES ||--o{ ENROLLMENTS : "converted_by (1:N)"
     
     ENROLLMENTS ||--o{ INSTALLMENT_SCHEDULES : "has_installments (1:N)"
     
     ENROLLMENTS ||--o{ PAYMENTS : "has_payments (1:N)"
     INSTALLMENT_SCHEDULES ||--o{ PAYMENTS : "pays_installment (1:N optional)"
-    USERS ||--o{ PAYMENTS : "verified_by_accounts (1:N)"
+    EMPLOYEES ||--o{ PAYMENTS : "verified_by_accounts (1:N)"
     
     LEADS ||--o{ DUPLICATE_LEAD_REVIEWS : "matches_lead (1:N)"
-    USERS ||--o{ DUPLICATE_LEAD_REVIEWS : "reviewed_by (1:N)"
+    EMPLOYEES ||--o{ DUPLICATE_LEAD_REVIEWS : "reviewed_by (1:N)"
 
     USERS {
         BIGINT id PK "auto_increment"
-        VARCHAR office_id UK "50, unique, not null"
-        VARCHAR name "150, not null"
-        VARCHAR email UK "150, unique, not null"
-        VARCHAR phone UK "25, unique, not null"
+        VARCHAR phone_number UK "25, unique, nullable for legacy accounts"
+        VARCHAR password "hashed, not null"
+        BOOLEAN must_change_password "default true"
+        VARCHAR remember_token "100, null"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    EMPLOYEES {
+        BIGINT id PK "auto_increment"
+        BIGINT user_id FK UK "users.id, nullable, unique"
+        VARCHAR office_id UK "50, unique, nullable for legacy records"
+        VARCHAR name "255, not null"
+        VARCHAR designation "100, null"
+        DATE joining_date "null"
+        ENUM role "Admin, Supervisor, Team Leader, Sales Executive, Accounts, MarketingExecutive"
+        ENUM status "Active, Inactive, Suspended"
+        BIGINT shift_id FK "shifts.id, null"
+        TIMESTAMP created_at
+        TIMESTAMP edited_at "null"
+        BIGINT edited_by FK "employees.id, null"
+    }
+
+    EMPLOYEE_DETAILS {
+        BIGINT id PK "auto_increment"
+        BIGINT employee_id FK UK "employees.id, unique"
+        VARCHAR email UK "optional personal email"
         VARCHAR secondary_contact_number "25, null"
+        VARCHAR emergency_contact_name "150, null"
         VARCHAR emergency_contact_number "25, null"
         DATE dob "null"
-        DATE joining_date "not null"
-        VARCHAR nid_number UK "50, unique, null"
+        TEXT nid_number "encrypted at application level, null"
         VARCHAR blood_group "10, null"
         TEXT present_address "null"
         TEXT permanent_address "null"
-        ENUM role "Admin, Supervisor, Team Leader, Sales Executive, Accounts"
-        ENUM status "Active, Inactive, Suspended"
         TIMESTAMP created_at
-        TIMESTAMP edited_at "null"
-        BIGINT edited_by FK "users.id, null"
+        TIMESTAMP updated_at
+    }
+
+    EMPLOYEE_CHANGE_REQUESTS {
+        BIGINT id PK "auto_increment"
+        BIGINT employee_id FK "employees.id, not null"
+        BIGINT requested_by_employee_id FK "employees.id, not null"
+        JSON requested_changes "essential fields awaiting approval"
+        TEXT reason "null"
+        ENUM status "Pending, Approved, Rejected"
+        BIGINT reviewed_by_employee_id FK "employees.id, null"
+        TEXT review_note "null"
+        TIMESTAMP reviewed_at "null"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
     }
 
     TEAMS {
         BIGINT id PK "auto_increment"
         VARCHAR name "100, not null"
-        BIGINT team_leader_id FK "users.id, null"
+        BIGINT team_leader_id FK "employees.id, null"
         BOOLEAN is_active "default true"
         TIMESTAMP created_at
         TIMESTAMP edited_at "null"
-        BIGINT edited_by FK "users.id, null"
+        BIGINT edited_by FK "employees.id, null"
     }
 
     SUPERVISOR_TEAMS {
         BIGINT id PK "auto_increment"
-        BIGINT supervisor_id FK "users.id, not null"
+        BIGINT supervisor_id FK "employees.id, not null"
         BIGINT team_id FK "teams.id, not null"
         TIMESTAMP created_at
         TIMESTAMP edited_at "null"
-        BIGINT edited_by FK "users.id, null"
+        BIGINT edited_by FK "employees.id, null"
     }
 
-    USER_SHIFTS {
+    EMPLOYEE_ROSTERS {
         BIGINT id PK "auto_increment"
-        BIGINT user_id FK "users.id, unique, not null"
-        TIME shift_start_time "default '10:00:00'"
-        TIME shift_end_time "default '18:00:00'"
-        BOOLEAN is_on_duty_today "default true"
+        BIGINT employee_id FK "employees.id, not null"
+        BIGINT shift_id FK "shifts.id, not null"
+        DATE roster_date "not null"
+        BOOLEAN is_on_duty "default false"
         ENUM availability_status "Available, Busy, Unavailable, Off Duty, Lazy, Resigned"
         TIMESTAMP last_active_at "null"
         TIMESTAMP created_at
         TIMESTAMP updated_at
+        UNIQUE employee_roster_date "employee_id, roster_date"
     }
 
     COURSES {
@@ -117,7 +155,7 @@ erDiagram
         BOOLEAN is_active "default true"
         TIMESTAMP created_at
         TIMESTAMP edited_at "null"
-        BIGINT edited_by FK "users.id, null"
+        BIGINT edited_by FK "employees.id, null"
     }
 
     LEADS_SOURCE {
@@ -126,30 +164,32 @@ erDiagram
         VARCHAR campaign_name "150, null"
         TIMESTAMP created_at
         TIMESTAMP edited_at "null"
-        BIGINT edited_by FK "users.id, null"
+        BIGINT edited_by FK "employees.id, null"
     }
 
     LEADS {
         BIGINT id PK "auto_increment"
         BIGINT source_id FK "leads_source.source_id, not null"
         VARCHAR student_name "150, not null"
+        VARCHAR guardian_name "150, null"
         VARCHAR contact_number "25, not null, index"
+        VARCHAR whatsapp_number "25, null"
         VARCHAR alternative_contact_number "25, null, index"
         VARCHAR email "120, null"
         INT age "null"
         VARCHAR class "50, null"
         BIGINT interested_course_id FK "courses.id, null"
         ENUM status "New, Assigned, Contacted, Follow-up, Interested, Enrolled - Pending Payment, Payment Under Review, Converted, Not Interested, Unreachable, Lost"
-        BIGINT current_owner_id FK "users.id, null"
+        BIGINT current_owner_id FK "employees.id, null"
         BIGINT team_id FK "teams.id, null"
         TIMESTAMP created_at
         TIMESTAMP edited_at "null"
-        BIGINT edited_by FK "users.id, null"
+        BIGINT edited_by FK "employees.id, null"
     }
 
     LEAD_BATCHES {
         BIGINT id PK "auto_increment"
-        BIGINT user_id FK "users.id, not null"
+        BIGINT employee_id FK "employees.id, not null"
         INT batch_size "default 3, not null"
         ENUM status "Active, Completed"
         TIMESTAMP assigned_at
@@ -168,19 +208,20 @@ erDiagram
     LEAD_FEEDBACKS {
         BIGINT id PK "auto_increment"
         BIGINT lead_id FK "leads.id, not null"
-        BIGINT user_id FK "users.id, not null"
+        BIGINT employee_id FK "employees.id, not null"
         VARCHAR call_status "50, not null"
         VARCHAR customer_interest "50, not null"
         TEXT customer_concern "null"
         TEXT sales_note "not null"
         VARCHAR next_action "50, not null"
+        TIMESTAMP action_date "null"
         TIMESTAMP created_at
     }
 
     LEAD_FOLLOWUPS {
         BIGINT id PK "auto_increment"
         BIGINT lead_id FK "leads.id, not null"
-        BIGINT user_id FK "users.id, not null"
+        BIGINT employee_id FK "employees.id, not null"
         DATETIME followup_date_time "not null, index"
         TEXT note "null"
         BOOLEAN is_done "default false"
@@ -192,14 +233,14 @@ erDiagram
     LEAD_TRANSFERS {
         BIGINT id PK "auto_increment"
         BIGINT lead_id FK "leads.id, not null"
-        BIGINT from_user_id FK "users.id, not null"
-        BIGINT to_user_id FK "users.id, not null"
+        BIGINT from_employee_id FK "employees.id, not null"
+        BIGINT to_employee_id FK "employees.id, not null"
         BIGINT from_team_id FK "teams.id, not null"
         BIGINT to_team_id FK "teams.id, not null"
         TEXT reason "not null"
-        BIGINT sender_tl_user_id FK "users.id, null"
+        BIGINT sender_tl_employee_id FK "employees.id, null"
         TIMESTAMP sender_tl_approved_at "null"
-        BIGINT receiver_tl_user_id FK "users.id, null"
+        BIGINT receiver_tl_employee_id FK "employees.id, null"
         TIMESTAMP receiver_tl_approved_at "null"
         BOOLEAN is_auto_transferred "default false"
         BOOLEAN is_admin_override "default false"
@@ -213,7 +254,7 @@ erDiagram
         BIGINT id PK "auto_increment"
         BIGINT lead_id FK "leads.id, unique, not null"
         BIGINT course_id FK "courses.id, not null"
-        BIGINT sales_executive_id FK "users.id, not null"
+        BIGINT sales_executive_id FK "employees.id, not null"
         VARCHAR secure_uuid UK "64, unique, not null"
         VARCHAR student_name "150, not null"
         VARCHAR student_phone "25, not null"
@@ -247,13 +288,14 @@ erDiagram
         BIGINT enrollment_id FK "enrollments.id, not null"
         BIGINT installment_schedule_id FK "installment_schedules.id, null"
         DECIMAL amount "10,2, not null"
+        TIMESTAMP payment_date "null"
         ENUM payment_method "bKash, SSLCommerz, Manual Bank, Manual MFS"
         VARCHAR transaction_id "100, null"
         VARCHAR slip_screenshot_path "255, null"
-        BIGINT verified_by_user_id FK "users.id, null"
+        BIGINT verified_by_employee_id FK "employees.id, null"
         ENUM status "Pending, Verified, Rejected"
         TEXT rejection_reason "null"
-        TIMESTAMP verified_at "null"
+        TIMESTAMP verified_date "null"
         TIMESTAMP created_at
         TIMESTAMP updated_at
     }
@@ -264,7 +306,7 @@ erDiagram
         BIGINT matched_lead_id FK "leads.id, not null"
         VARCHAR match_reason "255, not null"
         ENUM status "Pending Review, Approved New, Merged, Discarded"
-        BIGINT reviewed_by_user_id FK "users.id, null"
+        BIGINT reviewed_by_employee_id FK "employees.id, null"
         TIMESTAMP reviewed_at "null"
         TIMESTAMP created_at
     }
@@ -283,30 +325,81 @@ erDiagram
 ## 2. Comprehensive Entity Data Dictionary
 
 ### 2.1 Entity Set: `USERS`
-Complete personnel records including HR, identification, contacts, roles, and audit trail.
+Authentication credentials only. A user can sign in with a unique phone number and password.
 
 | Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
 | :--- | :--- | :---: | :---: | :---: | :--- |
-| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Unique User ID |
-| `office_id` | `VARCHAR(50)` | NO | **UK** | None | Official Employee ID (e.g. `EMP-1042`) |
-| `name` | `VARCHAR(150)` | NO | None | None | Full legal employee name |
-| `email` | `VARCHAR(150)` | NO | **UK** | None | Primary institutional login email |
-| `password` | `VARCHAR(255)` | NO | None | None | Hashed bcrypt password string |
-| `phone` | `VARCHAR(25)` | NO | **UK** | None | Official primary contact mobile number |
-| `secondary_contact_number` | `VARCHAR(25)` | YES | None | NULL | Alternative phone number |
-| `emergency_contact_number` | `VARCHAR(25)` | YES | None | NULL | Emergency contact person phone |
-| `dob` | `DATE` | YES | None | NULL | Date of Birth |
-| `joining_date` | `DATE` | NO | None | None | Official date of joining the organization |
-| `nid_number` | `VARCHAR(50)` | YES | **UK** | NULL | National Identity Card (NID) Number |
-| `blood_group` | `VARCHAR(10)` | YES | None | NULL | Blood Group (e.g. `A+`, `B+`, `O+`, `AB+`) |
-| `present_address` | `TEXT` | YES | None | NULL | Current living address details |
-| `permanent_address` | `TEXT` | YES | None | NULL | Permanent registered address details |
-| `role` | `ENUM` | NO | None | `'Sales Executive'` | Values: `'Admin'`, `'Supervisor'`, `'Team Leader'`, `'Sales Executive'`, `'Accounts'` |
-| `status` | `ENUM` | NO | None | `'Active'` | Values: `'Active'`, `'Inactive'`, `'Suspended'` |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Login account ID |
+| `phone_number` | `VARCHAR(25)` | YES | **UK** | NULL for legacy rows | Normalized login phone number |
+| `password` | `VARCHAR(255)` | NO | None | None | One-way password hash |
+| `must_change_password` | `BOOLEAN` | NO | None | `TRUE` | Force temporary password change on first sign-in |
 | `remember_token` | `VARCHAR(100)` | YES | None | NULL | Authentication remember token |
-| `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Account creation timestamp |
-| `edited_at` | `TIMESTAMP` | YES | None | NULL | Last modification timestamp |
-| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | Admin who last updated this profile |
+| `created_at` | `TIMESTAMP` | YES | None | None | Account creation timestamp |
+| `updated_at` | `TIMESTAMP` | YES | None | None | Last account update timestamp |
+
+To bootstrap the first administrator, set `INITIAL_ADMIN_PHONE` and a strong `INITIAL_ADMIN_PASSWORD` in the environment, optionally set the `INITIAL_ADMIN_*` employee fields, and run `php artisan db:seed`. The account must change this password at first login. Remove the bootstrap password from the environment after seeding. The seeder will not promote an existing non-admin account.
+
+The employee-table migration preserves employee IDs and normalizes legacy login phone numbers by removing whitespace, parentheses, and hyphens. It stops before changing the schema if a non-null phone number is invalid or if two numbers normalize to the same value; correct the affected employee records and rerun the migration.
+
+### 2.1.1 Entity Set: `EMPLOYEES`
+Employment and permissions record. Existing lead, team, and roster records continue to reference this table.
+
+| Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Employee ID used by business records |
+| `user_id` | `BIGINT UNSIGNED` | YES | **FK, UK** $\rightarrow$ `users.id` | NULL | Login account; unique one-to-one link |
+| `office_id` | `VARCHAR(50)` | YES | **UK** | NULL for legacy rows | Official office employee ID |
+| `name` | `VARCHAR(255)` | NO | None | None | Employee name |
+| `designation` | `VARCHAR(100)` | YES | None | NULL | Job title; distinct from system role |
+| `joining_date` | `DATE` | YES | None | NULL for legacy rows | Official joining date |
+| `role` | `ENUM` | NO | None | `'Sales Executive'` | `Admin`, `Supervisor`, `Team Leader`, `Sales Executive`, `Accounts`, `MarketingExecutive` |
+| `status` | `ENUM` | NO | None | `'Active'` | `Active`, `Inactive`, `Suspended` |
+| `shift_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `shifts.id` | NULL | Default shift |
+| `created_at` | `TIMESTAMP` | YES | None | None | Employee record creation time |
+| `edited_at` | `TIMESTAMP` | YES | None | NULL | Last employment record update |
+| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Employee who last edited the record |
+
+### 2.1.2 Entity Set: `EMPLOYEE_DETAILS`
+Personal profile data. The NID value is application-encrypted; it is not searchable or unique-indexed.
+
+| Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Profile row ID |
+| `employee_id` | `BIGINT UNSIGNED` | NO | **FK, UK** $\rightarrow$ `employees.id` | None | Unique employee profile |
+| `email` | `VARCHAR(255)` | YES | **UK** | NULL | Optional personal email |
+| `secondary_contact_number` | `VARCHAR(25)` | YES | None | NULL | Alternative contact number |
+| `emergency_contact_name` | `VARCHAR(150)` | YES | None | NULL | Emergency contact name |
+| `emergency_contact_number` | `VARCHAR(25)` | YES | None | NULL | Emergency contact phone |
+| `dob` | `DATE` | YES | None | NULL | Date of birth |
+| `nid_number` | `TEXT` | YES | None | NULL | Encrypted National ID |
+| `blood_group` | `VARCHAR(10)` | YES | None | NULL | Blood group |
+| `present_address` | `TEXT` | YES | None | NULL | Present address |
+| `permanent_address` | `TEXT` | YES | None | NULL | Permanent address |
+| `created_at`, `updated_at` | `TIMESTAMP` | YES | None | None | Profile timestamps |
+
+Onboarding is complete when `dob`, `emergency_contact_name`, `emergency_contact_number`, `blood_group`, `present_address`, and `permanent_address` are populated. Email, secondary contact, and NID are optional.
+
+**Onboarding sequence:** An Admin creates the user and essential employee record with a temporary password. The first successful login forces a password change, then requires completion of the profile fields above before the dashboard is available. Employees may directly update personal details. Changes to name, office ID, designation, joining date, role, employment status, or login phone remain pending until an authorized higher role approves them. Admin edits to any employee's essential information take effect directly and supersede that employee's pending requests.
+
+### 2.1.3 Entity Set: `EMPLOYEE_CHANGE_REQUESTS`
+Audit record for employee-requested changes to essential employment and account data.
+
+| Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Change request ID |
+| `employee_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `employees.id` | None | Employee whose record is changing |
+| `requested_by_employee_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `employees.id` | None | Requesting employee |
+| `requested_changes` | `JSON` | NO | None | None | Proposed name, office ID, designation, joining date, role, status, and/or login phone |
+| `reason` | `TEXT` | YES | None | NULL | Employee-provided reason |
+| `status` | `ENUM` | NO | **INDEX** | `'Pending'` | `Pending`, `Approved`, `Rejected` |
+| `reviewed_by_employee_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Higher-role reviewer |
+| `review_note` | `TEXT` | YES | None | NULL | Reviewer note |
+| `reviewed_at` | `TIMESTAMP` | YES | None | NULL | Decision timestamp |
+| `created_at`, `updated_at` | `TIMESTAMP` | YES | None | None | Request timestamps |
+
+**Approval policy:** `Admin > Supervisor > Team Leader > Sales Executive / Accounts / MarketingExecutive`. Any employee whose role is above the requester may approve or reject; self-approval is forbidden. Admin edits take effect directly. Accounts and MarketingExecutive share the Sales Executive approval rank.
+
+**MarketingExecutive responsibilities from the interim Apps Script:** import leads in bulk; add or reactivate individual leads; create campaigns and associate lead submissions with campaign/source/course data; and route new leads through automatic distribution or the unassigned queue. The current Laravel ERP has no campaign-creation or lead-import routes yet; adding this role makes it assignable, but does not grant those not-yet-built capabilities.
 
 ---
 
@@ -317,11 +410,11 @@ Operational sales squads assigned to a specific Team Leader.
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Unique Team ID |
 | `name` | `VARCHAR(100)` | NO | None | None | Team designation (e.g. "Alpha", "Titan") |
-| `team_leader_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | Current assigned Team Leader |
+| `team_leader_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Current assigned Team Leader |
 | `is_active` | `BOOLEAN` | NO | None | `TRUE` | Whether team receives lead batches |
 | `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Team creation timestamp |
 | `edited_at` | `TIMESTAMP` | YES | None | NULL | Last modification timestamp |
-| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | Admin who modified team attributes |
+| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Admin who modified team attributes |
 
 ---
 
@@ -331,11 +424,11 @@ Junction table mapping the **One-to-Many (1:N)** supervision structure from a Su
 | Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Unique Mapping ID |
-| `supervisor_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `users.id` | None | User ID with role `'Supervisor'` |
+| `supervisor_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `employees.id` | None | User ID with role `'Supervisor'` |
 | `team_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `teams.id` | None | Team supervised by this supervisor |
 | `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Timestamp when team was assigned |
 | `edited_at` | `TIMESTAMP` | YES | None | NULL | Last modification timestamp |
-| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | Admin who changed supervision mapping |
+| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Admin who changed supervision mapping |
 
 > **Table Constraints:** `UNIQUE KEY unique_supervisor_team (supervisor_id, team_id)`
 
@@ -358,7 +451,7 @@ EdTech course catalog, curriculum specifications, and admission criteria.
 | `is_active` | `BOOLEAN` | NO | None | `TRUE` | Whether currently enrolling |
 | `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Creation timestamp |
 | `edited_at` | `TIMESTAMP` | YES | None | NULL | Last modification timestamp |
-| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | User who modified course details |
+| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | User who modified course details |
 
 ---
 
@@ -368,11 +461,14 @@ Marketing and acquisition channels originating student leads.
 | Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | `source_id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Unique Lead Source ID |
-| `channel` | `ENUM` | NO | None | `'website'` | Values: `'fb'`, `'wp'`, `'googleads'`, `'gptads'`, `'googleform'`, `'reference'`, `'website'` |
+| `channel` | `ENUM` | NO | None | None | Values: `'fb'`, `'wp'`, `'googleads'`, `'gptads'`, `'googleform'`, `'reference'`, `'website'`, `'phone'`, `'event'`, `'manual'`, `'other'` |
 | `campaign_name` | `VARCHAR(150)` | YES | None | NULL | Ad Campaign / Adset / Event Title |
+| `distribution_mode` | `ENUM` | NO | None | `'Auto'` | Campaign lead distribution mode: `'Auto'` or `'Manual'` |
+| `is_active` | `BOOLEAN` | NO | None | `TRUE` | Whether the campaign is active |
 | `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Source creation timestamp |
+| `created_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Employee who created the campaign |
 | `edited_at` | `TIMESTAMP` | YES | None | NULL | Modification timestamp |
-| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | User who configured this channel |
+| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Employee who last edited the campaign |
 
 ---
 
@@ -384,18 +480,20 @@ Central repository for customer inquiries, demographic context, and active owner
 | `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Unique Lead ID |
 | `source_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `leads_source.source_id` | None | Originating acquisition source channel |
 | `student_name` | `VARCHAR(150)` | NO | None | None | Student / Inquirer full name |
+| `guardian_name` | `VARCHAR(150)` | YES | None | NULL | Parent or guardian name |
 | `contact_number` | `VARCHAR(25)` | NO | **INDEX** | None | Primary mobile phone number |
+| `whatsapp_number` | `VARCHAR(25)` | YES | None | NULL | WhatsApp contact number, when different from the primary number |
 | `alternative_contact_number`| `VARCHAR(25)` | YES | **INDEX** | NULL | Secondary / Guardian contact number |
 | `email` | `VARCHAR(120)` | YES | None | NULL | Inquirer email address |
 | `age` | `INT UNSIGNED` | YES | None | NULL | Age of the student |
 | `class` | `VARCHAR(50)` | YES | None | NULL | Academic grade / Educational background |
 | `interested_course_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `courses.id` | NULL | Course inquired about |
 | `status` | `ENUM` | NO | **INDEX** | `'New'` | Values: `'New'`, `'Assigned'`, `'Contacted'`, `'Follow-up'`, `'Interested'`, `'Enrolled - Pending Payment'`, `'Payment Under Review'`, `'Converted'`, `'Not Interested'`, `'Unreachable'`, `'Lost'` |
-| `current_owner_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id`, **INDEX** | NULL | Sales Executive actively working this lead |
+| `current_owner_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id`, **INDEX** | NULL | Sales Executive actively working this lead |
 | `team_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `teams.id` | NULL | Team currently owning this lead |
 | `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Lead ingestion timestamp |
 | `edited_at` | `TIMESTAMP` | YES | None | NULL | Last modification timestamp |
-| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | User who updated lead details |
+| `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | User who updated lead details |
 
 ---
 
@@ -406,14 +504,14 @@ Dual-approval cross-team transfer requests with Admin override and 7-day fallbac
 | :--- | :--- | :---: | :---: | :---: | :--- |
 | `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Transfer ID |
 | `lead_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `leads.id` | None | Lead to be transferred |
-| `from_user_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `users.id` | None | Current Owner (Sender) |
-| `to_user_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `users.id` | None | Target Owner (Receiver) |
+| `from_employee_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `employees.id` | None | Current Owner (Sender) |
+| `to_employee_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `employees.id` | None | Target Owner (Receiver) |
 | `from_team_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `teams.id` | None | Source Team |
 | `to_team_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `teams.id` | None | Target Team |
 | `reason` | `TEXT` | NO | None | None | Mandatory explanation for transfer |
-| `sender_tl_user_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | Sender's Team Leader User ID |
+| `sender_tl_employee_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Sender's Team Leader User ID |
 | `sender_tl_approved_at`| `TIMESTAMP` | YES | None | NULL | Sender TL approval timestamp |
-| `receiver_tl_user_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `users.id` | NULL | Receiver's Team Leader User ID |
+| `receiver_tl_employee_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | Receiver's Team Leader User ID |
 | `receiver_tl_approved_at`| `TIMESTAMP` | YES | None | NULL | Receiver TL approval timestamp |
 | `is_auto_transferred` | `BOOLEAN` | NO | None | `FALSE` | TRUE if executed by 7-day auto-cron |
 | `is_admin_override` | `BOOLEAN` | NO | None | `FALSE` | **TRUE if initiated by Admin (Instant bypass)** |
@@ -426,20 +524,19 @@ Dual-approval cross-team transfer requests with Admin override and 7-day fallbac
 
 ---
 
-### 2.8 Entity Set: `USER_SHIFTS`
+### 2.8 Entity Set: `EMPLOYEE_ROSTERS`
 Dynamic working schedules, roster duty status, and live availability state machine.
 
 | Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
 | :--- | :--- | :---: | :---: | :---: | :--- |
-| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Unique Shift ID |
-| `user_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `users.id`, **UK** | None | Exactly one roster entry per employee |
-| `shift_start_time` | `TIME` | NO | None | `'10:00:00'` | Scheduled shift start |
-| `shift_end_time` | `TIME` | NO | None | `'18:00:00'` | Scheduled shift end |
-| `is_on_duty_today` | `BOOLEAN` | NO | None | `TRUE` | Whether scheduled for duty today |
-| `availability_status` | `ENUM` | NO | None | `'Off Duty'` | Values: `'Available'`, `'Busy'`, `'Unavailable'`, `'Off Duty'`, `'Lazy'`, `'Resigned'` |
-| `last_active_at` | `TIMESTAMP` | YES | None | NULL | Heartbeat timestamp for idle tracking |
-| `created_at` | `TIMESTAMP` | YES | None | NULL | Record created timestamp |
-| `updated_at` | `TIMESTAMP` | YES | None | NULL | Record updated timestamp |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Roster row ID |
+| `employee_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `employees.id` | None | Employee on this roster date |
+| `shift_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `shifts.id` | None | Assigned shift |
+| `roster_date` | `DATE` | NO | **UK** with `employee_id` | None | Scheduled date |
+| `is_on_duty` | `BOOLEAN` | NO | None | `FALSE` | Whether employee is on duty |
+| `availability_status` | `ENUM` | NO | None | `'Off Duty'` | `Available`, `Busy`, `Unavailable`, `Off Duty`, `Lazy`, `Resigned` |
+| `last_active_at` | `TIMESTAMP` | YES | None | NULL | Last activity timestamp |
+| `created_at`, `updated_at` | `TIMESTAMP` | YES | None | None | Roster timestamps |
 
 ---
 
@@ -449,7 +546,7 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | Entity | Attribute Name | Data Type | Key / Constraint | Description |
 | :--- | :--- | :--- | :---: | :--- |
 | `LEAD_BATCHES` | `id` | `BIGINT UNSIGNED` | **PK** | Batch ID |
-| | `user_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `users.id` | Recipient Sales Executive |
+| | `employee_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `employees.id` | Recipient Sales Executive |
 | | `batch_size` | `INT UNSIGNED` | `default 3` | Assigned batch size ($n$) |
 | | `status` | `ENUM` | `'Active'`, `'Completed'` | Active batch state |
 | | `assigned_at` | `TIMESTAMP` | Default Now | Batch assignment time |
@@ -469,16 +566,17 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | :--- | :--- | :--- | :---: | :--- |
 | `LEAD_FEEDBACKS` | `id` | `BIGINT UNSIGNED` | **PK** | Feedback Log ID |
 | | `lead_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `leads.id` | Inquired Lead |
-| | `user_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `users.id` | Executive submitting feedback |
+| | `employee_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `employees.id` | Executive submitting feedback |
 | | `call_status` | `VARCHAR(50)` | NOT NULL | Connected, Busy, WA, etc. |
 | | `customer_interest` | `VARCHAR(50)` | NOT NULL | Highly Interested, etc. |
 | | `customer_concern` | `TEXT` | NULL | Objection / Questions |
 | | `sales_note` | `TEXT` | NOT NULL | Detailed notes |
 | | `next_action` | `VARCHAR(50)` | NOT NULL | Follow-up, Converted, etc. |
+| | `action_date` | `TIMESTAMP` | NULL | Date and time the lead action occurred |
 | | `created_at` | `TIMESTAMP` | Immutable | Activity timestamp |
 | `LEAD_FOLLOWUPS` | `id` | `BIGINT UNSIGNED` | **PK** | Follow-up ID |
 | | `lead_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `leads.id` | Associated Lead |
-| | `user_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `users.id` | Assigned Executive |
+| | `employee_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `employees.id` | Assigned Executive |
 | | `followup_date_time` | `DATETIME` | **INDEX** | Scheduled target date & time |
 | | `note` | `TEXT` | NULL | Target discussion points |
 | | `is_done` | `BOOLEAN` | `default FALSE` | Completion flag |
@@ -493,7 +591,7 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | `ENROLLMENTS` | `id` | `BIGINT UNSIGNED` | **PK** | Enrollment Record ID |
 | | `lead_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `leads.id`, **UK** | 1:1 with Converted Lead |
 | | `course_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `courses.id` | Enrolled Course |
-| | `sales_executive_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `users.id` | Sales Rep |
+| | `sales_executive_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `employees.id` | Sales Rep |
 | | `secure_uuid` | `VARCHAR(64)` | **UK** | Portal link `/enroll/verify/{uuid}` |
 | | `student_name` | `VARCHAR(150)` | NOT NULL | Student Name |
 | | `student_phone` | `VARCHAR(25)` | NOT NULL | Student Mobile |
@@ -511,10 +609,12 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | | `enrollment_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `enrollments.id` | Associated Enrollment |
 | | `installment_schedule_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `installment_schedules.id`| Tranche |
 | | `amount` | `DECIMAL(10,2)` | NOT NULL | Amount paid |
+| | `payment_date` | `TIMESTAMP` | NULL | Date and time payment was made |
 | | `payment_method` | `ENUM` | NOT NULL | `bKash`, `SSLCommerz`, `Manual Bank`, `Manual MFS` |
 | | `transaction_id` | `VARCHAR(100)` | NULL | Gateway or Bank TrxID |
 | | `slip_screenshot_path`| `VARCHAR(255)`| NULL | Image slip path |
-| | `verified_by_user_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `users.id` | Accounts Officer |
+| | `verified_by_employee_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `employees.id` | Accounts Officer |
+| | `verified_date` | `TIMESTAMP` | NULL | Date and time payment was verified (renamed from `verified_at`) |
 | | `status` | `ENUM` | NOT NULL | `Pending`, `Verified`, `Rejected` |
 
 ---
@@ -528,7 +628,7 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | | `matched_lead_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `leads.id` | Matched Lead |
 | | `match_reason` | `VARCHAR(255)` | NOT NULL | Multi-course / Phone Match |
 | | `status` | `ENUM` | NOT NULL | `Pending Review`, `Approved New`, `Merged`, `Discarded` |
-| | `reviewed_by_user_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `users.id` | Admin/Supervisor |
+| | `reviewed_by_employee_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `employees.id` | Admin/Supervisor |
 | `SYSTEM_SETTINGS` | `id` | `BIGINT UNSIGNED` | **PK** | Setting ID |
 | | `key` | `VARCHAR(100)` | **UK** | Configuration key |
 | | `value` | `TEXT` | NOT NULL | Configuration value |
@@ -539,40 +639,45 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 
 | Source Entity Table | Foreign Key Column | Target Entity Table | Target Column | On Delete Action | On Update Action |
 | :--- | :--- | :--- | :--- | :---: | :---: |
-| `USERS` | `edited_by` | `USERS` | `id` | `SET NULL` | `CASCADE` |
-| `TEAMS` | `team_leader_id` | `USERS` | `id` | `SET NULL` | `CASCADE` |
-| `TEAMS` | `edited_by` | `USERS` | `id` | `SET NULL` | `CASCADE` |
-| `SUPERVISOR_TEAMS` | `supervisor_id` | `USERS` | `id` | `CASCADE` | `CASCADE` |
+| `EMPLOYEES` | `user_id` | `USERS` | `id` | `CASCADE` | `CASCADE` |
+| `EMPLOYEE_DETAILS` | `employee_id` | `EMPLOYEES` | `id` | `CASCADE` | `CASCADE` |
+| `EMPLOYEE_CHANGE_REQUESTS` | `employee_id`, `requested_by_employee_id` | `EMPLOYEES` | `id` | `RESTRICT` | `CASCADE` |
+| `EMPLOYEE_CHANGE_REQUESTS` | `reviewed_by_employee_id` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `EMPLOYEES` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `TEAMS` | `team_leader_id` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `TEAMS` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `SUPERVISOR_TEAMS` | `supervisor_id` | `EMPLOYEES` | `id` | `CASCADE` | `CASCADE` |
 | `SUPERVISOR_TEAMS` | `team_id` | `TEAMS` | `id` | `CASCADE` | `CASCADE` |
-| `SUPERVISOR_TEAMS` | `edited_by` | `USERS` | `id` | `SET NULL` | `CASCADE` |
-| `USER_SHIFTS` | `user_id` | `USERS` | `id` | `CASCADE` | `CASCADE` |
-| `COURSES` | `edited_by` | `USERS` | `id` | `SET NULL` | `CASCADE` |
-| `LEADS_SOURCE` | `edited_by` | `USERS` | `id` | `SET NULL` | `CASCADE` |
+| `SUPERVISOR_TEAMS` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `EMPLOYEE_ROSTERS` | `employee_id` | `EMPLOYEES` | `id` | `CASCADE` | `CASCADE` |
+| `EMPLOYEE_ROSTERS` | `shift_id` | `SHIFTS` | `id` | `RESTRICT` | `CASCADE` |
+| `COURSES` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `LEADS_SOURCE` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
 | `LEADS` | `source_id` | `LEADS_SOURCE` | `source_id` | `RESTRICT` | `CASCADE` |
 | `LEADS` | `interested_course_id`| `COURSES` | `id` | `SET NULL` | `CASCADE` |
-| `LEADS` | `current_owner_id` | `USERS` | `id` | `SET NULL` | `CASCADE` |
+| `LEADS` | `current_owner_id` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
 | `LEADS` | `team_id` | `TEAMS` | `id` | `SET NULL` | `CASCADE` |
-| `LEADS` | `edited_by` | `USERS` | `id` | `SET NULL` | `CASCADE` |
-| `LEAD_BATCHES` | `user_id` | `USERS` | `id` | `RESTRICT` | `CASCADE` |
+| `LEADS` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `LEAD_BATCHES` | `employee_id` | `EMPLOYEES` | `id` | `RESTRICT` | `CASCADE` |
 | `LEAD_BATCH_ITEMS` | `batch_id` | `LEAD_BATCHES` | `id` | `CASCADE` | `CASCADE` |
 | `LEAD_BATCH_ITEMS` | `lead_id` | `LEADS` | `id` | `CASCADE` | `CASCADE` |
 | `LEAD_FEEDBACKS` | `lead_id` | `LEADS` | `id` | `CASCADE` | `CASCADE` |
-| `LEAD_FEEDBACKS` | `user_id` | `USERS` | `id` | `RESTRICT` | `CASCADE` |
+| `LEAD_FEEDBACKS` | `employee_id` | `EMPLOYEES` | `id` | `RESTRICT` | `CASCADE` |
 | `LEAD_FOLLOWUPS` | `lead_id` | `LEADS` | `id` | `CASCADE` | `CASCADE` |
-| `LEAD_FOLLOWUPS` | `user_id` | `USERS` | `id` | `CASCADE` | `CASCADE` |
+| `LEAD_FOLLOWUPS` | `employee_id` | `EMPLOYEES` | `id` | `CASCADE` | `CASCADE` |
 | `LEAD_TRANSFERS` | `lead_id` | `LEADS` | `id` | `CASCADE` | `CASCADE` |
-| `LEAD_TRANSFERS` | `from_user_id` | `USERS` | `id` | `RESTRICT` | `CASCADE` |
-| `LEAD_TRANSFERS` | `to_user_id` | `USERS` | `id` | `RESTRICT` | `CASCADE` |
+| `LEAD_TRANSFERS` | `from_employee_id` | `EMPLOYEES` | `id` | `RESTRICT` | `CASCADE` |
+| `LEAD_TRANSFERS` | `to_employee_id` | `EMPLOYEES` | `id` | `RESTRICT` | `CASCADE` |
 | `LEAD_TRANSFERS` | `from_team_id` | `TEAMS` | `id` | `RESTRICT` | `CASCADE` |
 | `LEAD_TRANSFERS` | `to_team_id` | `TEAMS` | `id` | `RESTRICT` | `CASCADE` |
 | `ENROLLMENTS` | `lead_id` | `LEADS` | `id` | `RESTRICT` | `CASCADE` |
 | `ENROLLMENTS` | `course_id` | `COURSES` | `id` | `RESTRICT` | `CASCADE` |
-| `ENROLLMENTS` | `sales_executive_id`| `USERS` | `id` | `RESTRICT` | `CASCADE` |
+| `ENROLLMENTS` | `sales_executive_id`| `EMPLOYEES` | `id` | `RESTRICT` | `CASCADE` |
 | `INSTALLMENT_SCHEDULES`| `enrollment_id` | `ENROLLMENTS` | `id` | `CASCADE` | `CASCADE` |
 | `PAYMENTS` | `enrollment_id` | `ENROLLMENTS` | `id` | `RESTRICT` | `CASCADE` |
 | `PAYMENTS` | `installment_schedule_id`| `INSTALLMENT_SCHEDULES`| `id`| `SET NULL` | `CASCADE` |
 | `DUPLICATE_LEAD_REVIEWS`| `matched_lead_id` | `LEADS` | `id` | `CASCADE` | `CASCADE` |
-| `DUPLICATE_LEAD_REVIEWS`| `reviewed_by_user_id`| `USERS` | `id` | `SET NULL` | `CASCADE` |
+| `DUPLICATE_LEAD_REVIEWS`| `reviewed_by_employee_id`| `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
 
 ---
 
@@ -627,4 +732,3 @@ END //
 
 DELIMITER ;
 ```
-

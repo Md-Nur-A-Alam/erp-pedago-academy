@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Upload leads</title>
+<script src="./vendor/react.js"></script>
+<script src="./vendor/react-dom.js"></script>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Noto+Sans+Bengali:wght@400;600&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+.app{--blue:#233F96;--blue-d:#1A2F73;--tint:#E8EDFA;--ink:#14203F;--mut:#55617D;--bg:#F3F5FA;--line:#DCE1EE;--red:#C92E18;--redt:#FDECE8;--amb:#7A4F00;--ambt:#FFF2D1;--grn:#0F6845;--grnt:#E0F4EA;
+display:grid;grid-template-columns:232px 1fr;min-height:1060px;background:var(--bg);color:var(--ink);font-family:'IBM Plex Sans','Noto Sans Bengali',sans-serif;font-size:14px;line-height:1.45}
+.app *{box-sizing:border-box}
+.side{background:#fff;border-right:1px solid var(--line);padding:18px 14px;display:flex;flex-direction:column;gap:18px}
+.side img{width:100%;max-width:190px;height:auto;display:block;margin:0 auto 4px}
+.grp{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:0 8px 4px}
+.nav{display:flex;flex-direction:column;gap:2px}
+.nav a{display:flex;justify-content:space-between;align-items:center;min-height:36px;padding:0 10px;border-radius:6px;color:var(--ink);text-decoration:none;font-weight:500;transition:background .15s}
+.nav a:hover{background:var(--bg)}
+.nav a:focus-visible,.btn:focus-visible,.sw:focus-visible,.in:focus-visible{outline:2px solid var(--blue);outline-offset:2px}
+.nav a.on{background:var(--tint);color:var(--blue-d);font-weight:600}
+.cnt{font-family:'IBM Plex Mono',monospace;font-size:12px;background:var(--bg);border-radius:10px;padding:0 7px;color:var(--ink)}
+.cnt.hot{background:var(--redt);color:var(--red)}
+.main{min-width:0;display:flex;flex-direction:column}
+.top{display:flex;align-items:center;gap:12px;padding:12px 24px;background:#fff;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.top h1{font-size:18px;margin:0;font-weight:700;margin-right:auto}
+.in{height:36px;min-width:230px;border:1px solid var(--line);border-radius:6px;padding:0 10px;font:inherit;background:var(--bg);color:var(--ink)}
+.sw{display:flex;align-items:center;gap:8px;height:36px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:#fff;font:inherit;font-weight:600;color:var(--grn);cursor:pointer}
+.sw i{width:8px;height:8px;border-radius:50%;background:var(--grn)}
+.btn{min-height:36px;padding:0 14px;border-radius:6px;border:1px solid var(--blue);background:var(--blue);color:#fff;font:inherit;font-weight:600;cursor:pointer;transition:background .15s}
+.btn:hover{background:var(--blue-d)}
+.btn.sm{min-height:28px;padding:0 10px;font-size:12px;background:#fff;color:var(--blue-d)}
+.btn.sm:hover{background:var(--tint)}
+.wrap{padding:20px 24px;display:flex;flex-direction:column;gap:16px}
+.kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(176px,1fr));gap:12px}
+.card{background:#fff;border:1px solid var(--line);border-radius:8px;padding:14px 16px}
+.k b{display:block;font-family:'IBM Plex Mono',monospace;font-size:28px;font-weight:600;line-height:1.15;margin-top:4px}
+.k span{color:var(--mut);font-size:12.5px;font-weight:500}
+.k small{display:block;color:var(--mut);font-size:12px;margin-top:2px}
+.k.al{border-color:#F2B8AC}.k.al b{color:var(--red)}
+.row{display:grid;grid-template-columns:minmax(0,1.15fr) minmax(0,1fr);gap:16px}
+.row2{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1fr);gap:16px}
+.hd{display:flex;justify-content:space-between;align-items:baseline;margin:0 0 10px}
+.hd h2{font-size:14px;margin:0;font-weight:700}
+.hd span{font-size:12px;color:var(--mut)}
+.eq{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:12px}
+.eq div{flex:1;min-width:110px;background:var(--bg);border-radius:6px;padding:8px 10px}
+.eq em{font-style:normal;font-size:12px;color:var(--mut);display:block}
+.eq b{font-family:'IBM Plex Mono',monospace;font-size:18px}
+.plan{display:grid;grid-template-columns:repeat(6,1fr);gap:8px}
+.plan div{border:1px solid var(--line);border-radius:6px;padding:6px 8px;font-size:12px;color:var(--mut)}
+.plan b{display:block;color:var(--ink);font-size:12.5px}
+.dots{display:flex;gap:4px;margin-top:4px}.dots i{width:10px;height:10px;border-radius:2px;background:var(--blue)}.dots i.rr{background:#fff;border:2px solid var(--red)}
+.note{font-size:12.5px;color:var(--mut);margin:10px 0 0}
+.fr{display:grid;grid-template-columns:118px 1fr 34px;gap:10px;align-items:center;margin:7px 0;font-size:13px}
+.fr i{display:block;height:14px;border-radius:3px;background:var(--blue)}.fr i.g{background:var(--grn)}.fr i.o{background:#8C9AC8}
+.fr b{font-family:'IBM Plex Mono',monospace;text-align:right;font-weight:600}
+.tw{overflow-x:auto}
+table{border-collapse:collapse;width:100%;min-width:560px}
+th{text-align:left;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase;color:var(--mut);font-weight:600;padding:6px 8px;border-bottom:1px solid var(--line)}
+td{padding:8px;border-bottom:1px solid var(--line);font-size:13px;white-space:nowrap}
+tbody tr:hover{background:#F8F9FD}
+.mono{font-family:'IBM Plex Mono',monospace;font-size:12.5px}
+.pill{display:inline-flex;align-items:center;gap:6px;height:22px;padding:0 8px;border-radius:11px;font-size:12px;font-weight:600}
+.pill::before{content:"";width:6px;height:6px;border-radius:50%;background:currentColor}
+.p-a{background:var(--grnt);color:var(--grn)}.p-b{background:var(--tint);color:var(--blue-d)}.p-l{background:var(--redt);color:var(--red)}.p-o{background:#ECEEF4;color:var(--mut)}.p-u{background:var(--ambt);color:var(--amb)}
+.prog{display:inline-block;width:54px;height:6px;border-radius:3px;background:var(--line);vertical-align:middle;margin-right:6px;overflow:hidden}.prog i{display:block;height:100%;background:var(--blue)}
+.q{list-style:none;margin:0;padding:0}
+.q li{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:9px 0;border-bottom:1px solid var(--line)}
+.q li:last-child{border:0}
+.q strong{display:block;font-size:13px}.q small{color:var(--mut);font-size:12px}
+.sub{font-size:11.5px;letter-spacing:.06em;text-transform:uppercase;color:var(--mut);font-weight:600;margin:12px 0 0}
+@media (max-width:1100px){.row,.row2{grid-template-columns:1fr}}
+@media (max-width:820px){.app{grid-template-columns:1fr}.side{flex-direction:row;overflow-x:auto;padding:10px}.side .nav,.side .grp{display:none}.in{min-width:0;flex:1}.plan{grid-template-columns:repeat(2,1fr)}}
+@media (prefers-reduced-motion:reduce){.app *{transition:none!important}}
+</style>
+<style>
+.tabs{display:flex;gap:4px;border-bottom:1px solid var(--line);margin:0 0 4px}
+.tabs a{padding:8px 12px;text-decoration:none;color:var(--mut);font-weight:600;border-radius:6px 6px 0 0}
+.tabs a.on{color:var(--blue-d);background:var(--tint)}
+.chips{display:flex;gap:8px;flex-wrap:wrap}.chips a{display:inline-flex;align-items:center;min-height:32px;padding:0 12px;border:1px solid var(--line);border-radius:16px;background:#fff;color:var(--ink);text-decoration:none;font-size:13px;font-weight:500}.chips a.on{background:var(--tint);border-color:var(--blue);color:var(--blue-d);font-weight:600}
+.g2{display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:16px}.g11{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.fld{display:flex;flex-direction:column;gap:4px;margin-bottom:10px}.fld label{font-size:12.5px;font-weight:600}.fld .in{min-width:0;width:100%;background:#fff}
+.drop{border:2px dashed #9AA8D6;border-radius:8px;background:#F8FAFF;padding:26px;text-align:center}.drop b{display:block;font-size:15px}.drop span{color:var(--mut);font-size:13px}
+.sm3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:12px}.sm3 div{background:var(--bg);border-radius:6px;padding:8px 10px}.sm3 em{font-style:normal;font-size:12px;color:var(--mut);display:block}.sm3 b{font-family:'IBM Plex Mono',monospace;font-size:20px}
+.cmp{display:grid;grid-template-columns:1fr 1fr;gap:12px}.cmp dl{margin:0}.cmp dt{font-size:11.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--mut);font-weight:600;margin-top:8px}.cmp dd{margin:0;font-weight:500}.cmp .df{background:var(--ambt);color:var(--amb);padding:1px 6px;border-radius:4px;font-weight:600}
+.acts{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}.btn.ghost{background:#fff;color:var(--blue-d)}.btn.ghost:hover{background:var(--tint)}.btn.dng{background:#fff;color:var(--red);border-color:#F2B8AC}
+@media (max-width:1100px){.g2,.g11{grid-template-columns:1fr}}
+</style><style>
+.ck{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.ck label{display:flex;align-items:center;gap:10px;min-height:44px;padding:0 12px;border:1px solid var(--line);border-radius:6px;background:#fff;cursor:pointer;font-weight:500}
+.ck label:hover{background:#F8F9FD}.ck input{width:18px;height:18px;accent-color:#233F96;flex:none}
+.ck small{display:block;color:var(--mut);font-size:12px;font-weight:400}
+.ck label.lk{background:var(--bg);cursor:default}
+.stp{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--blue);color:#fff;font-size:12px;font-weight:700;margin-right:8px}
+.tpl .tw{border:1px solid var(--line);border-radius:6px}.tpl th{background:#F8F9FD;color:var(--ink);white-space:nowrap}.tpl table{min-width:0}
+.tpl td{color:var(--mut)}
+.auto{display:flex;gap:8px;flex-wrap:wrap;margin-top:10px}.auto span{background:var(--tint);color:var(--blue-d);border-radius:4px;padding:2px 8px;font-size:12px;font-weight:600}
+@media (max-width:1100px){.ck{grid-template-columns:1fr}}
+</style></helmet>
+<div class="app"><aside class="side" aria-label="Primary"><img src="./assets/5d605381b2afa4fcf53785b50c2f8f6a.png" alt="Pedago Academy"><nav class="nav" aria-label="Sections"><a href="#">Dashboard </a><a href="#">Central queue <span class="cnt">14</span></a><a href="#">Duplicate review <span class="cnt">7</span></a><a href="#">Follow-ups <span class="cnt hot">9 overdue</span></a><a href="#" class="on" aria-current="page">Upload leads </a><a href="#">Campaigns </a><a href="#">Courses </a><a href="#">Employees </a></nav></aside><div class="main"><header class="top"><h1>Upload leads</h1><button class="btn " type="button">Download Excel template</button></header><div class="wrap"><div class="tabs"><a class="on" href="#">Bulk import</a><a href="#">Single lead</a></div><div class="g2"><div style="display:flex;flex-direction:column;gap:16px"><section class="card"><div class="hd"><h2><span class="stp">1</span>Select campaign</h2><span></span></div><div class="g11"><div class="fld"><label for="ch">1a · Channel</label><select class="in" id="ch"><option>Facebook</option><option>WhatsApp</option><option>Google Ads</option><option>GPT Ads</option><option>Google Form</option><option>Reference</option><option>Website</option></select></div><div class="fld"><label for="cp">1b · Campaign</label><select class="in" id="cp"><option>Admission Nov · Reels</option><option>Scholarship Test · Carousel</option><option>Spoken English · Lead Ad</option></select></div></div><p class="note" style="margin:0">Pick a channel first. The campaign list then shows only that channel's campaigns (Facebook here).</p><div class="auto" aria-label="Filled automatically from the campaign"><span>Default course: Spoken English</span><span>Channel and campaign tagged on every row</span></div><p class="note">Channel, campaign and default course are attached to every row automatically, so they are not columns in the file.</p></section><section class="card"><div class="hd"><h2><span class="stp">2</span>Choose columns for your sheet</h2><span>4 of 6 optional selected</span></div><div class="ck"><label class="lk" for="c1"><input type="checkbox" id="c1" checked="" disabled=""><span>Student name<small>Required</small></span></label><label class="lk" for="c2"><input type="checkbox" id="c2" checked="" disabled=""><span>Primary phone<small>Required</small></span></label><label for="c3"><input type="checkbox" id="c3" checked=""><span>Alternative number<small>Guardian or second number</small></span></label><label for="c4"><input type="checkbox" id="c4" checked=""><span>Interested course<small>Overrides campaign default</small></span></label><label for="c5"><input type="checkbox" id="c5"><span>Email<small>Optional</small></span></label><label for="c6"><input type="checkbox" id="c6"><span>Age<small>Optional</small></span></label><label for="c7"><input type="checkbox" id="c7"><span>Class / background<small>Optional</small></span></label><label for="c8"><input type="checkbox" id="c8"><span>Location<small>City or area</small></span></label></div></section><section class="card"><div class="hd"><h2><span class="stp">3</span>Upload the filled file</h2><span>Sample result</span></div><div class="drop"><b>Drop your completed .xlsx here</b><span>Use the template from this page so headers match</span><div class="acts" style="justify-content:center"><button class="btn ghost" type="button">Browse files</button></div></div><div class="sm3" style="margin:14px 0 0"><div><em>Valid</em><b>212</b></div><div><em>To duplicate review</em><b>18</b></div><div><em>Invalid phone</em><b>10</b></div></div><div class="acts"><button class="btn " type="button">Import 212 valid leads</button><button class="btn ghost" type="button">Download error rows</button></div></section></div><div class="tpl" style="display:flex;flex-direction:column;gap:16px"><section class="card"><div class="hd"><h2>Your Excel template</h2><span>Updates as you tick</span></div><p class="note" style="margin:0 0 10px">Columns follow your selection. Fill one row per lead; * means required.</p><div class="tw"><table><thead><tr><th>Student name *</th><th>Primary phone *</th><th>Alternative number</th><th>Interested course</th></tr></thead><tbody><tr><td>Sara Rahman</td><td>01711-000000</td><td>01811-000000</td><td>Spoken English</td></tr></tbody></table></div><p class="note">File name: <span class="mono">leads-admission-nov-reels.xlsx</span></p><div class="acts"><button class="btn " type="button">Download Excel template</button></div></section><section class="card"><div class="hd"><h2>Before you upload</h2><span></span></div><ul class="q"><li><div><strong>Phone format</strong><small>11-digit mobile number, no spaces</small></div></li><li><div><strong>Exact duplicates</strong><small>Same phone, name, course and campaign are suppressed</small></div></li><li><div><strong>Other matches</strong><small>Same phone with a different name or course go to Duplicate review</small></div></li></ul></section></div></div></div></div></div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1440,"height":1050}}'>
+class Component extends DCLogic {
+renderVals() {
+return {};
+}
+}
+</script>
+</body>
+</html>

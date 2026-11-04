@@ -84,6 +84,15 @@ return [
 
     'faker_locale' => env('APP_FAKER_LOCALE', 'en_US'),
 
+    'initial_admin' => [
+        'name' => env('INITIAL_ADMIN_NAME'),
+        'phone_number' => env('INITIAL_ADMIN_PHONE'),
+        'password' => env('INITIAL_ADMIN_PASSWORD'),
+        'office_id' => env('INITIAL_ADMIN_OFFICE_ID'),
+        'designation' => env('INITIAL_ADMIN_DESIGNATION'),
+        'joining_date' => env('INITIAL_ADMIN_JOINING_DATE'),
+    ],
+
     /*
     |--------------------------------------------------------------------------
     | Encryption Key
