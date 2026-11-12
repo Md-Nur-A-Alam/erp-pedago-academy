@@ -3,14 +3,18 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\CampaignController;
+use App\Http\Controllers\CourseBatchController;
 use App\Http\Controllers\CourseController;
+use App\Http\Controllers\CourseTopicController;
 use App\Http\Controllers\DashboardController;
 use App\Http\Controllers\DuplicateLeadReviewController;
 use App\Http\Controllers\EmployeeChangeRequestController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeProfileController;
 use App\Http\Controllers\LeadUploadController;
+use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SystemSettingController;
+use App\Http\Controllers\TeamController;
 use Illuminate\Support\Facades\Route;
 
 Route::redirect('/', '/login');
@@ -42,6 +46,21 @@ Route::middleware(['auth', 'employee.onboarding'])->group(function (): void {
     Route::put('/courses/{course}', [CourseController::class, 'update'])->name('courses.update');
     Route::delete('/courses/{course}', [CourseController::class, 'destroy'])->name('courses.destroy');
 
+    Route::get('/subjects', [SubjectController::class, 'index'])->name('subjects.index');
+    Route::post('/subjects', [SubjectController::class, 'store'])->name('subjects.store');
+    Route::put('/subjects/{subject}', [SubjectController::class, 'update'])->name('subjects.update');
+    Route::delete('/subjects/{subject}', [SubjectController::class, 'destroy'])->name('subjects.destroy');
+
+    Route::post('/course-topics', [CourseTopicController::class, 'store'])->name('course-topics.store');
+    Route::put('/course-topics/{courseTopic}', [CourseTopicController::class, 'update'])->name('course-topics.update');
+    Route::delete('/course-topics/{courseTopic}', [CourseTopicController::class, 'destroy'])->name('course-topics.destroy');
+
+    Route::get('/course-batches', [CourseBatchController::class, 'index'])->name('course-batches.index');
+    Route::post('/course-batches', [CourseBatchController::class, 'store'])->name('course-batches.store');
+    Route::get('/course-batches/{courseBatch}/edit', [CourseBatchController::class, 'edit'])->name('course-batches.edit');
+    Route::put('/course-batches/{courseBatch}', [CourseBatchController::class, 'update'])->name('course-batches.update');
+    Route::delete('/course-batches/{courseBatch}', [CourseBatchController::class, 'destroy'])->name('course-batches.destroy');
+
     Route::get('/duplicate-lead-reviews', [DuplicateLeadReviewController::class, 'index'])
         ->name('duplicate-lead-reviews.index');
     Route::put('/duplicate-lead-reviews/{duplicateLeadReview}', [DuplicateLeadReviewController::class, 'update'])
@@ -49,6 +68,16 @@ Route::middleware(['auth', 'employee.onboarding'])->group(function (): void {
 
     Route::get('/settings', [SystemSettingController::class, 'index'])->name('settings.index');
     Route::put('/settings', [SystemSettingController::class, 'update'])->name('settings.update');
+
+    Route::get('/teams', [TeamController::class, 'index'])->name('teams.index');
+    Route::get('/teams/create', [TeamController::class, 'create'])->name('teams.create');
+    Route::post('/teams', [TeamController::class, 'store'])->name('teams.store');
+    Route::get('/teams/{team}', [TeamController::class, 'show'])->name('teams.show');
+    Route::get('/teams/{team}/edit', [TeamController::class, 'edit'])->name('teams.edit');
+    Route::put('/teams/{team}', [TeamController::class, 'update'])->name('teams.update');
+    Route::delete('/teams/{team}', [TeamController::class, 'destroy'])->name('teams.destroy');
+    Route::post('/teams/{team}/toggle-status', [TeamController::class, 'toggleStatus'])->name('teams.toggle-status');
+    Route::delete('/teams/{team}/members/{employee}', [TeamController::class, 'removeMember'])->name('teams.members.remove');
 
     Route::get('/employees', [EmployeeController::class, 'index'])->name('employees.index');
     Route::get('/employees/create', [EmployeeController::class, 'create'])->name('employees.create');

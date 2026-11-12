@@ -39,6 +39,10 @@ composer require laravel/boost --dev
 php artisan boost:install
 ```
 
+## Course catalogue and batches
+
+Course subject and topic management, batch capacity tracking, and the related database schema are documented in [Course catalogue and batches](docs/course-catalog-and-batches.md).
+
 Boost provides your agent 15+ tools and skills that help agents build Laravel applications while following best practices.
 
 ## Contributing

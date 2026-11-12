@@ -13,6 +13,7 @@ use App\Models\LeadTransfer;
 use App\Models\Payment;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Carbon;
 use Illuminate\View\View;
 
 class DashboardController extends Controller
@@ -22,26 +23,72 @@ class DashboardController extends Controller
         $user = $request->user();
         abort_unless($user instanceof User && $user->employee instanceof Employee, 403);
 
+        $validated = $request->validate([
+            'range' => ['sometimes', 'in:today,this_month,three_months,this_year,custom'],
+            'start_date' => ['exclude_unless:range,custom', 'required', 'date_format:Y-m-d'],
+            'end_date' => ['exclude_unless:range,custom', 'required', 'date_format:Y-m-d', 'after_or_equal:start_date'],
+        ]);
+        $range = $validated['range'] ?? 'today';
+        $today = now();
+
+        [$rangeStart, $rangeEnd] = match ($range) {
+            'this_month' => [$today->copy()->startOfMonth()->startOfDay(), $today->copy()->endOfDay()],
+            'three_months' => [$today->copy()->subMonths(3)->startOfDay(), $today->copy()->endOfDay()],
+            'this_year' => [$today->copy()->startOfYear(), $today->copy()->endOfDay()],
+            'custom' => [
+                Carbon::parse($validated['start_date'])->startOfDay(),
+                Carbon::parse($validated['end_date'])->endOfDay(),
+            ],
+            default => [$today->copy()->startOfDay(), $today->copy()->endOfDay()],
+        };
+        $rangeLabel = $rangeStart->isSameDay($rangeEnd)
+            ? $rangeStart->format('M j, Y')
+            : $rangeStart->format('M j, Y').' – '.$rangeEnd->format('M j, Y');
+
         $employee = $user->employee;
-        $data = ['employee' => $employee];
+        $data = [
+            'employee' => $employee,
+            'range' => $range,
+            'rangeStart' => $rangeStart,
+            'rangeEnd' => $rangeEnd,
+            'rangeLabel' => $rangeLabel,
+        ];
 
         if ($employee->isAdmin()) {
-            $pipeline = Lead::query()
+            $leadsInRange = Lead::query()->whereBetween('created_at', [$rangeStart, $rangeEnd]);
+            $pipeline = (clone $leadsInRange)
                 ->selectRaw('status, COUNT(*) as total')
                 ->groupBy('status')
                 ->pluck('total', 'status');
 
             $data += [
                 'metrics' => [
-                    'unassigned_leads' => Lead::query()->where('status', 'New')->whereNull('current_owner_id')->count(),
-                    'active_batches' => LeadBatch::query()->where('status', 'Active')->count(),
+                    'total_leads' => (clone $leadsInRange)->count(),
+                    'unassigned_leads' => Lead::query()
+                        ->where('status', 'New')
+                        ->whereNull('current_owner_id')
+                        ->count(),
+                    'active_batches' => LeadBatch::query()
+                        ->where('status', 'Active')
+                        ->whereBetween('assigned_at', [$rangeStart, $rangeEnd])
+                        ->count(),
                     'overdue_followups' => LeadFollowup::query()
                         ->where('is_done', false)
                         ->where('followup_date_time', '<', now())
+                        ->whereBetween('followup_date_time', [$rangeStart, $rangeEnd])
                         ->count(),
-                    'payments_pending' => Payment::query()->where('status', 'Pending')->count(),
-                    'transfers_pending' => LeadTransfer::query()->where('status', 'Pending')->count(),
-                    'duplicate_reviews' => DuplicateLeadReview::query()->where('status', 'Pending Review')->count(),
+                    'payments_pending' => Payment::query()
+                        ->where('status', 'Pending')
+                        ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                        ->count(),
+                    'transfers_pending' => LeadTransfer::query()
+                        ->where('status', 'Pending')
+                        ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                        ->count(),
+                    'duplicate_reviews' => DuplicateLeadReview::query()
+                        ->where('status', 'Pending Review')
+                        ->whereBetween('created_at', [$rangeStart, $rangeEnd])
+                        ->count(),
                 ],
                 'pipeline' => $pipeline,
                 'roster' => EmployeeRoster::query()
@@ -63,6 +110,7 @@ class DashboardController extends Controller
                     ->get(),
                 'pendingChanges' => EmployeeChangeRequest::query()
                     ->where('status', 'Pending')
+                    ->whereBetween('created_at', [$rangeStart, $rangeEnd])
                     ->count(),
             ];
         }

@@ -3,19 +3,21 @@
 namespace App\Http\Controllers;
 
 use App\Models\Course;
+use App\Models\CourseTopic;
 use App\Models\Employee;
+use App\Models\Subject;
 use App\Models\User;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
 class CourseController extends Controller
 {
-    private const SUBJECTS = ['English', 'Bangla', 'Mathematics', 'Science', 'Programming', 'General'];
-
     private const VERSIONS = ['Bangla', 'English'];
 
     public function index(Request $request): View
@@ -41,6 +43,7 @@ class CourseController extends Controller
                     filled($filters['status'] ?? null),
                     fn (Builder $query) => $query->where('is_active', $filters['status'] === 'active'),
                 )
+                ->with(['subject', 'topic'])
                 ->withCount(['leads', 'enrollments'])
                 ->orderBy('title')
                 ->paginate(15)
@@ -49,21 +52,31 @@ class CourseController extends Controller
                 'search' => $filters['search'] ?? '',
                 'status' => $filters['status'] ?? '',
             ],
-            'subjects' => self::SUBJECTS,
+            'subjects' => $this->subjectsWithTopics(),
             'versions' => self::VERSIONS,
+            'course' => null,
         ]);
     }
 
     public function store(Request $request): RedirectResponse
     {
         $employee = $this->adminFor($request);
-        $validated = $request->validate($this->courseRules());
-
-        Course::query()->create([
-            ...$validated,
-            'is_active' => $request->boolean('is_active'),
-            'edited_by' => $employee->id,
+        $request->merge([
+            'subject_name' => trim((string) $request->input('subject_name', '')),
+            'topic_name' => trim((string) $request->input('topic_name', '')),
         ]);
+        $validated = $request->validate($this->courseRules($request));
+
+        DB::transaction(function () use ($validated, $request, $employee): void {
+            [$subject, $topic] = $this->resolveSubjectAndTopic($validated);
+            $attributes = Arr::except($validated, ['subject_name', 'topic_id', 'topic_name']);
+            $attributes['subject_id'] = $subject->id;
+            $attributes['course_topic_id'] = $topic->id;
+            $attributes['is_active'] = $request->boolean('is_active');
+            $attributes['edited_by'] = $employee->id;
+
+            Course::query()->create($attributes);
+        });
 
         return redirect()->route('courses.index')->with('status', 'Course created successfully.');
     }
@@ -71,10 +84,11 @@ class CourseController extends Controller
     public function edit(Request $request, Course $course): View
     {
         $this->adminFor($request);
+        $course->load(['subject', 'topic']);
 
         return view('courses.edit', [
             'course' => $course,
-            'subjects' => self::SUBJECTS,
+            'subjects' => $this->subjectsWithTopics(),
             'versions' => self::VERSIONS,
         ]);
     }
@@ -82,13 +96,22 @@ class CourseController extends Controller
     public function update(Request $request, Course $course): RedirectResponse
     {
         $employee = $this->adminFor($request);
-        $validated = $request->validate($this->courseRules($course));
-
-        $course->update([
-            ...$validated,
-            'is_active' => $request->boolean('is_active'),
-            'edited_by' => $employee->id,
+        $request->merge([
+            'subject_name' => trim((string) $request->input('subject_name', '')),
+            'topic_name' => trim((string) $request->input('topic_name', '')),
         ]);
+        $validated = $request->validate($this->courseRules($request, $course));
+
+        DB::transaction(function () use ($course, $validated, $request, $employee): void {
+            [$subject, $topic] = $this->resolveSubjectAndTopic($validated);
+            $attributes = Arr::except($validated, ['subject_name', 'topic_id', 'topic_name']);
+            $attributes['subject_id'] = $subject->id;
+            $attributes['course_topic_id'] = $topic->id;
+            $attributes['is_active'] = $request->boolean('is_active');
+            $attributes['edited_by'] = $employee->id;
+
+            $course->update($attributes);
+        });
 
         return redirect()->route('courses.index')->with('status', 'Course updated successfully.');
     }
@@ -99,7 +122,12 @@ class CourseController extends Controller
         $hasReferences = DB::transaction(function () use ($course): bool {
             $lockedCourse = Course::query()->whereKey($course->getKey())->lockForUpdate()->firstOrFail();
 
-            if ($lockedCourse->leads()->exists() || $lockedCourse->enrollments()->exists()) {
+            if (
+                $lockedCourse->leads()->exists()
+                || $lockedCourse->enrollments()->exists()
+                || $lockedCourse->batches()->exists()
+                || $lockedCourse->campaigns()->exists()
+            ) {
                 return true;
             }
 
@@ -110,7 +138,7 @@ class CourseController extends Controller
 
         if ($hasReferences) {
             return back()->withErrors([
-                'course' => 'This course cannot be deleted while leads or enrollments reference it. Deactivate it instead.',
+                'course' => 'This course cannot be deleted while leads, enrollments, batches, or campaigns reference it. Deactivate it instead.',
             ]);
         }
 
@@ -120,14 +148,33 @@ class CourseController extends Controller
     /**
      * @return array<string, array<int, mixed>>
      */
-    private function courseRules(?Course $course = null): array
+    private function courseRules(Request $request, ?Course $course = null): array
     {
+        $isNewSubject = $request->input('subject_id') === 'other';
+        $isNewTopic = $request->input('topic_id') === 'other';
+
         return [
             'title' => ['required', 'string', 'max:150'],
             'code' => ['required', 'string', 'max:50', Rule::unique('courses', 'code')->ignore($course?->id)],
             'description' => ['nullable', 'string', 'max:10000'],
             'conditions' => ['nullable', 'string', 'max:10000'],
-            'subject' => ['required', Rule::in(self::SUBJECTS)],
+            'subject_id' => $isNewSubject
+                ? ['required', Rule::in(['other'])]
+                : ['required', 'integer', 'exists:subjects,id'],
+            'subject_name' => $isNewSubject
+                ? ['required', 'string', 'max:100', Rule::unique('subjects', 'name')]
+                : ['nullable', 'string', 'max:100'],
+            'topic_id' => $isNewTopic
+                ? ['required', Rule::in(['other'])]
+                : [
+                    'required',
+                    Rule::exists('course_topics', 'id')->where(
+                        fn (\Illuminate\Database\Query\Builder $query) => $query->where('subject_id', $request->input('subject_id')),
+                    ),
+                ],
+            'topic_name' => $isNewTopic
+                ? ['required', 'string', 'max:100']
+                : ['nullable', 'string', 'max:100'],
             'version' => ['required', Rule::in(self::VERSIONS)],
             'category' => ['nullable', 'string', 'max:100'],
             'base_fee' => ['required', 'numeric', 'min:0', 'max:99999999.99'],
@@ -143,5 +190,33 @@ class CourseController extends Controller
         abort_unless($employee instanceof Employee && $employee->isAdmin(), 403);
 
         return $employee;
+    }
+
+    /**
+     * @return Collection<int, Subject>
+     */
+    private function subjectsWithTopics(): Collection
+    {
+        return Subject::query()
+            ->with(['topics' => fn ($query) => $query->orderBy('name')])
+            ->orderBy('name')
+            ->get();
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{0: Subject, 1: CourseTopic}
+     */
+    private function resolveSubjectAndTopic(array $validated): array
+    {
+        $subject = $validated['subject_id'] === 'other'
+            ? Subject::query()->create(['name' => $validated['subject_name']])
+            : Subject::query()->findOrFail($validated['subject_id']);
+
+        $topic = $validated['topic_id'] === 'other'
+            ? $subject->topics()->firstOrCreate(['name' => $validated['topic_name']])
+            : $subject->topics()->findOrFail($validated['topic_id']);
+
+        return [$subject, $topic];
     }
 }

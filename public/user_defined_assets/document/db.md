@@ -3,7 +3,7 @@
 **Database Target:** MySQL 8.x (`pedago_erp_db`)  
 **Context:** Pedago Academy ERP employee onboarding and sales management
 **Encoding:** `utf8mb4_unicode_ci`  
-**Date:** November 2026 (Updated with phone login, employee profiles, and approval workflow)
+**Date:** November 2026 (Updated with phone login, employee profiles, approval workflow, and course batches)
 
 ---
 
@@ -20,6 +20,7 @@ erDiagram
     EMPLOYEES ||--o{ EMPLOYEE_ROSTERS : "has_roster (1:N)"
     
     LEADS_SOURCE ||--o{ LEADS : "originates_from (1:N)"
+    COURSES ||--o{ LEADS_SOURCE : "runs_campaigns (1:N)"
     TEAMS ||--o{ LEADS : "assigned_to_team (1:N)"
     EMPLOYEES ||--o{ LEADS : "owns_currently (1:N)"
     COURSES ||--o{ LEADS : "interested_in (1:N)"
@@ -45,6 +46,11 @@ erDiagram
     LEADS ||--|| ENROLLMENTS : "converts_to (1:1)"
     COURSES ||--o{ ENROLLMENTS : "enrolled_course (1:N)"
     EMPLOYEES ||--o{ ENROLLMENTS : "converted_by (1:N)"
+    SUBJECTS ||--o{ COURSE_TOPICS : "groups_topics (1:N)"
+    SUBJECTS ||--o{ COURSES : "classifies (1:N)"
+    COURSE_TOPICS ||--o{ COURSES : "curriculum_topic (1:N)"
+    COURSES ||--o{ COURSE_BATCH : "offered_in_batches (1:N)"
+    COURSE_BATCH ||--o{ ENROLLMENTS : "enrolls_students (1:N optional)"
     
     ENROLLMENTS ||--o{ INSTALLMENT_SCHEDULES : "has_installments (1:N)"
     
@@ -148,7 +154,8 @@ erDiagram
         VARCHAR code UK "50, unique, not null"
         TEXT description "course descriptions, null"
         TEXT conditions "course admission terms, null"
-        ENUM subject "English, Bangla, Mathematics, Science, Programming, General"
+        BIGINT subject_id FK "subjects.id, nullable; required by course forms"
+        BIGINT course_topic_id FK "course_topics.id, nullable; required by course forms"
         ENUM version "Bangla, English"
         VARCHAR category "100, null"
         DECIMAL base_fee "10,2, not null"
@@ -158,10 +165,44 @@ erDiagram
         BIGINT edited_by FK "employees.id, null"
     }
 
+    SUBJECTS {
+        BIGINT id PK "auto_increment"
+        VARCHAR name UK "100, unique, not null"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+    }
+
+    COURSE_TOPICS {
+        BIGINT id PK "auto_increment"
+        BIGINT subject_id FK "subjects.id, not null"
+        VARCHAR name "100, not null"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+        UNIQUE subject_topic "subject_id, name"
+        UNIQUE subject_topic_fk "subject_id, id"
+    }
+
+    COURSE_BATCH {
+        BIGINT id PK "auto_increment"
+        BIGINT course_id FK "courses.id, not null"
+        INT batch_number "unsigned, unique per course"
+        VARCHAR batch_name "100, not null"
+        VARCHAR short_code "30, unique per course"
+        INT capacity "unsigned, not null"
+        BOOLEAN is_latest "default false"
+        DATE start_date "not null"
+        TIMESTAMP created_at
+        TIMESTAMP updated_at
+        UNIQUE course_batch_number "course_id, batch_number"
+        UNIQUE course_batch_code "course_id, short_code"
+        UNIQUE course_batch_fk "course_id, id"
+    }
+
     LEADS_SOURCE {
         BIGINT source_id PK "auto_increment"
         ENUM channel "fb, wp, googleads, gptads, googleform, reference, website"
         VARCHAR campaign_name "150, null"
+        BIGINT course_id FK "courses.id, nullable for legacy/unattributed source records"
         TIMESTAMP created_at
         TIMESTAMP edited_at "null"
         BIGINT edited_by FK "employees.id, null"
@@ -254,6 +295,7 @@ erDiagram
         BIGINT id PK "auto_increment"
         BIGINT lead_id FK "leads.id, unique, not null"
         BIGINT course_id FK "courses.id, not null"
+        BIGINT course_batch_id FK "course_batch.id, nullable; batch must belong to course_id"
         BIGINT sales_executive_id FK "employees.id, not null"
         VARCHAR secure_uuid UK "64, unique, not null"
         VARCHAR student_name "150, not null"
@@ -444,7 +486,8 @@ EdTech course catalog, curriculum specifications, and admission criteria.
 | `code` | `VARCHAR(50)` | NO | **UK** | None | Unique course code (e.g., `FSWD-101`) |
 | `description` | `TEXT` | YES | None | NULL | Comprehensive course descriptions & syllabus |
 | `conditions` | `TEXT` | YES | None | NULL | Admission conditions, prerequisite skills, and terms |
-| `subject` | `ENUM` | NO | None | `'General'` | Values: `'English'`, `'Bangla'`, `'Mathematics'`, `'Science'`, `'Programming'`, `'General'` |
+| `subject_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `subjects.id` | NULL | Course subject; existing values are migrated from the former enum |
+| `course_topic_id` | `BIGINT UNSIGNED` | YES | **Composite FK** with `subject_id` $\rightarrow$ `course_topics.(subject_id, id)` | NULL | Curriculum topic; must belong to the selected subject |
 | `version` | `ENUM` | NO | None | `'Bangla'` | Medium of instruction: `'Bangla'`, `'English'` |
 | `category` | `VARCHAR(100)` | YES | None | NULL | Broader departmental category |
 | `base_fee` | `DECIMAL(10,2)` | NO | None | None | Standard regular course fee in BDT |
@@ -452,6 +495,47 @@ EdTech course catalog, curriculum specifications, and admission criteria.
 | `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Creation timestamp |
 | `edited_at` | `TIMESTAMP` | YES | None | NULL | Last modification timestamp |
 | `edited_by` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `employees.id` | NULL | User who modified course details |
+
+### 2.4.1 Entity Set: `SUBJECTS`
+Admin-managed top-level course subjects. Existing course enum values are copied into this catalogue during migration.
+
+| Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Subject ID |
+| `name` | `VARCHAR(100)` | NO | **UK** | None | Unique subject name, e.g. English or Mathematics |
+| `created_at` | `TIMESTAMP` | NO | None | Current timestamp | Creation timestamp |
+| `updated_at` | `TIMESTAMP` | NO | None | Current timestamp | Last update timestamp |
+
+### 2.4.2 Entity Set: `COURSE_TOPICS`
+Topics form the second level of the course catalogue. Topic names are unique within each subject; a composite key prevents a course from pairing a topic with a different subject.
+
+| Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Topic ID |
+| `subject_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `subjects.id` | None | Parent subject |
+| `name` | `VARCHAR(100)` | NO | **UK** with `subject_id` | None | Topic, e.g. Phonics, Mind Math, or Oral Math |
+| `created_at` | `TIMESTAMP` | NO | None | Current timestamp | Creation timestamp |
+| `updated_at` | `TIMESTAMP` | NO | None | Current timestamp | Last update timestamp |
+
+> **Table Constraints:** `UNIQUE (subject_id, name)` and `UNIQUE (subject_id, id)`; courses reference `(subject_id, course_topic_id)` to enforce subject/topic consistency.
+
+### 2.4.3 Entity Set: `COURSE_BATCH`
+Course-specific cohorts. Batch numbers and short codes are unique within a course. Admitted student count and vacancy are calculated from enrollments rather than stored.
+
+| Attribute Name | Data Type | Nullable | Key / Constraint | Default Value | Description |
+| :--- | :--- | :---: | :---: | :---: | :--- |
+| `id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Batch ID |
+| `course_id` | `BIGINT UNSIGNED` | NO | **FK** $\rightarrow$ `courses.id` | None | Course offered by this batch |
+| `batch_number` | `INT UNSIGNED` | NO | **UK** with `course_id` | None | Batch sequence for the course |
+| `batch_name` | `VARCHAR(100)` | NO | None | None | Display name of the batch |
+| `short_code` | `VARCHAR(30)` | NO | **UK** with `course_id` | None | Course-specific batch code |
+| `capacity` | `INT UNSIGNED` | NO | None | None | Maximum intended student capacity |
+| `is_latest` | `BOOLEAN` | NO | None | `FALSE` | Whether this is the course's latest batch |
+| `start_date` | `DATE` | NO | None | None | Batch start date |
+| `created_at` | `TIMESTAMP` | NO | None | Current timestamp | Creation timestamp |
+| `updated_at` | `TIMESTAMP` | NO | None | Current timestamp | Last update timestamp |
+
+> **Calculated values:** `students_admitted` counts assigned enrollments whose status is not `Cancelled`. Conversion creates a `Pending Payment` enrollment and reserves a seat immediately; cancelling the enrollment releases it. `vacancy` is `max(capacity - students_admitted, 0)`.
 
 ---
 
@@ -463,6 +547,7 @@ Marketing and acquisition channels originating student leads.
 | `source_id` | `BIGINT UNSIGNED` | NO | **PK** (Auto Inc) | Auto | Unique Lead Source ID |
 | `channel` | `ENUM` | NO | None | None | Values: `'fb'`, `'wp'`, `'googleads'`, `'gptads'`, `'googleform'`, `'reference'`, `'website'`, `'phone'`, `'event'`, `'manual'`, `'other'` |
 | `campaign_name` | `VARCHAR(150)` | YES | None | NULL | Ad Campaign / Adset / Event Title |
+| `course_id` | `BIGINT UNSIGNED` | YES | **FK** $\rightarrow$ `courses.id` | NULL | One course linked to this campaign; multiple campaigns may link to the same course. Required for campaigns created in the application; nullable for existing/unattributed source records. |
 | `distribution_mode` | `ENUM` | NO | None | `'Auto'` | Campaign lead distribution mode: `'Auto'` or `'Manual'` |
 | `is_active` | `BOOLEAN` | NO | None | `TRUE` | Whether the campaign is active |
 | `created_at` | `TIMESTAMP` | NO | None | `CURRENT_TIMESTAMP` | Source creation timestamp |
@@ -591,13 +676,14 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | `ENROLLMENTS` | `id` | `BIGINT UNSIGNED` | **PK** | Enrollment Record ID |
 | | `lead_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `leads.id`, **UK** | 1:1 with Converted Lead |
 | | `course_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `courses.id` | Enrolled Course |
+| | `course_batch_id` | `BIGINT UNSIGNED` | NULL; composite **FK** with `course_id` $\rightarrow$ `course_batch.(course_id, id)` | Optional batch; must belong to the enrolled course |
 | | `sales_executive_id`| `BIGINT UNSIGNED`| **FK** $\rightarrow$ `employees.id` | Sales Rep |
 | | `secure_uuid` | `VARCHAR(64)` | **UK** | Portal link `/enroll/verify/{uuid}` |
 | | `student_name` | `VARCHAR(150)` | NOT NULL | Student Name |
 | | `student_phone` | `VARCHAR(25)` | NOT NULL | Student Mobile |
 | | `final_deal_amount` | `DECIMAL(10,2)` | NOT NULL | Net admission fee |
 | | `total_installments`| `INT UNSIGNED` | `default 1` | Installment count |
-| | `status` | `ENUM` | NOT NULL | `Pending Payment`, `Payment Under Review`, `Enrolled` |
+| | `status` | `ENUM` | NOT NULL | `Pending Payment`, `Payment Under Review`, `Enrolled`, `Cancelled`; cancelled enrollments do not reserve a seat |
 | `INSTALLMENT_SCHEDULES`| `id` | `BIGINT UNSIGNED` | **PK** | Schedule ID |
 | | `enrollment_id` | `BIGINT UNSIGNED` | **FK** $\rightarrow$ `enrollments.id` | Parent Enrollment |
 | | `installment_number`| `INT UNSIGNED` | NOT NULL | Sequence (1, 2, 3...) |
@@ -653,6 +739,7 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | `EMPLOYEE_ROSTERS` | `shift_id` | `SHIFTS` | `id` | `RESTRICT` | `CASCADE` |
 | `COURSES` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
 | `LEADS_SOURCE` | `edited_by` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
+| `LEADS_SOURCE` | `course_id` | `COURSES` | `id` | `RESTRICT` | `CASCADE` |
 | `LEADS` | `source_id` | `LEADS_SOURCE` | `source_id` | `RESTRICT` | `CASCADE` |
 | `LEADS` | `interested_course_id`| `COURSES` | `id` | `SET NULL` | `CASCADE` |
 | `LEADS` | `current_owner_id` | `EMPLOYEES` | `id` | `SET NULL` | `CASCADE` |
@@ -672,6 +759,11 @@ Batch allocation containers ($n=3$) distributed to sales executives.
 | `LEAD_TRANSFERS` | `to_team_id` | `TEAMS` | `id` | `RESTRICT` | `CASCADE` |
 | `ENROLLMENTS` | `lead_id` | `LEADS` | `id` | `RESTRICT` | `CASCADE` |
 | `ENROLLMENTS` | `course_id` | `COURSES` | `id` | `RESTRICT` | `CASCADE` |
+| `COURSE_TOPICS` | `subject_id` | `SUBJECTS` | `id` | `CASCADE` | `CASCADE` |
+| `COURSES` | `subject_id` | `SUBJECTS` | `id` | `RESTRICT` | `CASCADE` |
+| `COURSES` | `subject_id`, `course_topic_id` | `COURSE_TOPICS` | `subject_id`, `id` | `RESTRICT` | `CASCADE` |
+| `COURSE_BATCH` | `course_id` | `COURSES` | `id` | `RESTRICT` | `CASCADE` |
+| `ENROLLMENTS` | `course_id`, `course_batch_id` | `COURSE_BATCH` | `course_id`, `id` | `RESTRICT` | `CASCADE` |
 | `ENROLLMENTS` | `sales_executive_id`| `EMPLOYEES` | `id` | `RESTRICT` | `CASCADE` |
 | `INSTALLMENT_SCHEDULES`| `enrollment_id` | `ENROLLMENTS` | `id` | `CASCADE` | `CASCADE` |
 | `PAYMENTS` | `enrollment_id` | `ENROLLMENTS` | `id` | `RESTRICT` | `CASCADE` |

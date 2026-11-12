@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Attributes\Scope;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -11,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'lead_id',
     'course_id',
+    'course_batch_id',
     'sales_executive_id',
     'secure_uuid',
     'student_name',
@@ -27,6 +30,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 class Enrollment extends Model
 {
     use HasFactory;
+
+    #[Scope]
+    protected function reservingSeat(Builder $query): void
+    {
+        $query->where('status', '!=', 'Cancelled');
+    }
 
     protected function casts(): array
     {
@@ -46,6 +55,11 @@ class Enrollment extends Model
     public function course(): BelongsTo
     {
         return $this->belongsTo(Course::class);
+    }
+
+    public function courseBatch(): BelongsTo
+    {
+        return $this->belongsTo(CourseBatch::class, 'course_batch_id');
     }
 
     public function salesExecutive(): BelongsTo

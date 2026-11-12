@@ -1,10 +1,10 @@
 # Sales Lead Distribution & Management Module (v-03)
 
 **Product Requirement & Comprehensive Functional Specification**  
-**Version:** 3.0 (Final Architecture & Logic Specification)  
+**Version:** 3.1 (Course Catalogue & Batch Management Update)
 **Target Environment:** Pedago Academy ERP  
 **Database:** MySQL (`pedago_erp_db`) | **Backend:** Laravel 13 on PHP 8.5 | **Frontend:** Blade + Tailwind CSS v4  
-**Date:** October 2026  
+**Date:** November 2026
 
 ---
 
@@ -271,6 +271,20 @@ sequenceDiagram
 * **Automated Scheduler ($T-2$ Rule):** 2 days before due date (Nov 28), system automatically copies/promotes the installment task to the executive's **`Converted Follow-up`** dashboard with reminder notifications.
 * Once the final installment is approved by Accounts, the enrollment is marked **`Fully Completed`**.
 
+### 9.3 Course Subjects, Topics & Course Batches
+
+The course catalogue is maintained by administrators and has two curriculum levels:
+
+* **Subject** (for example, English or Mathematics) has many **topics** (for example, Phonics, Mind Math, Oral Math, or Math Olympiad).
+* Courses reference a subject and one topic belonging to that subject. The course form provides subject and topic dropdowns; choosing **Other** prompts for a name and adds that subject or topic to the catalogue. Administrators can create, rename, and remove unused subjects and topics from the Subjects page.
+* Each campaign is linked to exactly one course through `leads_source.course_id`; multiple campaigns may link to the same course. Campaign creation and editing require selecting a course. Existing campaigns without a known course remain unlinked until an administrator assigns one.
+* Each course may have multiple course batches. A batch records its course, batch number, name, short code, student capacity, start date, and whether it is the latest batch for that course. Batch number and short code are unique within a course.
+* An enrollment may optionally reference a batch. A composite database foreign key ensures an assigned batch belongs to the same course recorded on the enrollment.
+* Lead conversion assigns the enrollment to the lowest-numbered batch for the selected course that still has capacity. The enrollment, batch assignment, and lead status change are committed together; conversions for one course are serialized to prevent overbooking.
+* A converted lead reserves one seat immediately, including while its enrollment is `Pending Payment` or `Payment Under Review`. **Admitted / reserved** counts every assigned enrollment except `Cancelled`; cancellation releases the seat. **Vacancy** is `max(capacity - admitted, 0)`. These figures are derived rather than stored.
+* If all batches for the course are full, conversion is rejected without changing the lead or creating an enrollment. An administrator must create another batch or increase capacity. The `is_latest` flag does not affect allocation order.
+* The application currently has no lead-conversion HTTP endpoint. The transaction-safe enrollment action is ready for that workflow to call; conversion UI and route wiring remain outstanding.
+
 ---
 
 ## 10. Payment Gateways & Manual Processing
@@ -359,18 +373,74 @@ CREATE TABLE `user_shifts` (
     `updated_at` TIMESTAMP NULL
 );
 
--- 5. Courses / Products Table
-CREATE TABLE `courses` (
+-- 5. Course Subject Catalogue
+CREATE TABLE `subjects` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `title` VARCHAR(150) NOT NULL,
-    `code` VARCHAR(50) UNIQUE NOT NULL,
-    `base_fee` DECIMAL(10,2) NOT NULL,
-    `is_active` BOOLEAN DEFAULT TRUE,
+    `name` VARCHAR(100) NOT NULL UNIQUE,
     `created_at` TIMESTAMP NULL,
     `updated_at` TIMESTAMP NULL
 );
 
--- 6. Core Leads Table
+-- 6. Course Topics (one subject has many topics)
+CREATE TABLE `course_topics` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `subject_id` BIGINT UNSIGNED NOT NULL,
+    `name` VARCHAR(100) NOT NULL,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    UNIQUE KEY `course_topics_subject_name_unique` (`subject_id`, `name`),
+    UNIQUE KEY `course_topics_subject_id_unique` (`subject_id`, `id`),
+    CONSTRAINT `course_topics_subject_fk`
+        FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`)
+        ON DELETE CASCADE ON UPDATE CASCADE
+);
+
+-- 7. Courses / Products Table
+CREATE TABLE `courses` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `title` VARCHAR(150) NOT NULL,
+    `code` VARCHAR(50) UNIQUE NOT NULL,
+    `description` TEXT NULL,
+    `conditions` TEXT NULL,
+    `subject_id` BIGINT UNSIGNED NULL,
+    `course_topic_id` BIGINT UNSIGNED NULL,
+    `version` ENUM('Bangla', 'English') NOT NULL DEFAULT 'Bangla',
+    `category` VARCHAR(100) NULL,
+    `base_fee` DECIMAL(10,2) NOT NULL,
+    `is_active` BOOLEAN DEFAULT TRUE,
+    `created_at` TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    `edited_at` TIMESTAMP NULL,
+    `edited_by` BIGINT UNSIGNED NULL,
+    CONSTRAINT `courses_subject_fk`
+        FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`)
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT `courses_subject_topic_fk`
+        FOREIGN KEY (`subject_id`, `course_topic_id`)
+        REFERENCES `course_topics` (`subject_id`, `id`)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- 8. Course Batches / Cohorts
+CREATE TABLE `course_batch` (
+    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+    `course_id` BIGINT UNSIGNED NOT NULL,
+    `batch_number` INT UNSIGNED NOT NULL,
+    `batch_name` VARCHAR(100) NOT NULL,
+    `short_code` VARCHAR(30) NOT NULL,
+    `capacity` INT UNSIGNED NOT NULL,
+    `is_latest` BOOLEAN NOT NULL DEFAULT FALSE,
+    `start_date` DATE NOT NULL,
+    `created_at` TIMESTAMP NULL,
+    `updated_at` TIMESTAMP NULL,
+    UNIQUE KEY `course_batch_course_number_unique` (`course_id`, `batch_number`),
+    UNIQUE KEY `course_batch_course_code_unique` (`course_id`, `short_code`),
+    UNIQUE KEY `course_batch_course_id_unique` (`course_id`, `id`),
+    CONSTRAINT `course_batch_course_fk`
+        FOREIGN KEY (`course_id`) REFERENCES `courses` (`id`)
+        ON DELETE RESTRICT ON UPDATE CASCADE
+);
+
+-- 9. Core Leads Table
 CREATE TABLE `leads` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `lead_code` VARCHAR(50) UNIQUE NOT NULL,
@@ -397,7 +467,7 @@ CREATE TABLE `leads` (
     INDEX `idx_status_owner` (`status`, `current_owner_id`)
 );
 
--- Lead Actions & Feedbacks (Immutable History)
+-- 10. Lead Actions & Feedbacks (Immutable History)
 CREATE TABLE `lead_feedbacks` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `lead_id` BIGINT UNSIGNED NOT NULL,
@@ -411,7 +481,7 @@ CREATE TABLE `lead_feedbacks` (
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
--- 7. Batches Table
+-- 11. Lead Batches Table
 CREATE TABLE `lead_batches` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `user_id` BIGINT UNSIGNED NOT NULL,
@@ -421,7 +491,7 @@ CREATE TABLE `lead_batches` (
     `completed_at` TIMESTAMP NULL
 );
 
--- 8. Batch Items (Connects Leads to Batches)
+-- 12. Lead Batch Items (Connects Leads to Batches)
 CREATE TABLE `lead_batch_items` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `batch_id` BIGINT UNSIGNED NOT NULL,
@@ -432,20 +502,7 @@ CREATE TABLE `lead_batch_items` (
     UNIQUE KEY `unique_batch_lead` (`batch_id`, `lead_id`)
 );
 
--- 9. Lead Actions & Feedbacks (Immutable History)
-CREATE TABLE `lead_feedbacks` (
-    `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
-    `lead_id` BIGINT UNSIGNED NOT NULL,
-    `user_id` BIGINT UNSIGNED NOT NULL,
-    `call_status` VARCHAR(50) NOT NULL,
-    `customer_interest` VARCHAR(50) NOT NULL,
-    `customer_concern` TEXT NULL,
-    `sales_note` TEXT NOT NULL,
-    `next_action` VARCHAR(50) NOT NULL,
-    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-);
-
--- 10. Follow-ups Queue Table
+-- 13. Follow-ups Queue Table
 CREATE TABLE `lead_followups` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `lead_id` BIGINT UNSIGNED NOT NULL,
@@ -459,7 +516,7 @@ CREATE TABLE `lead_followups` (
     INDEX `idx_due_time` (`followup_date_time`, `is_done`)
 );
 
--- 11. Transfers Table (Dual Approval Engine)
+-- 14. Transfers Table (Dual Approval Engine)
 CREATE TABLE `lead_transfers` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `lead_id` BIGINT UNSIGNED NOT NULL,
@@ -478,11 +535,12 @@ CREATE TABLE `lead_transfers` (
     `updated_at` TIMESTAMP NULL
 );
 
--- 12. Enrollments Table
+-- 15. Enrollments Table
 CREATE TABLE `enrollments` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `lead_id` BIGINT UNSIGNED NOT NULL UNIQUE,
     `course_id` BIGINT UNSIGNED NOT NULL,
+    `course_batch_id` BIGINT UNSIGNED NULL,
     `sales_executive_id` BIGINT UNSIGNED NOT NULL,
     `secure_uuid` VARCHAR(64) UNIQUE NOT NULL,
     `student_name` VARCHAR(150) NOT NULL,
@@ -496,10 +554,14 @@ CREATE TABLE `enrollments` (
     `total_installments` INT UNSIGNED DEFAULT 1,
     `status` ENUM('Pending Payment', 'Payment Under Review', 'Enrolled', 'Cancelled') DEFAULT 'Pending Payment',
     `created_at` TIMESTAMP NULL,
-    `updated_at` TIMESTAMP NULL
+    `updated_at` TIMESTAMP NULL,
+    CONSTRAINT `enrollments_course_batch_course_fk`
+        FOREIGN KEY (`course_id`, `course_batch_id`)
+        REFERENCES `course_batch` (`course_id`, `id`)
+        ON DELETE RESTRICT ON UPDATE CASCADE
 );
 
--- 13. Installment Schedules Table
+-- 16. Installment Schedules Table
 CREATE TABLE `installment_schedules` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `enrollment_id` BIGINT UNSIGNED NOT NULL,
@@ -513,7 +575,7 @@ CREATE TABLE `installment_schedules` (
     `updated_at` TIMESTAMP NULL
 );
 
--- 14. Payments & Transactions Table
+-- 17. Payments & Transactions Table
 CREATE TABLE `payments` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `enrollment_id` BIGINT UNSIGNED NOT NULL,
@@ -531,7 +593,7 @@ CREATE TABLE `payments` (
     `updated_at` TIMESTAMP NULL
 );
 
--- 15. Duplicate Review Queue
+-- 18. Duplicate Review Queue
 CREATE TABLE `duplicate_lead_reviews` (
     `id` BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
     `incoming_lead_data` JSON NOT NULL,
@@ -583,7 +645,7 @@ app/
 3. [x] **Dynamic Shifts:** Distribution cuts off 30 minutes before individual shift end time; pending leads carry forward without loss.
 4. [x] **Lazy Penalty:** Failure to complete follow-ups within $t$ overdue hours auto-tags agent as `Lazy` and halts new lead inflow.
 5. [x] **Follow-up Isolation:** Scheduling a follow-up date/time immediately unblocks the active batch slot.
-6. [x] **End-to-End Conversion:** Lead conversion generates a secure link (`/enroll/verify/{uuid}`); Accounts payment verification formally finishes the batch task.
+6. [ ] **End-to-End Conversion:** Lead conversion assigns the next available course batch and generates a secure link (`/enroll/verify/{uuid}`); Accounts payment verification formally finishes the sales batch task. The transactional enrollment action exists, but the conversion endpoint and secure-link workflow are not yet wired.
 7. [x] **Dual Gateway + Manual Payments:** Supports bKash, SSLCommerz, and manual payments requiring TrxID, slip screenshot, or both.
 8. [x] **Dual-Approved Transfers:** Cross-team transfers require both TLs' approval and auto-transfer after 7 days without freezing the lead.
 9. [x] **Protected In-Context Search:** Agents can only inspect past course inquiries from within their actively assigned lead modal.

@@ -17,13 +17,7 @@
             <label class="flex flex-col gap-2 text-sm font-semibold">Course code
                 <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal uppercase transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="code" value="{{ old('code', $course->code) }}" maxlength="50" required>
             </label>
-            <label class="flex flex-col gap-2 text-sm font-semibold">Subject
-                <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="subject" required>
-                    @foreach ($subjects as $subject)
-                        <option value="{{ $subject }}" @selected(old('subject', $course->subject) === $subject)>{{ $subject }}</option>
-                    @endforeach
-                </select>
-            </label>
+            @include('courses._taxonomy-fields')
             <label class="flex flex-col gap-2 text-sm font-semibold">Version
                 <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="version" required>
                     @foreach ($versions as $version)

@@ -69,6 +69,15 @@
                     @if ($currentEmployee?->isAdmin() || $currentEmployee?->lowerAuthorityRoles() !== [])
                         <div class="flex flex-col gap-1">
                             <p class="px-2 text-xs font-semibold uppercase tracking-wider text-pedago-muted">People</p>
+                            @if ($currentEmployee?->isAdmin() || in_array($currentEmployee?->role, ['Supervisor', 'Team Leader'], true))
+                                <a @class([
+                                    'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                                    'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('teams.*'),
+                                    'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('teams.*'),
+                                ]) href="{{ route('teams.index') }}" @if (request()->routeIs('teams.*')) aria-current="page" @endif>
+                                    Teams
+                                </a>
+                            @endif
                             @if ($currentEmployee?->isAdmin())
                                 <a @class([
                                     'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
@@ -83,6 +92,20 @@
                                     'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('courses.*'),
                                 ]) href="{{ route('courses.index') }}" @if (request()->routeIs('courses.*')) aria-current="page" @endif>
                                     Courses
+                                </a>
+                                <a @class([
+                                    'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                                    'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('subjects.*', 'course-topics.*'),
+                                    'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('subjects.*', 'course-topics.*'),
+                                ]) href="{{ route('subjects.index') }}" @if (request()->routeIs('subjects.*', 'course-topics.*')) aria-current="page" @endif>
+                                    Subjects
+                                </a>
+                                <a @class([
+                                    'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                                    'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('course-batches.*'),
+                                    'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('course-batches.*'),
+                                ]) href="{{ route('course-batches.index') }}" @if (request()->routeIs('course-batches.*')) aria-current="page" @endif>
+                                    Course batches
                                 </a>
                                 <a @class([
                                     'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
@@ -148,10 +171,15 @@
                         <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('leads.upload') }}">Upload leads</a>
                         <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('campaigns.index') }}">Campaigns</a>
                     @endif
+                    @if ($currentEmployee?->isAdmin() || in_array($currentEmployee?->role, ['Supervisor', 'Team Leader'], true))
+                        <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('teams.index') }}">Teams</a>
+                    @endif
                     @if ($currentEmployee?->isAdmin())
+                        <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('courses.index') }}">Courses</a>
+                        <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('subjects.index') }}">Subjects</a>
+                        <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('course-batches.index') }}">Batches</a>
                         <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('duplicate-lead-reviews.index') }}">Duplicate review</a>
                         <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('employees.index') }}">Employees</a>
-                        <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('courses.index') }}">Courses</a>
                         <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('settings.index') }}">Settings</a>
                     @endif
                     @if ($currentEmployee?->lowerAuthorityRoles() !== [])
@@ -186,5 +214,6 @@
             @yield('content')
         </main>
     @endauth
+    @stack('scripts')
 </body>
 </html>

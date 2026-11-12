@@ -21,13 +21,7 @@
             <label class="flex flex-col gap-2 text-sm font-semibold" for="code">Course code
                 <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal uppercase transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="code" name="code" value="{{ old('code') }}" maxlength="50" required>
             </label>
-            <label class="flex flex-col gap-2 text-sm font-semibold" for="subject">Subject
-                <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="subject" name="subject" required>
-                    @foreach ($subjects as $subject)
-                        <option value="{{ $subject }}" @selected(old('subject', 'General') === $subject)>{{ $subject }}</option>
-                    @endforeach
-                </select>
-            </label>
+            @include('courses._taxonomy-fields')
             <label class="flex flex-col gap-2 text-sm font-semibold" for="version">Version
                 <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="version" name="version" required>
                     @foreach ($versions as $version)
@@ -96,7 +90,7 @@
                                 <p class="font-semibold text-pedago-ink">{{ $course->title }}</p>
                                 <p class="mt-0.5 text-xs text-pedago-muted">{{ $course->code }}{{ $course->category ? ' · '.$course->category : '' }}</p>
                             </td>
-                            <td class="px-5 py-3">{{ $course->subject }}</td>
+                            <td class="px-5 py-3">{{ $course->subject?->name }}{{ $course->topic ? ' · '.$course->topic->name : '' }}</td>
                             <td class="px-5 py-3">{{ $course->version }}</td>
                             <td class="px-5 py-3 font-mono">৳ {{ number_format((float) $course->base_fee, 2) }}</td>
                             <td class="px-5 py-3">{{ number_format($course->leads_count) }}</td>

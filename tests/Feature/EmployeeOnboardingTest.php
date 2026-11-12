@@ -381,3 +381,35 @@ it('does not let a non-admin create employee accounts', function () {
         ->get(route('employees.create'))
         ->assertForbidden();
 });
+
+it('auto-increments office id sequentially in PED-001 format', function () {
+    // Starting with no employees, next should be PED-001
+    expect(Employee::nextOfficeId())->toBe('PED-001');
+
+    [$adminUser, $admin] = createOnboardedEmployee('Admin', ['office_id' => 'PED-001']);
+
+    expect(Employee::nextOfficeId())->toBe('PED-002');
+
+    // Create an employee with office_id = PED-045
+    createOnboardedEmployee('Sales Executive', ['office_id' => 'PED-045']);
+    expect(Employee::nextOfficeId())->toBe('PED-046');
+
+    // Create an employee through the controller without specifying office_id
+    $this->actingAs($adminUser)->post(route('employees.store'), [
+        'name' => 'Auto Sequenced Staff',
+        'designation' => 'Sales Executive',
+        'joining_date' => '2026-11-11',
+        'role' => 'Sales Executive',
+        'phone_number' => '+880 1712-999-001',
+        'password' => 'Pass123',
+        'password_confirmation' => 'Pass123',
+    ])->assertRedirect(route('employees.index'));
+
+    $created = Employee::where('name', 'Auto Sequenced Staff')->firstOrFail();
+    expect($created->office_id)->toBe('PED-046');
+
+    // The create form should also show the next auto-incremented office_id
+    $this->actingAs($adminUser)->get(route('employees.create'))
+        ->assertOk()
+        ->assertSee('PED-047');
+});

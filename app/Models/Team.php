@@ -28,6 +28,11 @@ class Team extends Model
         return $this->belongsTo(Employee::class, 'team_leader_id');
     }
 
+    public function members(): HasMany
+    {
+        return $this->hasMany(Employee::class, 'team_id');
+    }
+
     public function supervisors(): BelongsToMany
     {
         return $this->belongsToMany(Employee::class, 'supervisor_teams', 'team_id', 'supervisor_id');

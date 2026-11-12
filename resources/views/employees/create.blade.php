@@ -16,7 +16,9 @@
                     <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="name" value="{{ old('name') }}" autocomplete="name" required>
                 </label>
                 <label class="flex flex-col gap-2 text-sm font-semibold">Office ID
-                    <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="office_id" value="{{ old('office_id') }}" required>
+                    <input class="rounded-md border border-pedago-line bg-pedago-canvas px-3 py-2.5 font-mono font-medium text-pedago-ink transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="office_id" value="{{ old('office_id', $nextOfficeId) }}" readonly required>
+                    <span class="text-xs font-normal text-pedago-muted">Auto-incremented ID (e.g. PED-001, PED-002, PED-045).</span>
+                    @error('office_id')<span class="text-xs text-pedago-red">{{ $message }}</span>@enderror
                 </label>
                 <label class="flex flex-col gap-2 text-sm font-semibold">Designation
                     <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="designation" value="{{ old('designation') }}" required>

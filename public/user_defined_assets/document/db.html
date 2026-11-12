@@ -613,6 +613,7 @@
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> source_id</span><span class="attr-type-col">BIGINT PK</span></div>
                     <div class="attr-row"><span class="attr-name-col">channel</span><span class="attr-type-col">ENUM (fb,wp,googleads,etc)</span></div>
                     <div class="attr-row"><span class="attr-name-col">campaign_name</span><span class="attr-type-col">VARCHAR(150)</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> course_id</span><span class="attr-type-col">BIGINT FK NULL</span></div>
                     <div class="attr-row"><span class="attr-name-col">distribution_mode</span><span class="attr-type-col">ENUM (Auto,Manual)</span></div>
                     <div class="attr-row"><span class="attr-name-col">is_active</span><span class="attr-type-col">BOOLEAN</span></div>
                     <div class="attr-row"><span class="attr-name-col">created_at</span><span class="attr-type-col">TIMESTAMP</span></div>
@@ -633,12 +634,56 @@
                     <div class="attr-row"><span class="attr-name-col">code</span><span class="attr-type-col">VARCHAR(50) UK</span></div>
                     <div class="attr-row"><span class="attr-name-col">description</span><span class="attr-type-col">TEXT</span></div>
                     <div class="attr-row"><span class="attr-name-col">conditions</span><span class="attr-type-col">TEXT</span></div>
-                    <div class="attr-row"><span class="attr-name-col">subject</span><span class="attr-type-col">ENUM</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> subject_id</span><span class="attr-type-col">BIGINT FK NULL</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> course_topic_id</span><span class="attr-type-col">BIGINT FK NULL</span></div>
                     <div class="attr-row"><span class="attr-name-col">version</span><span class="attr-type-col">ENUM (BN/EN)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">category</span><span class="attr-type-col">VARCHAR(100)</span></div>
                     <div class="attr-row"><span class="attr-name-col">base_fee</span><span class="attr-type-col">DECIMAL(10,2)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">is_active</span><span class="attr-type-col">BOOLEAN</span></div>
                     <div class="attr-row"><span class="attr-name-col">created_at</span><span class="attr-type-col">TIMESTAMP</span></div>
                     <div class="attr-row"><span class="attr-name-col">edited_at</span><span class="attr-type-col">TIMESTAMP</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> edited_by</span><span class="attr-type-col">BIGINT FK</span></div>
+                </div>
+            </div>
+
+            <!-- Course subject and topic catalogue -->
+            <div class="entity-card" id="entity-subjects" style="top: 1280px; left: 470px;" data-table="subjects">
+                <div class="entity-header header-green">
+                    <span class="header-icon">▦</span> SUBJECTS
+                </div>
+                <div class="entity-body">
+                    <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">name</span><span class="attr-type-col">VARCHAR(100) UK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">created_at</span><span class="attr-type-col">TIMESTAMP</span></div>
+                    <div class="attr-row"><span class="attr-name-col">updated_at</span><span class="attr-type-col">TIMESTAMP</span></div>
+                </div>
+            </div>
+
+            <div class="entity-card" id="entity-course_topics" style="top: 1280px; left: 860px;" data-table="course_topics">
+                <div class="entity-header header-green">
+                    <span class="header-icon">▦</span> COURSE_TOPICS
+                </div>
+                <div class="entity-body">
+                    <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> subject_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">name</span><span class="attr-type-col">VARCHAR(100)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">UNIQUE</span><span class="attr-type-col">(subject_id, name)</span></div>
+                    <div class="attr-row"><span class="attr-name-col">created_at / updated_at</span><span class="attr-type-col">TIMESTAMP</span></div>
+                </div>
+            </div>
+
+            <div class="entity-card" id="entity-course_batch" style="top: 1280px; left: 1250px;" data-table="course_batch">
+                <div class="entity-header header-green">
+                    <span class="header-icon">▦</span> COURSE_BATCH
+                </div>
+                <div class="entity-body">
+                    <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> course_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col">batch_number</span><span class="attr-type-col">INT UNSIGNED</span></div>
+                    <div class="attr-row"><span class="attr-name-col">batch_name / short_code</span><span class="attr-type-col">VARCHAR</span></div>
+                    <div class="attr-row"><span class="attr-name-col">capacity</span><span class="attr-type-col">INT UNSIGNED</span></div>
+                    <div class="attr-row"><span class="attr-name-col">is_latest</span><span class="attr-type-col">BOOLEAN</span></div>
+                    <div class="attr-row"><span class="attr-name-col">start_date</span><span class="attr-type-col">DATE</span></div>
                 </div>
             </div>
 
@@ -756,6 +801,7 @@
                     <div class="attr-row"><span class="attr-name-col"><span class="key-icon">🔑</span> id</span><span class="attr-type-col">BIGINT PK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> lead_id</span><span class="attr-type-col">BIGINT FK UK</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> course_id</span><span class="attr-type-col">BIGINT FK</span></div>
+                    <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> course_batch_id</span><span class="attr-type-col">BIGINT FK NULL</span></div>
                     <div class="attr-row"><span class="attr-name-col"><span class="fk-icon">🔗</span> sales_executive_id</span><span class="attr-type-col">BIGINT FK</span></div>
                     <div class="attr-row"><span class="attr-name-col">secure_uuid</span><span class="attr-type-col">VARCHAR(64) UK</span></div>
                     <div class="attr-row"><span class="attr-name-col">final_deal_amount</span><span class="attr-type-col">DECIMAL(10,2)</span></div>
@@ -908,7 +954,7 @@
     <!-- Tabular Data Dictionary View -->
     <div id="dictionary-view">
         <div class="dict-container">
-            <h2 style="font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 24px;">Pedago ERP Database Dictionary (v4.0)</h2>
+            <h2 style="font-size: 24px; font-weight: 800; color: #fff; margin-bottom: 24px;">Pedago ERP Database Dictionary (v4.1)</h2>
 
             <!-- Employee and account tables -->
             <div class="dict-title-bar">
@@ -1005,6 +1051,7 @@
                     <tr><td>source_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>PK</td><td>Auto</td><td>Primary Key</td></tr>
                     <tr><td>channel</td><td>ENUM</td><td>NO</td><td>-</td><td>'website'</td><td>fb, wp, googleads, gptads, googleform, reference, website</td></tr>
                     <tr><td>campaign_name</td><td>VARCHAR(150)</td><td>YES</td><td>-</td><td>NULL</td><td>Ad Campaign / Adset Name</td></tr>
+                    <tr><td>course_id</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK → courses.id</td><td>NULL</td><td>One linked course per campaign; multiple campaigns may share a course. Required for campaigns created in the application; nullable for legacy/unattributed source records.</td></tr>
                     <tr><td>created_at</td><td>TIMESTAMP</td><td>NO</td><td>-</td><td>CURRENT_TIMESTAMP</td><td>Creation Time</td></tr>
                     <tr><td>edited_at</td><td>TIMESTAMP</td><td>YES</td><td>-</td><td>NULL</td><td>Edit Time</td></tr>
                     <tr><td>edited_by</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK</td><td>NULL</td><td>Admin User ID who edited</td></tr>
@@ -1056,12 +1103,75 @@
                     <tr><td>code</td><td>VARCHAR(50)</td><td>NO</td><td>UK</td><td>-</td><td>Unique Code (e.g. FSWD-101)</td></tr>
                     <tr><td>description</td><td>TEXT</td><td>YES</td><td>-</td><td>NULL</td><td>Course syllabus & descriptions</td></tr>
                     <tr><td>conditions</td><td>TEXT</td><td>YES</td><td>-</td><td>NULL</td><td>Admission conditions & terms</td></tr>
-                    <tr><td>subject</td><td>ENUM</td><td>NO</td><td>-</td><td>'General'</td><td>English, Bangla, Math, Science, Programming, General</td></tr>
+                    <tr><td>subject_id</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK</td><td>NULL</td><td>Subject in the normalized course catalogue</td></tr>
+                    <tr><td>course_topic_id</td><td>BIGINT UNSIGNED</td><td>YES</td><td>Composite FK</td><td>NULL</td><td>Topic belonging to subject_id</td></tr>
                     <tr><td>version</td><td>ENUM</td><td>NO</td><td>-</td><td>'Bangla'</td><td>Bangla, English</td></tr>
+                    <tr><td>category</td><td>VARCHAR(100)</td><td>YES</td><td>-</td><td>NULL</td><td>Broader departmental category</td></tr>
                     <tr><td>base_fee</td><td>DECIMAL(10,2)</td><td>NO</td><td>-</td><td>-</td><td>Regular Course Fee</td></tr>
+                    <tr><td>is_active</td><td>BOOLEAN</td><td>NO</td><td>-</td><td>TRUE</td><td>Whether currently enrolling</td></tr>
                     <tr><td>created_at</td><td>TIMESTAMP</td><td>NO</td><td>-</td><td>CURRENT_TIMESTAMP</td><td>Creation Time</td></tr>
                     <tr><td>edited_at</td><td>TIMESTAMP</td><td>YES</td><td>-</td><td>NULL</td><td>Edit Time</td></tr>
                     <tr><td>edited_by</td><td>BIGINT UNSIGNED</td><td>YES</td><td>FK</td><td>NULL</td><td>Admin User ID who edited</td></tr>
+                </tbody>
+            </table>
+
+            <div class="dict-title-bar">
+                <div class="dict-title"><span>▦</span> SUBJECTS</div>
+                <span class="badge-type">Course catalogue</span>
+            </div>
+            <table class="dict-table">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>PK</td><td>Auto</td><td>Subject ID</td></tr>
+                    <tr><td>name</td><td>VARCHAR(100)</td><td>NO</td><td>UK</td><td>-</td><td>Unique subject name such as English or Mathematics</td></tr>
+                    <tr><td>created_at, updated_at</td><td>TIMESTAMP</td><td>NO</td><td>-</td><td>-</td><td>Creation and update timestamps</td></tr>
+                </tbody>
+            </table>
+
+            <div class="dict-title-bar">
+                <div class="dict-title"><span>▦</span> COURSE_TOPICS</div>
+                <span class="badge-type">Subject curriculum</span>
+            </div>
+            <table class="dict-table">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>PK</td><td>Auto</td><td>Topic ID</td></tr>
+                    <tr><td>subject_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>FK</td><td>-</td><td>Parent subject; subject deletion cascades to its topics</td></tr>
+                    <tr><td>name</td><td>VARCHAR(100)</td><td>NO</td><td>UK (subject_id, name)</td><td>-</td><td>Topic name, e.g. Phonics, Mind Math, or Oral Math</td></tr>
+                    <tr><td>created_at, updated_at</td><td>TIMESTAMP</td><td>NO</td><td>-</td><td>-</td><td>Creation and update timestamps</td></tr>
+                </tbody>
+            </table>
+
+            <div class="dict-title-bar">
+                <div class="dict-title"><span>▦</span> COURSE_BATCH</div>
+                <span class="badge-type">Course cohorts</span>
+            </div>
+            <table class="dict-table">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>PK</td><td>Auto</td><td>Batch ID</td></tr>
+                    <tr><td>course_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>FK</td><td>-</td><td>Parent course; referenced courses cannot be deleted</td></tr>
+                    <tr><td>batch_number</td><td>INT UNSIGNED</td><td>NO</td><td>UK (course_id, batch_number)</td><td>-</td><td>Batch sequence within a course</td></tr>
+                    <tr><td>batch_name</td><td>VARCHAR(100)</td><td>NO</td><td>-</td><td>-</td><td>Human-readable batch name</td></tr>
+                    <tr><td>short_code</td><td>VARCHAR(30)</td><td>NO</td><td>UK (course_id, short_code)</td><td>-</td><td>Batch code unique within its course</td></tr>
+                    <tr><td>capacity</td><td>INT UNSIGNED</td><td>NO</td><td>-</td><td>-</td><td>Configured student capacity</td></tr>
+                    <tr><td>is_latest</td><td>BOOLEAN</td><td>NO</td><td>-</td><td>FALSE</td><td>Latest batch flag managed per course</td></tr>
+                    <tr><td>start_date</td><td>DATE</td><td>NO</td><td>-</td><td>-</td><td>Batch start date</td></tr>
+                    <tr><td>created_at, updated_at</td><td>TIMESTAMP</td><td>NO</td><td>-</td><td>-</td><td>Creation and update timestamps</td></tr>
+                </tbody>
+            </table>
+            <p style="color: var(--text-sub); font-size: 13px; line-height: 1.7; margin: 0 0 28px;">
+                Enrollment records may set <code>course_batch_id BIGINT UNSIGNED NULL</code>. The composite foreign key <code>(course_id, course_batch_id) → course_batch(course_id, id)</code> ensures the optional batch belongs to the enrolled course. Lead conversion assigns the lowest-numbered batch with capacity and reserves a seat immediately, including while payment is pending. Batch admissions count every assigned enrollment except <code>Cancelled</code>; cancellation releases its seat. Vacancy is <code>max(capacity - admitted, 0)</code>.
+            </p>
+            <div class="dict-title-bar">
+                <div class="dict-title"><span>▦</span> ENROLLMENT BATCH LINK</div>
+                <span class="badge-type">Optional course cohort</span>
+            </div>
+            <table class="dict-table">
+                <thead><tr><th>Attribute</th><th>Type</th><th>Null</th><th>Key</th><th>Default</th><th>Description</th></tr></thead>
+                <tbody>
+                    <tr><td>course_id</td><td>BIGINT UNSIGNED</td><td>NO</td><td>FK</td><td>-</td><td>Course already associated with the enrollment</td></tr>
+                    <tr><td>course_batch_id</td><td>BIGINT UNSIGNED</td><td>YES</td><td>Composite FK (course_id, course_batch_id)</td><td>NULL</td><td>Optional batch, constrained to that same course</td></tr>
                 </tbody>
             </table>
 
@@ -1106,6 +1216,7 @@ END;</pre>
             { from: 'entity-employees', to: 'entity-supervisor_teams', label: '1:N' },
             { from: 'entity-teams', to: 'entity-supervisor_teams', label: '1:N' },
             { from: 'entity-leads_source', to: 'entity-leads', label: '1:N Source' },
+            { from: 'entity-courses', to: 'entity-leads_source', label: '1:N Campaigns' },
             { from: 'entity-teams', to: 'entity-leads', label: '1:N Team' },
             { from: 'entity-employees', to: 'entity-leads', label: '1:N Owner' },
             { from: 'entity-courses', to: 'entity-leads', label: '1:N Course' },
@@ -1119,6 +1230,11 @@ END;</pre>
             { from: 'entity-leads', to: 'entity-lead_transfers', label: '1:N' },
             { from: 'entity-leads', to: 'entity-enrollments', label: '1:1' },
             { from: 'entity-courses', to: 'entity-enrollments', label: '1:N' },
+            { from: 'entity-subjects', to: 'entity-course_topics', label: '1:N Subject topics' },
+            { from: 'entity-subjects', to: 'entity-courses', label: '1:N Subject' },
+            { from: 'entity-course_topics', to: 'entity-courses', label: '1:N Topic' },
+            { from: 'entity-courses', to: 'entity-course_batch', label: '1:N Course batches' },
+            { from: 'entity-course_batch', to: 'entity-enrollments', label: '1:N optional batch' },
             { from: 'entity-employees', to: 'entity-enrollments', label: '1:N Sales' },
             { from: 'entity-enrollments', to: 'entity-installment_schedules', label: '1:N' },
             { from: 'entity-enrollments', to: 'entity-payments', label: '1:N' },

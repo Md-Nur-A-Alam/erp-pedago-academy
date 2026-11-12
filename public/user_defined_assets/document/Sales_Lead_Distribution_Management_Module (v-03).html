@@ -958,7 +958,8 @@
                     <div class="step-index">1</div>
                     <div class="step-body">
                         <h5>Sales Executive Converts Lead & Generates Form <span class="status-tag">Lead Form Ready</span></h5>
-                        <p>Executive enters Course, Fee, Scholarship %, and Installment schedule breakdown. System generates a tamper-proof cryptographic link: <code>/enroll/verify/{secure_uuid}</code>.</p>
+                        <p>Executive enters Course, Fee, Scholarship %, and Installment schedule breakdown. On conversion, the enrollment is assigned to the lowest-numbered batch for that course with vacancy; a seat is reserved immediately, including while payment is pending. A full batch is skipped. System generates a tamper-proof cryptographic link: <code>/enroll/verify/{secure_uuid}</code>.</p>
+                        <p>If every batch is full, conversion is rejected without changing the lead; an administrator must create another batch or increase capacity. Cancelled enrollments release their seats. The application still needs a conversion endpoint to call the transaction-safe enrollment action.</p>
                     </div>
                 </div>
 
@@ -1167,7 +1168,7 @@
                 <div class="check-icon">✓</div>
                 <div class="checklist-text">
                     <h6>End-to-End Conversion, Gateway & Accounts Sign-Off</h6>
-                    <p>State progresses from <code>Enrolled - Pending Payment</code> to <code>Payment Under Review</code>. Batch completes only upon Accounts approval.</p>
+                    <p>Course-batch allocation reserves one seat on conversion and counts every non-cancelled enrollment against capacity. The transaction-safe enrollment action exists, but the conversion endpoint and secure-link workflow are not yet wired.</p>
                 </div>
             </div>
 

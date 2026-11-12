@@ -1,5 +1,6 @@
 <?php
 
+use App\Models\Course;
 use App\Models\Employee;
 use App\Models\EmployeeDetails;
 use App\Models\Lead;
@@ -26,6 +27,7 @@ function createCampaignEmployee(string $role): User
 
 it('allows admins and marketing executives to open the campaign module', function (string $role) {
     $user = createCampaignEmployee($role);
+    $course = Course::factory()->create();
 
     $this->actingAs($user)
         ->get(route('campaigns.index'))
@@ -33,6 +35,8 @@ it('allows admins and marketing executives to open the campaign module', functio
         ->assertSee('Campaigns')
         ->assertSee(route('campaigns.store'), false)
         ->assertSee('name="campaign_name"', false)
+        ->assertSee('name="course_id"', false)
+        ->assertSee($course->title)
         ->assertSee('name="channel"', false)
         ->assertSee('name="distribution_mode"', false);
 
@@ -46,10 +50,12 @@ it('allows admins and marketing executives to open the campaign module', functio
 
 it('creates an active campaign and records its creator', function (string $role) {
     $user = createCampaignEmployee($role);
+    $course = Course::factory()->create();
 
     $this->actingAs($user)->post(route('campaigns.store'), [
         'campaign_name' => 'November admissions',
         'channel' => 'fb',
+        'course_id' => $course->id,
         'distribution_mode' => 'Manual',
     ])->assertRedirect(route('campaigns.index'))
         ->assertSessionHas('status', 'Campaign created successfully.');
@@ -57,6 +63,7 @@ it('creates an active campaign and records its creator', function (string $role)
     $campaign = LeadSource::query()->sole();
 
     expect($campaign->campaign_name)->toBe('November admissions');
+    expect($campaign->course_id)->toBe($course->id);
     expect($campaign->channel)->toBe('fb');
     expect($campaign->distribution_mode)->toBe('Manual');
     expect($campaign->is_active)->toBeTrue();
@@ -67,11 +74,30 @@ it('creates an active campaign and records its creator', function (string $role)
     'marketing executive' => 'MarketingExecutive',
 ]);
 
+it('allows multiple campaigns to share one course without linking a campaign to multiple courses', function () {
+    $user = createCampaignEmployee('Admin');
+    $course = Course::factory()->create();
+
+    foreach (['November admissions', 'Winter promotion'] as $campaignName) {
+        $this->actingAs($user)->post(route('campaigns.store'), [
+            'campaign_name' => $campaignName,
+            'channel' => 'fb',
+            'course_id' => $course->id,
+            'distribution_mode' => 'Auto',
+        ])->assertRedirect(route('campaigns.index'));
+    }
+
+    expect($course->campaigns()->count())->toBe(2)
+        ->and(LeadSource::query()->whereNull('course_id')->count())->toBe(0);
+});
+
 it('shows campaign source, mode, status, and lead count', function () {
     $user = createCampaignEmployee('MarketingExecutive');
+    $course = Course::factory()->create();
     $campaign = LeadSource::factory()->create([
         'campaign_name' => 'November admissions',
         'channel' => 'fb',
+        'course_id' => $course->id,
         'distribution_mode' => 'Auto',
         'is_active' => true,
         'created_by' => $user->employee->id,
@@ -83,11 +109,14 @@ it('shows campaign source, mode, status, and lead count', function () {
         ->get(route('campaigns.index'))
         ->assertOk()
         ->assertSee('November admissions')
+        ->assertSee($course->title)
+        ->assertSee($course->subject->name)
+        ->assertSee($course->topic->name)
         ->assertSee('Facebook')
         ->assertSee('Auto')
         ->assertSee('2')
         ->assertSee('Active')
-        ->assertSee('2026-10-25')
+        ->assertSee('25 Oct 2026')
         ->assertSee($user->employee->name);
 });
 
@@ -133,6 +162,7 @@ it('requires authentication to open the campaign module', function () {
 
 it('rejects duplicate campaign names on the same source channel', function () {
     $user = createCampaignEmployee('Admin');
+    $course = Course::factory()->create();
     LeadSource::factory()->create([
         'campaign_name' => 'November admissions',
         'channel' => 'fb',
@@ -141,6 +171,7 @@ it('rejects duplicate campaign names on the same source channel', function () {
     $this->actingAs($user)->from(route('campaigns.index'))->post(route('campaigns.store'), [
         'campaign_name' => 'November admissions',
         'channel' => 'fb',
+        'course_id' => $course->id,
         'distribution_mode' => 'Auto',
     ])->assertRedirect(route('campaigns.index'))
         ->assertSessionHasErrors('campaign_name');
@@ -157,13 +188,30 @@ it('validates required campaign fields and allowed source and distribution optio
 
     expect(LeadSource::query()->count())->toBe(0);
 })->with([
-    'missing fields' => [[], ['campaign_name', 'channel', 'distribution_mode']],
+    'missing fields' => [[], ['campaign_name', 'channel', 'course_id', 'distribution_mode']],
     'invalid options' => [[
         'campaign_name' => 'Invalid campaign',
         'channel' => 'not-a-channel',
+        'course_id' => 999999,
         'distribution_mode' => 'Random',
-    ], ['channel', 'distribution_mode']],
+    ], ['channel', 'course_id', 'distribution_mode']],
 ]);
+
+it('prevents deleting a course while a campaign is linked to it', function () {
+    $user = createCampaignEmployee('Admin');
+    $course = Course::factory()->create();
+    LeadSource::factory()->create([
+        'campaign_name' => 'Linked campaign',
+        'course_id' => $course->id,
+    ]);
+
+    $this->actingAs($user)->from(route('courses.index'))
+        ->delete(route('courses.destroy', $course))
+        ->assertRedirect(route('courses.index'))
+        ->assertSessionHasErrors('course');
+
+    $this->assertModelExists($course);
+});
 
 it('filters campaigns by text and channel and sorts by lead count', function () {
     $user = createCampaignEmployee('MarketingExecutive');
@@ -208,30 +256,81 @@ it('filters campaigns by text and channel and sorts by lead count', function () 
         ->toBeLessThan(strpos($descendingContent, 'English Meta Retargeting'));
 });
 
+it('filters campaigns by course subject and topic, mode, status, and creation date', function () {
+    $user = createCampaignEmployee('MarketingExecutive');
+    $course = Course::factory()->create();
+    $otherCourse = Course::factory()->create();
+    $matchingCampaign = LeadSource::factory()->create([
+        'campaign_name' => 'Recent English campaign',
+        'course_id' => $course->id,
+        'distribution_mode' => 'Auto',
+        'is_active' => true,
+        'created_at' => now()->subDays(3),
+    ]);
+    LeadSource::factory()->create([
+        'campaign_name' => 'Old English campaign',
+        'course_id' => $course->id,
+        'distribution_mode' => 'Auto',
+        'is_active' => true,
+        'created_at' => now()->subDays(40),
+    ]);
+    LeadSource::factory()->create([
+        'campaign_name' => 'Recent inactive campaign',
+        'course_id' => $otherCourse->id,
+        'distribution_mode' => 'Manual',
+        'is_active' => false,
+        'created_at' => now(),
+    ]);
+
+    $this->actingAs($user)->get(route('campaigns.index', [
+        'subject' => $course->subject_id,
+        'topic' => $course->course_topic_id,
+        'mode' => 'Auto',
+        'status' => 'active',
+        'created' => '30days',
+    ]))->assertOk()
+        ->assertSee('Recent English campaign')
+        ->assertDontSee('Old English campaign')
+        ->assertDontSee('Recent inactive campaign')
+        ->assertSee('Subject: '.$course->subject->name)
+        ->assertSee('Topic: '.$course->topic->name)
+        ->assertSee('value="30days" selected', false);
+
+    $this->assertModelExists($matchingCampaign);
+});
+
 it('updates campaign details without changing its creator', function () {
     $creator = createCampaignEmployee('MarketingExecutive');
     $editor = createCampaignEmployee('Admin');
+    $course = Course::factory()->create();
     $campaign = LeadSource::factory()->create([
         'campaign_name' => 'Old campaign name',
         'channel' => 'fb',
+        'course_id' => $course->id,
         'distribution_mode' => 'Auto',
         'created_by' => $creator->employee->id,
     ]);
 
     $this->actingAs($editor)->get(route('campaigns.edit', $campaign))
         ->assertOk()
-        ->assertSee('Old campaign name');
+        ->assertSee('Old campaign name')
+        ->assertSee($course->title);
 
+    $updatedCourse = Course::factory()->create();
     $this->put(route('campaigns.update', $campaign), [
         'campaign_name' => 'Updated campaign name',
         'channel' => 'googleads',
+        'course_id' => $updatedCourse->id,
         'distribution_mode' => 'Manual',
+        'is_active' => '0',
     ])->assertRedirect(route('campaigns.index'))
         ->assertSessionHas('status', 'Campaign updated successfully.');
 
     expect($campaign->fresh()->campaign_name)->toBe('Updated campaign name');
     expect($campaign->fresh()->channel)->toBe('googleads');
+    expect($campaign->fresh()->course_id)->toBe($updatedCourse->id);
     expect($campaign->fresh()->distribution_mode)->toBe('Manual');
+    expect($campaign->fresh()->is_active)->toBeFalse();
     expect($campaign->fresh()->created_by)->toBe($creator->employee->id);
     expect($campaign->fresh()->edited_by)->toBe($editor->employee->id);
 });

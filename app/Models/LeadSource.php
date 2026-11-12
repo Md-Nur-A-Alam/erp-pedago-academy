@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['channel', 'campaign_name', 'distribution_mode', 'is_active', 'created_by', 'edited_by'])]
+#[Fillable(['channel', 'campaign_name', 'course_id', 'distribution_mode', 'is_active', 'created_by', 'edited_by'])]
 class LeadSource extends Model
 {
     use HasFactory;
@@ -45,6 +45,11 @@ class LeadSource extends Model
     public function leads(): HasMany
     {
         return $this->hasMany(Lead::class, 'source_id', 'source_id');
+    }
+
+    public function course(): BelongsTo
+    {
+        return $this->belongsTo(Course::class);
     }
 
     public function editedBy(): BelongsTo

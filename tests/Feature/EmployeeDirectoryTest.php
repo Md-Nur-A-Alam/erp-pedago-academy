@@ -45,3 +45,40 @@ it('forbids non-admins from viewing the employee directory', function () {
 
     $this->actingAs($salesExecutive)->get(route('employees.index'))->assertForbidden();
 });
+
+it('displays team column and allows sorting by headings', function () {
+    $admin = createEmployeeDirectoryUser('Admin', 'Admin User');
+
+    $teamA = \App\Models\Team::factory()->create(['name' => 'Team Alpha']);
+    $teamB = \App\Models\Team::factory()->create(['name' => 'Team Beta']);
+
+    $user1 = createEmployeeDirectoryUser('Sales Executive', 'Zack', 'Active');
+    $user1->employee->update(['team_id' => $teamB->id, 'office_id' => 'PED-010']);
+
+    $user2 = createEmployeeDirectoryUser('Sales Executive', 'Aaron', 'Active');
+    $user2->employee->update(['team_id' => $teamA->id, 'office_id' => 'PED-005']);
+
+    // Check team name is visible
+    $response = $this->actingAs($admin)->get(route('employees.index'));
+    $response->assertOk();
+    $response->assertSee('Team Alpha');
+    $response->assertSee('Team Beta');
+
+    // Test sort by name ASC
+    $responseAsc = $this->actingAs($admin)->get(route('employees.index', ['sort' => 'name', 'direction' => 'asc']));
+    $responseAsc->assertOk();
+    $responseAsc->assertSeeInOrder(['Aaron', 'Admin User', 'Zack']);
+
+    // Test sort by name DESC
+    $responseDesc = $this->actingAs($admin)->get(route('employees.index', ['sort' => 'name', 'direction' => 'desc']));
+    $responseDesc->assertOk();
+    $responseDesc->assertSeeInOrder(['Zack', 'Admin User', 'Aaron']);
+
+    // Test sort by team ASC
+    $responseTeamAsc = $this->actingAs($admin)->get(route('employees.index', ['sort' => 'team', 'direction' => 'asc']));
+    $responseTeamAsc->assertOk();
+
+    // Test sort by office_id ASC
+    $responseOfficeId = $this->actingAs($admin)->get(route('employees.index', ['sort' => 'office_id', 'direction' => 'asc']));
+    $responseOfficeId->assertOk();
+});

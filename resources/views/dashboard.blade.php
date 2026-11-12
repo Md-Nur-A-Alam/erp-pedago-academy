@@ -3,12 +3,44 @@
 @section('page-title', $employee->isAdmin() ? 'Admin dashboard' : 'Dashboard')
 @section('page-description', $employee->isAdmin() ? 'Your current operations snapshot.' : 'Welcome back, '.$employee->name.'.')
 
+@section('page-actions')
+    @if ($employee->isAdmin())
+        <form class="flex max-w-full flex-wrap items-center justify-end gap-2" method="GET" action="{{ route('dashboard') }}" aria-label="Dashboard date range">
+            <div class="flex flex-wrap items-center gap-1">
+                @foreach (['today' => 'Today', 'this_month' => 'This month', 'three_months' => '3 months', 'this_year' => 'This year'] as $preset => $label)
+                    <button @class([
+                        'rounded-md border px-3 py-2 text-xs font-semibold transition-colors',
+                        'border-pedago-blue bg-pedago-tint text-pedago-blue-dark' => $range === $preset,
+                        'border-pedago-line text-pedago-ink hover:bg-pedago-canvas' => $range !== $preset,
+                    ]) type="submit" name="range" value="{{ $preset }}" aria-pressed="{{ $range === $preset ? 'true' : 'false' }}">
+                        {{ $label }}
+                    </button>
+                @endforeach
+            </div>
+            <div class="flex flex-wrap items-center gap-2">
+                <label class="sr-only" for="dashboard-start-date">Custom start date</label>
+                <input class="w-36 rounded-md border border-pedago-line px-2 py-2 text-xs focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="dashboard-start-date" name="start_date" type="date" value="{{ $range === 'custom' ? $rangeStart->toDateString() : '' }}">
+                <label class="sr-only" for="dashboard-end-date">Custom end date</label>
+                <input class="w-36 rounded-md border border-pedago-line px-2 py-2 text-xs focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="dashboard-end-date" name="end_date" type="date" value="{{ $range === 'custom' ? $rangeEnd->toDateString() : '' }}">
+                <button @class([
+                    'rounded-md border px-3 py-2 text-xs font-semibold transition-colors',
+                    'border-pedago-blue bg-pedago-tint text-pedago-blue-dark' => $range === 'custom',
+                    'border-pedago-line text-pedago-ink hover:bg-pedago-canvas' => $range !== 'custom',
+                ]) type="submit" name="range" value="custom" aria-pressed="{{ $range === 'custom' ? 'true' : 'false' }}">
+                    Apply
+                </button>
+            </div>
+        </form>
+    @endif
+@endsection
+
 @section('content')
     @if ($employee->isAdmin())
         @php($maxPipeline = max(1, (int) $pipeline->max()))
-        <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-6" aria-label="Key metrics">
+        <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3 2xl:grid-cols-7" aria-label="Key metrics">
             @foreach ([
-                ['Unassigned leads', $metrics['unassigned_leads'], 'New leads waiting in the queue', 'text-pedago-blue'],
+                ['Total Leads', $metrics['total_leads'], 'Leads created in the selected date range', 'text-pedago-blue'],
+                ['Unassigned queue', $metrics['unassigned_leads'], 'New leads waiting in the queue', 'text-pedago-blue'],
                 ['Active batches', $metrics['active_batches'], 'Lead batches in progress', 'text-pedago-blue'],
                 ['Overdue follow-ups', $metrics['overdue_followups'], 'Follow-ups past their scheduled time', 'text-pedago-red'],
                 ['Payments to review', $metrics['payments_pending'], 'Payments with pending status', 'text-pedago-amber'],
@@ -27,7 +59,7 @@
             <section class="rounded-lg border border-pedago-line bg-white p-5" aria-labelledby="pipeline-heading">
                 <div class="mb-4 flex items-baseline justify-between gap-3">
                     <h2 class="text-sm font-bold" id="pipeline-heading">Lead pipeline</h2>
-                    <span class="text-xs text-pedago-muted">Current leads by status</span>
+                    <span class="text-xs text-pedago-muted">{{ $rangeLabel }}</span>
                 </div>
                 <div class="flex flex-col gap-3">
                     @forelse ($pipeline as $status => $count)

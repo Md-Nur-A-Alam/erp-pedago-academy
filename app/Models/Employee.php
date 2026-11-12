@@ -20,6 +20,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'role',
     'status',
     'shift_id',
+    'team_id',
     'edited_by',
 ])]
 class Employee extends Model
@@ -45,6 +46,40 @@ class Employee extends Model
         return [
             'joining_date' => 'date',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::creating(function (Employee $employee): void {
+            if (blank($employee->office_id)) {
+                $employee->office_id = static::nextOfficeId();
+            }
+        });
+    }
+
+    public static function nextOfficeId(): string
+    {
+        $officeIds = static::query()
+            ->where('office_id', 'like', 'PED-%')
+            ->pluck('office_id');
+
+        $maxNumber = 0;
+        foreach ($officeIds as $id) {
+            if (preg_match('/^PED-(\d+)$/i', (string) $id, $matches)) {
+                $num = (int) $matches[1];
+                if ($num > $maxNumber) {
+                    $maxNumber = $num;
+                }
+            }
+        }
+
+        $next = $maxNumber + 1;
+
+        while (static::query()->where('office_id', sprintf('PED-%03d', $next))->exists()) {
+            $next++;
+        }
+
+        return sprintf('PED-%03d', $next);
     }
 
     public function user(): BelongsTo
@@ -117,6 +152,16 @@ class Employee extends Model
     public function teamsLed(): HasMany
     {
         return $this->hasMany(Team::class, 'team_leader_id');
+    }
+
+    public function team(): BelongsTo
+    {
+        return $this->belongsTo(Team::class, 'team_id');
+    }
+
+    public function todayRoster(): HasOne
+    {
+        return $this->hasOne(EmployeeRoster::class)->whereDate('roster_date', today());
     }
 
     public function supervisedTeams(): BelongsToMany
