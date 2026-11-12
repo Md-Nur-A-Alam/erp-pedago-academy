@@ -91,17 +91,11 @@ class CampaignController extends Controller
                 )
                 ->when(
                     isset($filters['subject']),
-                    fn (EloquentBuilder $query) => $query->whereHas(
-                        'course.subject',
-                        fn (EloquentBuilder $courseQuery) => $courseQuery->whereKey($filters['subject']),
-                    ),
+                    fn (EloquentBuilder $query) => $query->whereHas('course.subject', fn (EloquentBuilder $courseQuery) => $courseQuery->whereKey($filters['subject'])),
                 )
                 ->when(
                     isset($filters['topic']),
-                    fn (EloquentBuilder $query) => $query->whereHas(
-                        'course.topic',
-                        fn (EloquentBuilder $courseQuery) => $courseQuery->whereKey($filters['topic']),
-                    ),
+                    fn (EloquentBuilder $query) => $query->whereHas('course.topic', fn (EloquentBuilder $courseQuery) => $courseQuery->whereKey($filters['topic'])),
                 )
                 ->when(
                     filled($filters['mode'] ?? null),
@@ -192,7 +186,10 @@ class CampaignController extends Controller
         ]);
 
         LeadSource::query()->create([
-            ...$validated,
+            'campaign_name' => $validated['campaign_name'],
+            'channel' => $validated['channel'],
+            'course_id' => $validated['course_id'],
+            'distribution_mode' => $validated['distribution_mode'],
             'is_active' => true,
             'created_by' => $employee->id,
             'edited_by' => $employee->id,
@@ -206,6 +203,8 @@ class CampaignController extends Controller
     {
         $this->employeeFor($request);
         abort_if($campaign->campaign_name === null, 404);
+
+        $campaign->load(['course.subject', 'course.topic']);
 
         return view('campaigns.edit', [
             'campaign' => $campaign,
@@ -242,7 +241,11 @@ class CampaignController extends Controller
         ]);
 
         $campaign->update([
-            ...$validated,
+            'campaign_name' => $validated['campaign_name'],
+            'channel' => $validated['channel'],
+            'course_id' => $validated['course_id'],
+            'distribution_mode' => $validated['distribution_mode'],
+            'is_active' => $request->has('is_active') ? (bool) $request->input('is_active') : $campaign->is_active,
             'edited_by' => $employee->id,
         ]);
 

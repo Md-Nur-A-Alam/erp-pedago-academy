@@ -360,3 +360,31 @@ it('preserves campaigns that still have leads when deletion is requested', funct
     $this->assertModelExists($campaign);
     $this->assertModelExists($lead);
 });
+
+it('creates and updates campaigns targeting a selected course', function () {
+    $user = createCampaignEmployee('Admin');
+    $course1 = Course::factory()->create(['title' => 'Advanced English']);
+    $course2 = Course::factory()->create(['title' => 'Basic Mathematics']);
+
+    // 1. Create with course_id
+    $this->actingAs($user)->post(route('campaigns.store'), [
+        'campaign_name' => 'English Launch Campaign',
+        'channel' => 'fb',
+        'course_id' => $course1->id,
+        'distribution_mode' => 'Auto',
+    ])->assertRedirect(route('campaigns.index'));
+
+    $campaign = LeadSource::where('campaign_name', 'English Launch Campaign')->firstOrFail();
+    expect($campaign->course_id)->toBe($course1->id);
+
+    // 2. Update to different course
+    $this->actingAs($user)->put(route('campaigns.update', $campaign), [
+        'campaign_name' => 'Math Switch Campaign',
+        'channel' => 'fb',
+        'course_id' => $course2->id,
+        'distribution_mode' => 'Manual',
+    ])->assertRedirect(route('campaigns.index'));
+
+    expect($campaign->fresh()->course_id)->toBe($course2->id);
+    expect($campaign->fresh()->campaign_name)->toBe('Math Switch Campaign');
+});

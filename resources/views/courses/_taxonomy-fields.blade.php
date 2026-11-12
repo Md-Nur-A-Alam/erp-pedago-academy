@@ -1,26 +1,30 @@
-<label class="flex flex-col gap-2 text-sm font-semibold" for="subject_id">
-    Subject
-    <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="subject_id" name="subject_id" required>
+<label class="flex flex-col gap-1.5 text-xs font-semibold" for="subject_id">
+    Subject <span class="text-pedago-red">*</span>
+    <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="subject_id" name="subject_id" required>
         <option value="">Select a subject</option>
         @foreach ($subjects as $subject)
             <option value="{{ $subject->id }}" @selected((string) old('subject_id', $course?->subject_id) === (string) $subject->id)>{{ $subject->name }}</option>
         @endforeach
         <option value="other" @selected(old('subject_id') === 'other')>Other</option>
     </select>
+    @error('subject_id')<span class="font-normal text-pedago-red">{{ $message }}</span>@enderror
 </label>
-<label class="hidden flex-col gap-2 text-sm font-semibold" for="subject_name" id="subject-name-field">
-    New subject name
-    <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="subject_name" name="subject_name" value="{{ old('subject_name') }}" maxlength="100">
+<label class="hidden flex-col gap-1.5 text-xs font-semibold" for="subject_name" id="subject-name-field">
+    New subject name <span class="text-pedago-red">*</span>
+    <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="subject_name" name="subject_name" value="{{ old('subject_name') }}" maxlength="100" placeholder="e.g. Science">
+    @error('subject_name')<span class="font-normal text-pedago-red">{{ $message }}</span>@enderror
 </label>
-<label class="flex flex-col gap-2 text-sm font-semibold" for="topic_id">
-    Topic
-    <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="topic_id" name="topic_id" required>
+<label class="flex flex-col gap-1.5 text-xs font-semibold" for="topic_id">
+    Topic <span class="text-pedago-red">*</span>
+    <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="topic_id" name="topic_id" required>
         <option value="">Select a topic</option>
     </select>
+    @error('topic_id')<span class="font-normal text-pedago-red">{{ $message }}</span>@enderror
 </label>
-<label class="hidden flex-col gap-2 text-sm font-semibold" for="topic_name" id="topic-name-field">
-    New topic name
-    <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="topic_name" name="topic_name" value="{{ old('topic_name') }}" maxlength="100">
+<label class="hidden flex-col gap-1.5 text-xs font-semibold" for="topic_name" id="topic-name-field">
+    New topic name <span class="text-pedago-red">*</span>
+    <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="topic_name" name="topic_name" value="{{ old('topic_name') }}" maxlength="100" placeholder="e.g. Mechanics">
+    @error('topic_name')<span class="font-normal text-pedago-red">{{ $message }}</span>@enderror
 </label>
 
 @pushOnce('scripts')

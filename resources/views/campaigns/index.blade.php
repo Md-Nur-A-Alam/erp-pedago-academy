@@ -282,16 +282,15 @@
                     @endforeach
                 </select>
                 @error('course_id')<span class="font-normal text-pedago-red">{{ $message }}</span>@enderror
-                <span class="text-[11px] font-normal text-pedago-muted">The selected course’s subject and topic are shown with this campaign.</span>
             </label>
 
-            <div class="flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-pedago-canvas px-3 py-2 text-xs" data-course-preview>
-                <span class="text-pedago-muted">Course details</span>
-                <span class="text-pedago-muted" data-preview-empty>Choose a course to preview its subject and topic.</span>
+            <div class="flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-pedago-canvas px-3 py-2 text-xs" data-taxonomy-preview>
+                <span class="text-pedago-muted">Leads will show</span>
+                <span class="text-pedago-muted" data-preview-empty>Select a course to view subject and topic.</span>
                 <span class="hidden rounded-full bg-pedago-tint px-2 py-1 font-semibold text-pedago-blue-dark" data-preview-subject></span>
                 <span class="hidden rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" data-preview-topic></span>
                 @if (auth()->user()->employee?->isAdmin())
-                    <a class="ml-auto text-[11px] font-semibold text-pedago-blue-dark underline" href="{{ route('subjects.index') }}">Manage subjects and topics</a>
+                    <a class="ml-auto text-[11px] font-semibold text-pedago-blue-dark underline" href="{{ route('courses.index') }}">Manage courses</a>
                 @endif
             </div>
 
@@ -362,13 +361,13 @@
                 @error('course_id')<span class="font-normal text-pedago-red">{{ $message }}</span>@enderror
             </label>
 
-            <div class="flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-pedago-canvas px-3 py-2 text-xs" data-course-preview>
+            <div class="flex min-h-11 flex-wrap items-center gap-2 rounded-md bg-pedago-canvas px-3 py-2 text-xs" data-taxonomy-preview>
                 <span class="text-pedago-muted">Leads will show</span>
-                <span class="text-pedago-muted" data-preview-empty>Choose a course to preview its subject and topic.</span>
+                <span class="text-pedago-muted" data-preview-empty>Select a course to view subject and topic.</span>
                 <span class="hidden rounded-full bg-pedago-tint px-2 py-1 font-semibold text-pedago-blue-dark" data-preview-subject></span>
                 <span class="hidden rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" data-preview-topic></span>
                 @if (auth()->user()->employee?->isAdmin())
-                    <a class="ml-auto text-[11px] font-semibold text-pedago-blue-dark underline" href="{{ route('subjects.index') }}">Manage subjects and topics</a>
+                    <a class="ml-auto text-[11px] font-semibold text-pedago-blue-dark underline" href="{{ route('courses.index') }}">Manage courses</a>
                 @endif
             </div>
 
@@ -463,7 +462,9 @@
         });
 
         document.querySelectorAll('[data-course-select]').forEach((select) => {
-            const preview = select.closest('form').querySelector('[data-course-preview]');
+            const preview = select.closest('form').querySelector('[data-taxonomy-preview]');
+            if (!preview) return;
+
             const subject = preview.querySelector('[data-preview-subject]');
             const topic = preview.querySelector('[data-preview-topic]');
             const empty = preview.querySelector('[data-preview-empty]');
@@ -473,11 +474,17 @@
                 const subjectName = option?.dataset.subject || '';
                 const topicName = option?.dataset.topic || '';
 
-                subject.textContent = subjectName;
-                topic.textContent = topicName;
-                subject.classList.toggle('hidden', !subjectName);
-                topic.classList.toggle('hidden', !topicName);
-                empty.classList.toggle('hidden', Boolean(subjectName || topicName));
+                if (subject) {
+                    subject.textContent = subjectName ? `● ${subjectName}` : '';
+                    subject.classList.toggle('hidden', !subjectName);
+                }
+                if (topic) {
+                    topic.textContent = topicName ? `● ${topicName}` : '';
+                    topic.classList.toggle('hidden', !topicName);
+                }
+                if (empty) {
+                    empty.classList.toggle('hidden', Boolean(subjectName || topicName));
+                }
             };
 
             select.addEventListener('change', updatePreview);
@@ -530,7 +537,10 @@
 
             if (!restoreOldInput) {
                 document.getElementById('edit-channel').value = data.channel;
-                document.getElementById('edit-course').value = data.courseId || '';
+                const editCourse = document.getElementById('edit-course');
+                editCourse.value = data.courseId || '';
+                editCourse.dispatchEvent(new Event('change'));
+
                 document.getElementById('edit-campaign-name').value = data.name;
                 editForm.querySelectorAll('input[name="distribution_mode"][type="radio"]').forEach((radio) => {
                     radio.checked = radio.value === data.mode;
@@ -538,7 +548,6 @@
                 const active = editForm.querySelector('[data-active-checkbox]');
                 active.checked = data.active === '1';
                 active.dispatchEvent(new Event('change'));
-                editForm.querySelector('[data-course-select]').dispatchEvent(new Event('change'));
                 editForm.querySelector('[data-name-input]').dispatchEvent(new Event('input'));
             }
 
