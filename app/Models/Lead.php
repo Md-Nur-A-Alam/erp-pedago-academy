@@ -98,6 +98,13 @@ class Lead extends Model
         return $this->hasMany(LeadFollowup::class);
     }
 
+    public function latestPendingFollowup(): HasOne
+    {
+        return $this->hasOne(LeadFollowup::class)
+            ->where('is_done', false)
+            ->latestOfMany('followup_date_time');
+    }
+
     public function transfers(): HasMany
     {
         return $this->hasMany(LeadTransfer::class);

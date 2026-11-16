@@ -11,6 +11,7 @@ use App\Http\Controllers\DuplicateLeadReviewController;
 use App\Http\Controllers\EmployeeChangeRequestController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeProfileController;
+use App\Http\Controllers\LeadController;
 use App\Http\Controllers\LeadUploadController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SystemSettingController;
@@ -84,12 +85,18 @@ Route::middleware(['auth', 'employee.onboarding'])->group(function (): void {
     Route::post('/employees', [EmployeeController::class, 'store'])->name('employees.store');
     Route::get('/employees/{employee}/edit', [EmployeeController::class, 'edit'])->name('employees.edit');
     Route::put('/employees/{employee}', [EmployeeController::class, 'update'])->name('employees.update');
+    Route::post('/employees/{employee}/roster-override', [EmployeeController::class, 'storeRosterOverride'])->name('employees.roster-override.store');
+    Route::delete('/employees/{employee}/roster-override/{roster}', [EmployeeController::class, 'destroyRosterOverride'])->name('employees.roster-override.destroy');
 
     Route::get('/employee-change-requests', [EmployeeChangeRequestController::class, 'index'])
         ->name('employee-change-requests.index');
     Route::put('/employee-change-requests/{employeeChangeRequest}', [EmployeeChangeRequestController::class, 'update'])
         ->name('employee-change-requests.update');
 
+    Route::get('/leads', [LeadController::class, 'index'])->name('leads.index');
+    Route::get('/leads/export', [LeadController::class, 'export'])->name('leads.export');
+    Route::post('/leads/create', [LeadController::class, 'store'])->name('leads.quick-create');
+    Route::post('/leads/{lead}/assign', [LeadController::class, 'assign'])->name('leads.assign');
     Route::get('/leads/upload', [LeadUploadController::class, 'index'])->name('leads.upload');
     Route::post('/leads/upload', [LeadUploadController::class, 'store'])->name('leads.upload.store');
     Route::post('/leads', [LeadUploadController::class, 'storeSingle'])->name('leads.store');

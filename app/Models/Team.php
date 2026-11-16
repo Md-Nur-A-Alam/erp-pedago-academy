@@ -9,7 +9,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
-#[Fillable(['name', 'team_leader_id', 'is_active', 'edited_by'])]
+#[Fillable(['name', 'team_leader_id', 'shift_id', 'is_active', 'edited_by'])]
 class Team extends Model
 {
     use HasFactory;
@@ -21,6 +21,11 @@ class Team extends Model
         return [
             'is_active' => 'boolean',
         ];
+    }
+
+    public function shift(): BelongsTo
+    {
+        return $this->belongsTo(Shift::class, 'shift_id');
     }
 
     public function teamLeader(): BelongsTo

@@ -183,6 +183,7 @@
                                             data-id="{{ $team->id }}"
                                             data-name="{{ $team->name }}"
                                             data-leader-id="{{ $team->team_leader_id }}"
+                                            data-shift-id="{{ $team->shift_id }}"
                                             data-supervisors='@json($team->supervisors->pluck("id"))'
                                             data-members='@json($team->members->pluck("id"))'
                                             data-active="{{ $team->is_active ? '1' : '0' }}"
@@ -270,6 +271,42 @@
                     <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2.5 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="create-team-name" maxlength="100" name="name" type="text" value="{{ old('name') }}" placeholder="e.g. Alpha" required>
                 </label>
                 @error('name')<span class="mt-1 text-xs text-pedago-red">{{ $message }}</span>@enderror
+            </div>
+
+            {{-- Primary Duty Time (Shift) --}}
+            <div class="flex flex-col gap-3 border-t border-pedago-line pt-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Shift)</span>
+                    <span class="rounded bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="sm:col-span-1">
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="modal-create-shift-id">
+                            Predefined shift
+                            <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="modal-create-shift-id" name="shift_id">
+                                <option value="">-- No fixed shift --</option>
+                                @foreach ($shifts as $s)
+                                    <option value="{{ $s->id }}" @selected((string) old('shift_id') === (string) $s->id)>
+                                        {{ \Carbon\Carbon::parse($s->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($s->shift_end_time)->format('h:i A') }} ({{ $s->working_hours }}h)
+                                    </option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="modal-create-shift-start">
+                            Or custom start
+                            <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="modal-create-shift-start" name="shift_start_time" type="time" value="{{ old('shift_start_time') }}">
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="modal-create-shift-end">
+                            Custom end
+                            <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="modal-create-shift-end" name="shift_end_time" type="time" value="{{ old('shift_end_time') }}">
+                        </label>
+                    </div>
+                </div>
+                <p class="text-[11px] text-pedago-muted">All team members will primarily inherit this duty time. Specific dates can be overridden from employee details calendar.</p>
             </div>
 
             {{-- Leadership section --}}
@@ -366,6 +403,42 @@
                     Team name <span class="text-pedago-red">*</span>
                     <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2.5 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="edit-team-name" maxlength="100" name="name" type="text" required>
                 </label>
+            </div>
+
+            {{-- Primary Duty Time (Shift) --}}
+            <div class="flex flex-col gap-3 border-t border-pedago-line pt-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Shift)</span>
+                    <span class="rounded bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="sm:col-span-1">
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="edit-team-shift-id">
+                            Predefined shift
+                            <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="edit-team-shift-id" name="shift_id">
+                                <option value="">-- No fixed shift --</option>
+                                @foreach ($shifts as $s)
+                                    <option value="{{ $s->id }}">
+                                        {{ \Carbon\Carbon::parse($s->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($s->shift_end_time)->format('h:i A') }} ({{ $s->working_hours }}h)
+                                    </option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="edit-team-shift-start">
+                            Or custom start
+                            <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="edit-team-shift-start" name="shift_start_time" type="time">
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="edit-team-shift-end">
+                            Custom end
+                            <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="edit-team-shift-end" name="shift_end_time" type="time">
+                        </label>
+                    </div>
+                </div>
+                <p class="text-[11px] text-pedago-muted">All team members will primarily inherit this duty time. Specific dates can be overridden from employee details calendar.</p>
             </div>
 
             {{-- Leadership section --}}
@@ -573,6 +646,16 @@
                     }
                 });
                 leaderSelect.value = leaderId;
+
+                // Shift
+                const shiftSelect = document.getElementById('edit-team-shift-id');
+                if (shiftSelect) {
+                    shiftSelect.value = data.shiftId || '';
+                }
+                const startInput = document.getElementById('edit-team-shift-start');
+                if (startInput) startInput.value = '';
+                const endInput = document.getElementById('edit-team-shift-end');
+                if (endInput) endInput.value = '';
 
                 // Supervisors
                 document.querySelectorAll('[data-edit-supervisor-checkbox]').forEach((cb) => {

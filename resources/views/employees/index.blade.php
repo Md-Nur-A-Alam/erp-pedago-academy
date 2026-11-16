@@ -35,12 +35,13 @@
                         'role' => 'Role',
                         'phone' => 'Phone',
                         'status' => 'Status',
+                        'availability' => 'Availability',
                         'joining_date' => 'Joining Date',
                         default => ucfirst($currentSort),
                     } }} ({{ strtoupper($currentDirection) }})</strong></span>
                 </div>
             </div>
-            <form class="mt-4 grid gap-3 sm:grid-cols-2 xl:grid-cols-[minmax(14rem,2fr)_minmax(11rem,1fr)_minmax(10rem,1fr)_auto]" method="GET" action="{{ route('employees.index') }}">
+            <form class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-[minmax(13rem,2fr)_minmax(9.5rem,1fr)_minmax(9rem,1fr)_minmax(9.5rem,1fr)_auto]" method="GET" action="{{ route('employees.index') }}">
                 <input type="hidden" name="sort" value="{{ $filters['sort'] }}">
                 <input type="hidden" name="direction" value="{{ $filters['direction'] }}">
 
@@ -58,6 +59,13 @@
                     <option value="">All statuses</option>
                     @foreach (['Active', 'Inactive', 'Suspended'] as $status)
                         <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ $status }}</option>
+                    @endforeach
+                </select>
+                <label class="sr-only" for="employee-availability">Filter by availability</label>
+                <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 text-sm transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="employee-availability" name="availability">
+                    <option value="">All availability</option>
+                    @foreach (['Available', 'Busy', 'On Call', 'Break', 'Off Duty'] as $availOpt)
+                        <option value="{{ $availOpt }}" @selected(($filters['availability'] ?? '') === $availOpt)>{{ $availOpt }}</option>
                     @endforeach
                 </select>
                 <div class="flex gap-2">
@@ -79,6 +87,7 @@
                             'role' => 'Role',
                             'phone' => 'Login phone',
                             'status' => 'Status',
+                            'availability' => 'Availability',
                         ] as $colKey => $colLabel)
                             <th class="px-5 py-3 font-semibold">
                                 <a class="group inline-flex items-center gap-1.5 transition hover:text-pedago-ink {{ $currentSort === $colKey ? 'font-bold text-pedago-blue-dark' : '' }}" href="{{ $sortUrl($colKey) }}" title="Sort by {{ $colLabel }}">
@@ -148,6 +157,44 @@
                                 ])>{{ $employee->status }}</span>
                             </td>
                             <td class="px-5 py-3">
+                                @php
+                                    $effectiveShift = $employee->effectiveShift();
+                                    $availStatus = $employee->effectiveAvailabilityStatus();
+                                    $shiftTime = $effectiveShift ? (\Carbon\Carbon::parse($effectiveShift->shift_start_time)->format('h:i A') . '–' . \Carbon\Carbon::parse($effectiveShift->shift_end_time)->format('h:i A')) : null;
+                                    $isDateOverride = $employee->todayRoster !== null;
+                                @endphp
+                                <div>
+                                    <span @class([
+                                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                        'bg-pedago-green-tint text-pedago-green' => $availStatus === 'Available',
+                                        'bg-pedago-tint text-pedago-blue-dark' => in_array($availStatus, ['Busy', 'On Call'], true),
+                                        'bg-pedago-amber-tint text-pedago-amber' => in_array($availStatus, ['Break', 'Unavailable', 'Off Duty'], true),
+                                        'bg-pedago-red-tint text-pedago-red' => in_array($availStatus, ['Lazy', 'Resigned'], true),
+                                        'bg-pedago-canvas text-pedago-muted' => ! in_array($availStatus, ['Available', 'Busy', 'On Call', 'Break', 'Unavailable', 'Off Duty', 'Lazy', 'Resigned'], true),
+                                    ])>
+                                        <span @class([
+                                            'size-1.5 rounded-full',
+                                            'bg-emerald-500' => $availStatus === 'Available',
+                                            'bg-blue-500' => in_array($availStatus, ['Busy', 'On Call'], true),
+                                            'bg-amber-500' => in_array($availStatus, ['Break', 'Unavailable', 'Off Duty'], true),
+                                            'bg-red-500' => in_array($availStatus, ['Lazy', 'Resigned'], true),
+                                            'bg-slate-400' => ! in_array($availStatus, ['Available', 'Busy', 'On Call', 'Break', 'Unavailable', 'Off Duty', 'Lazy', 'Resigned'], true),
+                                        ])></span>
+                                        {{ $availStatus }}
+                                    </span>
+                                    @if ($shiftTime)
+                                        <div class="mt-0.5 flex items-center gap-1">
+                                            <span class="text-[10.5px] font-mono text-pedago-muted">{{ $shiftTime }}</span>
+                                            @if ($isDateOverride)
+                                                <span class="rounded bg-indigo-50 px-1 py-0.2 text-[9px] font-semibold text-indigo-700" title="Specific date override">Override</span>
+                                            @elseif ($employee->team?->shift)
+                                                <span class="rounded bg-sky-50 px-1 py-0.2 text-[9px] font-semibold text-sky-700" title="Inherited from team duty time">Team</span>
+                                            @endif
+                                        </div>
+                                    @endif
+                                </div>
+                            </td>
+                            <td class="px-5 py-3">
                                 <a class="inline-flex size-8 items-center justify-center rounded-md border border-pedago-line text-pedago-muted transition hover:border-pedago-blue hover:bg-pedago-tint hover:text-pedago-blue-dark" href="{{ route('employees.edit', $employee) }}" title="View / edit {{ $employee->name }}" aria-label="View / edit {{ $employee->name }}">
                                     <svg class="size-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                         <path d="M17 3a2.85 2.83 0 1 1 4 4L7.5 20.5 2 22l1.5-5.5Z"/>
@@ -157,7 +204,7 @@
                             </td>
                         </tr>
                     @empty
-                        <tr><td class="px-5 py-10 text-center text-pedago-muted" colspan="8">No employees match these filters.</td></tr>
+                        <tr><td class="px-5 py-10 text-center text-pedago-muted" colspan="9">No employees match these filters.</td></tr>
                     @endforelse
                 </tbody>
             </table>

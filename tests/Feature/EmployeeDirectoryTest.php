@@ -1,6 +1,8 @@
 <?php
 
 use App\Models\Employee;
+use App\Models\EmployeeRoster;
+use App\Models\Team;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 
@@ -49,8 +51,8 @@ it('forbids non-admins from viewing the employee directory', function () {
 it('displays team column and allows sorting by headings', function () {
     $admin = createEmployeeDirectoryUser('Admin', 'Admin User');
 
-    $teamA = \App\Models\Team::factory()->create(['name' => 'Team Alpha']);
-    $teamB = \App\Models\Team::factory()->create(['name' => 'Team Beta']);
+    $teamA = Team::factory()->create(['name' => 'Team Alpha']);
+    $teamB = Team::factory()->create(['name' => 'Team Beta']);
 
     $user1 = createEmployeeDirectoryUser('Sales Executive', 'Zack', 'Active');
     $user1->employee->update(['team_id' => $teamB->id, 'office_id' => 'PED-010']);
@@ -81,4 +83,31 @@ it('displays team column and allows sorting by headings', function () {
     // Test sort by office_id ASC
     $responseOfficeId = $this->actingAs($admin)->get(route('employees.index', ['sort' => 'office_id', 'direction' => 'asc']));
     $responseOfficeId->assertOk();
+});
+
+it('displays employee availability status and supports filtering by availability', function () {
+    $admin = createEmployeeDirectoryUser('Admin', 'Admin Boss');
+
+    $activeUser = createEmployeeDirectoryUser('Sales Executive', 'Available Rep');
+    EmployeeRoster::factory()->create([
+        'employee_id' => $activeUser->employee->id,
+        'roster_date' => today(),
+        'is_on_duty' => true,
+        'availability_status' => 'Available',
+    ]);
+
+    $offDutyUser = createEmployeeDirectoryUser('Sales Executive', 'Off Duty Rep');
+    // No roster or off duty
+
+    $response = $this->actingAs($admin)->get(route('employees.index'));
+    $response->assertOk()
+        ->assertSee('Availability')
+        ->assertSee('Available')
+        ->assertSee('Off Duty');
+
+    // Filter by Available
+    $filterResponse = $this->actingAs($admin)->get(route('employees.index', ['availability' => 'Available']));
+    $filterResponse->assertOk()
+        ->assertSee('Available Rep')
+        ->assertDontSee('Off Duty Rep');
 });

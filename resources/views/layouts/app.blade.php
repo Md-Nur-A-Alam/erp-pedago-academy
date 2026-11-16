@@ -37,23 +37,32 @@
                         </a>
                     </div>
 
-                    @if ($currentEmployee?->isAdmin() || $currentEmployee?->role === 'MarketingExecutive')
+                    @if ($currentEmployee?->isAdmin() || in_array($currentEmployee?->role, ['MarketingExecutive', 'Supervisor', 'Team Leader', 'Sales Executive'], true))
                         <div class="flex flex-col gap-1">
                             <p class="px-2 text-xs font-semibold uppercase tracking-wider text-pedago-muted">Sales</p>
                             <a @class([
-                                'rounded-md px-3 py-2 text-sm font-semibold',
-                                'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('leads.*'),
-                                'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('leads.*'),
-                            ]) href="{{ route('leads.upload') }}" @if (request()->routeIs('leads.*')) aria-current="page" @endif>
-                                Upload leads
+                                'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                                'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('leads.index'),
+                                'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('leads.index'),
+                            ]) href="{{ route('leads.index') }}" @if (request()->routeIs('leads.index')) aria-current="page" @endif>
+                                All leads
                             </a>
-                            <a @class([
-                                'rounded-md px-3 py-2 text-sm font-semibold',
-                                'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('campaigns.*'),
-                                'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('campaigns.*'),
-                            ]) href="{{ route('campaigns.index') }}" @if (request()->routeIs('campaigns.*')) aria-current="page" @endif>
-                                Campaigns
-                            </a>
+                            @if ($currentEmployee?->isAdmin() || $currentEmployee?->role === 'MarketingExecutive')
+                                <a @class([
+                                    'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                                    'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('leads.upload'),
+                                    'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('leads.upload'),
+                                ]) href="{{ route('leads.upload') }}" @if (request()->routeIs('leads.upload')) aria-current="page" @endif>
+                                    Upload leads
+                                </a>
+                                <a @class([
+                                    'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                                    'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('campaigns.*'),
+                                    'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('campaigns.*'),
+                                ]) href="{{ route('campaigns.index') }}" @if (request()->routeIs('campaigns.*')) aria-current="page" @endif>
+                                    Campaigns
+                                </a>
+                            @endif
                             @if ($currentEmployee?->isAdmin())
                                 <a @class([
                                     'rounded-md px-3 py-2 text-sm font-semibold transition-colors',
@@ -167,6 +176,13 @@
                         'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('dashboard'),
                         'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('dashboard'),
                     ]) href="{{ route('dashboard') }}">Dashboard</a>
+                    @if ($currentEmployee?->isAdmin() || in_array($currentEmployee?->role, ['MarketingExecutive', 'Supervisor', 'Team Leader', 'Sales Executive'], true))
+                        <a @class([
+                            'shrink-0 rounded-md px-3 py-2 text-sm font-semibold transition-colors',
+                            'bg-pedago-tint text-pedago-blue-dark' => request()->routeIs('leads.index'),
+                            'text-pedago-ink hover:bg-pedago-canvas' => ! request()->routeIs('leads.index'),
+                        ]) href="{{ route('leads.index') }}">All leads</a>
+                    @endif
                     @if ($currentEmployee?->isAdmin() || $currentEmployee?->role === 'MarketingExecutive')
                         <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('leads.upload') }}">Upload leads</a>
                         <a class="shrink-0 rounded-md px-3 py-2 text-sm font-semibold text-pedago-ink transition-colors hover:bg-pedago-canvas" href="{{ route('campaigns.index') }}">Campaigns</a>

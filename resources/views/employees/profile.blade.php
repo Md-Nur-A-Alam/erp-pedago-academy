@@ -14,6 +14,12 @@
 @endsection
 
 @section('content')
+    @if (session('status'))
+        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800 shadow-sm">
+            {{ session('status') }}
+        </div>
+    @endif
+
     @if ($pendingRequest)
         <section class="rounded-xl border border-pedago-amber/20 bg-pedago-amber-tint p-5">
             <h2 class="font-semibold text-pedago-amber">Pending employment changes</h2>
@@ -124,4 +130,251 @@
 
         <button class="self-start rounded-md bg-pedago-blue px-5 py-3 font-semibold text-white transition hover:bg-pedago-blue-dark focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pedago-blue" type="submit">Save profile</button>
     </form>
+
+    {{-- Duty Time & Specific Date Override (Calendar) --}}
+    <section class="rounded-xl border border-pedago-line bg-white p-6 shadow-sm transition-shadow hover:shadow-md" aria-labelledby="duty-time-heading">
+        <div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-pedago-line pb-4">
+            <div>
+                <h2 class="text-lg font-semibold text-pedago-ink" id="duty-time-heading">Duty Time & Schedule</h2>
+                <p class="text-sm text-pedago-muted">Primary duty time is inherited from the assigned team. Overrides can be scheduled for specific dates using the calendar.</p>
+            </div>
+            @if ($employee->team)
+                <span class="inline-flex items-center gap-1.5 rounded-full bg-pedago-tint px-3 py-1 text-xs font-semibold text-pedago-blue-dark">
+                    Team: {{ $employee->team->name }}
+                </span>
+            @endif
+        </div>
+
+        {{-- 1. Primary Team Duty Time --}}
+        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+            <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Team Default)</span>
+            <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
+                <div class="flex items-center gap-3">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
+                        <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12 6 12 12 16 14"/>
+                        </svg>
+                    </div>
+                    <div>
+                        @if ($employee->team && $employee->team->shift)
+                            <p class="font-bold text-pedago-ink">
+                                {{ \Carbon\Carbon::parse($employee->team->shift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($employee->team->shift->shift_end_time)->format('h:i A') }}
+                                <span class="ml-1 text-xs font-normal text-pedago-muted">({{ $employee->team->shift->working_hours }} hrs/day)</span>
+                            </p>
+                            <p class="text-xs text-pedago-muted">Inherited from <a class="text-pedago-blue hover:underline" href="{{ route('teams.show', $employee->team) }}">{{ $employee->team->name }}</a></p>
+                        @elseif ($employee->team)
+                            <p class="font-semibold text-pedago-ink">No primary duty time set on team {{ $employee->team->name }}</p>
+                            <p class="text-xs text-pedago-muted">Duty time can be fixed in <a class="text-pedago-blue hover:underline" href="{{ route('teams.edit', $employee->team) }}">Team edit</a>.</p>
+                        @elseif ($employee->defaultShift)
+                            <p class="font-bold text-pedago-ink">
+                                {{ \Carbon\Carbon::parse($employee->defaultShift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($employee->defaultShift->shift_end_time)->format('h:i A') }}
+                                <span class="ml-1 text-xs font-normal text-pedago-muted">(Individual default)</span>
+                            </p>
+                            <p class="text-xs text-pedago-muted">Individual default shift.</p>
+                        @else
+                            <p class="font-semibold text-pedago-ink">No team or shift assigned</p>
+                            <p class="text-xs text-pedago-muted">Assign this employee to a team with a shift, or configure a date override below.</p>
+                        @endif
+                    </div>
+                </div>
+
+                @if ($employee->team && $isAdminEdit)
+                    <a class="inline-flex items-center gap-1 rounded-md border border-pedago-line bg-white px-3 py-1.5 text-xs font-semibold text-pedago-ink transition hover:bg-pedago-canvas" href="{{ route('teams.edit', $employee->team) }}">
+                        <span>Edit team duty time</span>
+                        <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor">
+                            <path fill-rule="evenodd" d="M7.21 14.77a.75.75 0 01.02-1.06L11.168 10 7.23 6.29a.75.75 0 111.04-1.08l4.5 4.25a.75.75 0 010 1.08l-4.5 4.25a.75.75 0 01-1.06-.02z" clip-rule="evenodd" />
+                        </svg>
+                    </a>
+                @endif
+            </div>
+        </div>
+
+        @if ($isAdminEdit)
+            {{-- 2. Specific Date Override Form (Calendar) --}}
+            <div class="mt-6 border-t border-pedago-line pt-5">
+                <div class="flex items-center justify-between">
+                    <div>
+                        <h3 class="text-sm font-bold text-pedago-ink">Override duty time for a specific date (Calendar)</h3>
+                        <p class="text-xs text-pedago-muted">Select a date from the calendar to assign a custom shift or mark as day off for that date only.</p>
+                    </div>
+                </div>
+
+                <form class="mt-4 flex flex-col gap-4 rounded-lg border border-pedago-line bg-pedago-canvas/30 p-4" method="POST" action="{{ route('employees.roster-override.store', $employee) }}" id="roster-override-form">
+                    @csrf
+                    <div class="grid grid-cols-1 gap-4 sm:grid-cols-2 md:grid-cols-4">
+                        {{-- Calendar Date Selector --}}
+                        <div>
+                            <label class="flex flex-col gap-1.5 text-xs font-semibold text-pedago-ink" for="roster-override-date">
+                                Calendar Date <span class="text-pedago-red">*</span>
+                                <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-override-date" name="roster_date" type="date" value="{{ old('roster_date', today()->toDateString()) }}" required>
+                            </label>
+                            @error('roster_date')<span class="text-xs text-pedago-red">{{ $message }}</span>@enderror
+                        </div>
+
+                        {{-- Duty Status --}}
+                        <div>
+                            <label class="flex flex-col gap-1.5 text-xs font-semibold text-pedago-ink" for="roster-is-on-duty">
+                                Duty on that date <span class="text-pedago-red">*</span>
+                                <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-is-on-duty" name="is_on_duty">
+                                    <option value="1" @selected(old('is_on_duty', '1') === '1')>On Duty (Work shift)</option>
+                                    <option value="0" @selected(old('is_on_duty') === '0')>Day Off / Off Duty</option>
+                                </select>
+                            </label>
+                        </div>
+
+                        {{-- Predefined Shift --}}
+                        <div id="override-shift-container">
+                            <label class="flex flex-col gap-1.5 text-xs font-semibold text-pedago-ink" for="roster-shift-id">
+                                Shift for this date
+                                <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-shift-id" name="shift_id">
+                                    <option value="">-- Inherit team shift --</option>
+                                    @foreach (($shifts ?? []) as $s)
+                                        <option value="{{ $s->id }}" @selected((string) old('shift_id') === (string) $s->id)>
+                                            {{ \Carbon\Carbon::parse($s->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($s->shift_end_time)->format('h:i A') }} ({{ $s->working_hours }}h)
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </label>
+                        </div>
+
+                        {{-- Availability Status --}}
+                        <div id="override-status-container">
+                            <label class="flex flex-col gap-1.5 text-xs font-semibold text-pedago-ink" for="roster-avail-status">
+                                Availability
+                                <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-avail-status" name="availability_status">
+                                    <option value="Available" @selected(old('availability_status') === 'Available')>Available</option>
+                                    <option value="Busy" @selected(old('availability_status') === 'Busy')>Busy</option>
+                                    <option value="Unavailable" @selected(old('availability_status') === 'Unavailable')>Unavailable</option>
+                                    <option value="Off Duty" @selected(old('availability_status') === 'Off Duty')>Off Duty</option>
+                                </select>
+                            </label>
+                        </div>
+                    </div>
+
+                    {{-- Custom start / end times option --}}
+                    <div class="grid grid-cols-1 gap-3 sm:grid-cols-2" id="override-custom-times">
+                        <div>
+                            <label class="flex flex-col gap-1.5 text-xs font-semibold text-pedago-ink" for="roster-shift-start">
+                                Custom Start Time (optional)
+                                <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-shift-start" name="shift_start_time" type="time" value="{{ old('shift_start_time') }}">
+                            </label>
+                        </div>
+                        <div>
+                            <label class="flex flex-col gap-1.5 text-xs font-semibold text-pedago-ink" for="roster-shift-end">
+                                Custom End Time (optional)
+                                <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-shift-end" name="shift_end_time" type="time" value="{{ old('shift_end_time') }}">
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="flex items-center justify-end">
+                        <button class="inline-flex items-center gap-1.5 rounded-md bg-pedago-blue px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-pedago-blue-dark focus-visible:outline-2 focus-visible:outline-pedago-blue" type="submit">
+                            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
+                            </svg>
+                            <span>Save date override</span>
+                        </button>
+                    </div>
+                </form>
+            </div>
+        @endif
+
+        {{-- 3. Scheduled / Active Overrides List --}}
+        <div class="mt-6 border-t border-pedago-line pt-5">
+            <h3 class="text-sm font-bold text-pedago-ink">Active & upcoming specific date overrides</h3>
+            <p class="text-xs text-pedago-muted">Dates listed below take precedence over the team's primary duty time.</p>
+
+            <div class="mt-3 overflow-hidden rounded-lg border border-pedago-line">
+                <table class="w-full text-left text-xs">
+                    <thead class="bg-pedago-canvas text-[11px] uppercase tracking-wider text-pedago-muted">
+                        <tr>
+                            <th class="px-4 py-2.5 font-semibold">Calendar Date</th>
+                            <th class="px-4 py-2.5 font-semibold">Duty Mode</th>
+                            <th class="px-4 py-2.5 font-semibold">Shift Hours</th>
+                            <th class="px-4 py-2.5 font-semibold">Availability</th>
+                            @if ($isAdminEdit)
+                                <th class="px-4 py-2.5 font-semibold text-right">Action</th>
+                            @endif
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-pedago-line bg-white">
+                        @forelse (($dateOverrides ?? []) as $override)
+                            @php($isPast = $override->roster_date->isPast() && ! $override->roster_date->isToday())
+                            <tr @class(['hover:bg-pedago-canvas/40 transition-colors', 'opacity-60 bg-slate-50/50' => $isPast])>
+                                <td class="px-4 py-3 font-semibold text-pedago-ink">
+                                    {{ $override->roster_date->format('l, M d, Y') }}
+                                    @if ($override->roster_date->isToday())
+                                        <span class="ml-1 rounded bg-pedago-tint px-1.5 py-0.5 text-[10px] font-bold text-pedago-blue-dark">Today</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3">
+                                    @if ($override->is_on_duty)
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                            ● On Duty
+                                        </span>
+                                    @else
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
+                                            ○ Day Off
+                                        </span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3 font-mono">
+                                    @if ($override->is_on_duty && $override->shift)
+                                        {{ \Carbon\Carbon::parse($override->shift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($override->shift->shift_end_time)->format('h:i A') }}
+                                        <span class="text-pedago-muted">({{ $override->shift->working_hours }}h)</span>
+                                    @elseif ($override->is_on_duty && $employee->team?->shift)
+                                        {{ \Carbon\Carbon::parse($employee->team->shift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($employee->team->shift->shift_end_time)->format('h:i A') }}
+                                        <span class="text-pedago-muted">(Team default)</span>
+                                    @else
+                                        <span class="text-pedago-muted">—</span>
+                                    @endif
+                                </td>
+                                <td class="px-4 py-3">
+                                    <span class="font-medium text-pedago-ink">{{ $override->availability_status }}</span>
+                                </td>
+                                @if ($isAdminEdit)
+                                    <td class="px-4 py-3 text-right">
+                                        <form method="POST" action="{{ route('employees.roster-override.destroy', [$employee, $override]) }}" onsubmit="return confirm('Remove this date override and revert to team primary duty time?');">
+                                            @csrf
+                                            @method('DELETE')
+                                            <button class="rounded border border-pedago-line px-2.5 py-1 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-50 hover:border-rose-300" type="submit">
+                                                Revert to team
+                                            </button>
+                                        </form>
+                                    </td>
+                                @endif
+                            </tr>
+                        @empty
+                            <tr>
+                                <td class="px-4 py-6 text-center text-xs text-pedago-muted" colspan="{{ $isAdminEdit ? 5 : 4 }}">
+                                    No date overrides found. This employee follows the team's primary duty time.
+                                </td>
+                            </tr>
+                        @endforelse
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </section>
 @endsection
+
+@push('scripts')
+    <script>
+        const dutySelect = document.getElementById('roster-is-on-duty');
+        const shiftContainer = document.getElementById('override-shift-container');
+        const customTimes = document.getElementById('override-custom-times');
+        const statusSelect = document.getElementById('roster-avail-status');
+
+        if (dutySelect) {
+            dutySelect.addEventListener('change', () => {
+                const isOnDuty = dutySelect.value === '1';
+                if (shiftContainer) shiftContainer.style.display = isOnDuty ? 'block' : 'none';
+                if (customTimes) customTimes.style.display = isOnDuty ? 'grid' : 'none';
+                if (statusSelect) {
+                    statusSelect.value = isOnDuty ? 'Available' : 'Off Duty';
+                }
+            });
+        }
+    </script>
+@endpush

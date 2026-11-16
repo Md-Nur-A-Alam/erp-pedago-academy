@@ -8,6 +8,7 @@ use App\Models\Lead;
 use App\Models\LeadBatch;
 use App\Models\LeadFollowup;
 use App\Models\LeadTransfer;
+use App\Models\Shift;
 use App\Models\Team;
 use App\Models\User;
 use Carbon\Carbon;
@@ -224,6 +225,7 @@ class TeamController extends Controller
             'supervisors' => $supervisorsList,
             'potentialLeaders' => $potentialLeaders,
             'salesExecutives' => $allSalesExecutives,
+            'shifts' => Shift::query()->where('is_active', true)->orderBy('shift_start_time')->get(),
         ]);
     }
 
@@ -231,7 +233,7 @@ class TeamController extends Controller
     {
         $this->employeeFor($request);
 
-        $team->load(['teamLeader', 'supervisors', 'members.defaultShift', 'members.todayRoster.shift']);
+        $team->load(['shift', 'teamLeader', 'supervisors', 'members.defaultShift', 'members.todayRoster.shift']);
 
         $thirtyDaysAgo = Carbon::now()->subDays(30);
 
@@ -300,10 +302,12 @@ class TeamController extends Controller
         $maxConv = 0;
 
         foreach ($members as $member) {
-            // Shift display
+            // Shift display (Date override > Team shift > Individual default shift)
             $shiftDisplay = 'Day off';
             if ($member->todayRoster && $member->todayRoster->shift) {
                 $shiftDisplay = substr($member->todayRoster->shift->shift_start_time, 0, 5).'–'.substr($member->todayRoster->shift->shift_end_time, 0, 5);
+            } elseif ($team->shift) {
+                $shiftDisplay = substr($team->shift->shift_start_time, 0, 5).'–'.substr($team->shift->shift_end_time, 0, 5);
             } elseif ($member->defaultShift) {
                 $shiftDisplay = substr($member->defaultShift->shift_start_time, 0, 5).'–'.substr($member->defaultShift->shift_end_time, 0, 5);
             }
@@ -430,6 +434,7 @@ class TeamController extends Controller
             'supervisors' => $supervisorsList,
             'potentialLeaders' => $potentialLeaders,
             'salesExecutives' => $allSalesExecutives,
+            'shifts' => Shift::query()->where('is_active', true)->orderBy('shift_start_time')->get(),
         ]);
     }
 
@@ -462,6 +467,7 @@ class TeamController extends Controller
             'supervisors' => $supervisorsList,
             'potentialLeaders' => $potentialLeaders,
             'salesExecutives' => $allSalesExecutives,
+            'shifts' => Shift::query()->where('is_active', true)->orderBy('shift_start_time')->get(),
         ]);
     }
 
@@ -469,7 +475,7 @@ class TeamController extends Controller
     {
         $this->employeeFor($request);
 
-        $team->load(['teamLeader', 'supervisors', 'members']);
+        $team->load(['teamLeader', 'supervisors', 'members', 'shift']);
 
         $openLeadsCount = Lead::query()
             ->where('team_id', $team->id)
@@ -503,6 +509,7 @@ class TeamController extends Controller
             'supervisors' => $supervisorsList,
             'potentialLeaders' => $potentialLeaders,
             'salesExecutives' => $allSalesExecutives,
+            'shifts' => Shift::query()->where('is_active', true)->orderBy('shift_start_time')->get(),
         ]);
     }
 
@@ -518,6 +525,9 @@ class TeamController extends Controller
                 Rule::exists('employees', 'id'),
                 Rule::unique('teams', 'team_leader_id'),
             ],
+            'shift_id' => ['nullable', 'integer', Rule::exists('shifts', 'id')],
+            'shift_start_time' => ['nullable', 'date_format:H:i'],
+            'shift_end_time' => ['nullable', 'date_format:H:i'],
             'supervisors' => ['nullable', 'array'],
             'supervisors.*' => ['integer', Rule::exists('employees', 'id')],
             'members' => ['nullable', 'array'],
@@ -526,10 +536,17 @@ class TeamController extends Controller
             'team_leader_id.unique' => 'This team leader is already assigned to lead another team.',
         ]);
 
-        DB::transaction(function () use ($validated, $currentEmployee): void {
+        $resolvedShiftId = $this->resolveShiftId(
+            $validated['shift_id'] ?? null,
+            $validated['shift_start_time'] ?? null,
+            $validated['shift_end_time'] ?? null
+        );
+
+        DB::transaction(function () use ($validated, $currentEmployee, $resolvedShiftId): void {
             $team = Team::create([
                 'name' => $validated['name'],
                 'team_leader_id' => $validated['team_leader_id'],
+                'shift_id' => $resolvedShiftId,
                 'is_active' => true,
                 'edited_by' => $currentEmployee->id,
             ]);
@@ -563,6 +580,9 @@ class TeamController extends Controller
                 Rule::exists('employees', 'id'),
                 Rule::unique('teams', 'team_leader_id')->ignore($team->id),
             ],
+            'shift_id' => ['nullable', 'integer', Rule::exists('shifts', 'id')],
+            'shift_start_time' => ['nullable', 'date_format:H:i'],
+            'shift_end_time' => ['nullable', 'date_format:H:i'],
             'supervisors' => ['nullable', 'array'],
             'supervisors.*' => ['integer', Rule::exists('employees', 'id')],
             'members' => ['nullable', 'array'],
@@ -572,10 +592,17 @@ class TeamController extends Controller
             'team_leader_id.unique' => 'This team leader is already assigned to lead another team.',
         ]);
 
-        DB::transaction(function () use ($validated, $team, $currentEmployee): void {
+        $resolvedShiftId = $this->resolveShiftId(
+            $validated['shift_id'] ?? null,
+            $validated['shift_start_time'] ?? null,
+            $validated['shift_end_time'] ?? null
+        );
+
+        DB::transaction(function () use ($validated, $team, $currentEmployee, $resolvedShiftId): void {
             $team->update([
                 'name' => $validated['name'],
                 'team_leader_id' => $validated['team_leader_id'],
+                'shift_id' => $resolvedShiftId,
                 'is_active' => $validated['is_active'] ?? $team->is_active,
                 'edited_by' => $currentEmployee->id,
             ]);
@@ -601,6 +628,33 @@ class TeamController extends Controller
 
         return redirect()->back()
             ->with('status', 'Team updated successfully.');
+    }
+
+    private function resolveShiftId(?int $shiftId, ?string $startTime, ?string $endTime): ?int
+    {
+        if (! empty($startTime) && ! empty($endTime)) {
+            $start = Carbon::createFromFormat('H:i', $startTime);
+            $end = Carbon::createFromFormat('H:i', $endTime);
+            if ($end->lessThan($start)) {
+                $end->addDay();
+            }
+            $workingHours = round($start->diffInMinutes($end) / 60, 2);
+
+            $shift = Shift::firstOrCreate(
+                [
+                    'shift_start_time' => $start->format('H:i:s'),
+                    'shift_end_time' => $end->format('H:i:s'),
+                ],
+                [
+                    'working_hours' => $workingHours,
+                    'is_active' => true,
+                ]
+            );
+
+            return $shift->id;
+        }
+
+        return $shiftId;
     }
 
     public function toggleStatus(Request $request, Team $team): RedirectResponse

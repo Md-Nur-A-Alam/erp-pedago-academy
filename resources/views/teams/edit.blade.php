@@ -41,6 +41,45 @@
                 @error('name')<span class="mt-1 text-xs text-pedago-red">{{ $message }}</span>@enderror
             </div>
 
+            {{-- 2. Primary Duty Time (Shift) --}}
+            <div class="flex flex-col gap-3 border-t border-pedago-line pt-4">
+                <div class="flex items-center justify-between">
+                    <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Shift)</span>
+                    <span class="rounded bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
+                </div>
+                <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+                    <div class="sm:col-span-1">
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="edit-shift-id">
+                            Predefined shift
+                            <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="edit-shift-id" name="shift_id">
+                                <option value="">-- No fixed shift --</option>
+                                @foreach ($shifts as $s)
+                                    <option value="{{ $s->id }}" @selected((string) old('shift_id', $team->shift_id) === (string) $s->id)>
+                                        {{ \Carbon\Carbon::parse($s->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($s->shift_end_time)->format('h:i A') }} ({{ $s->working_hours }}h)
+                                    </option>
+                                @endforeach
+                            </select>
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="edit-shift-start">
+                            Or custom start
+                            <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="edit-shift-start" name="shift_start_time" type="time" value="{{ old('shift_start_time') }}">
+                        </label>
+                    </div>
+                    <div>
+                        <label class="flex flex-col gap-1.5 text-xs font-semibold" for="edit-shift-end">
+                            Custom end
+                            <input class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="edit-shift-end" name="shift_end_time" type="time" value="{{ old('shift_end_time') }}">
+                        </label>
+                    </div>
+                </div>
+                @if ($team->shift)
+                    <p class="text-[11px] text-emerald-700">Current primary duty time: <strong>{{ \Carbon\Carbon::parse($team->shift->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($team->shift->shift_end_time)->format('h:i A') }}</strong> ({{ $team->shift->working_hours }} hrs).</p>
+                @endif
+                <p class="text-[11px] text-pedago-muted">All team members will primarily inherit this duty time. Specific dates can be overridden from employee details calendar.</p>
+            </div>
+
             {{-- 2. Leadership --}}
             <div class="flex flex-col gap-3 border-t border-pedago-line pt-4">
                 <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Leadership</span>

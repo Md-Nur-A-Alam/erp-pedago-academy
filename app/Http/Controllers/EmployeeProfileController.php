@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Employee;
 use App\Models\EmployeeChangeRequest;
+use App\Models\Shift;
 use App\Models\User;
 use App\Rules\PhoneNumber;
 use Illuminate\Http\RedirectResponse;
@@ -21,10 +22,12 @@ class EmployeeProfileController extends Controller
         $employee = $this->employeeFor($request);
 
         return view('employees.profile', [
-            'employee' => $employee->load(['user', 'details']),
+            'employee' => $employee->load(['user', 'details', 'team.shift', 'defaultShift']),
             'pendingRequest' => $employee->changeRequests()->where('status', 'Pending')->latest()->first(),
             'isProfileComplete' => $employee->isProfileComplete(),
             'isAdminEdit' => false,
+            'shifts' => Shift::query()->where('is_active', true)->orderBy('shift_start_time')->get(),
+            'dateOverrides' => $employee->rosters()->with('shift')->orderBy('roster_date', 'desc')->take(30)->get(),
         ]);
     }
 

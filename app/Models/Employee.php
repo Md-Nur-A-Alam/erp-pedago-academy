@@ -164,6 +164,65 @@ class Employee extends Model
         return $this->hasOne(EmployeeRoster::class)->whereDate('roster_date', today());
     }
 
+    public function effectiveShift(?string $date = null): ?Shift
+    {
+        $targetDate = $date ?? today()->toDateString();
+
+        $roster = $this->relationLoaded('rosters')
+            ? $this->rosters->first(fn (EmployeeRoster $r): bool => $r->roster_date->toDateString() === $targetDate)
+            : ($targetDate === today()->toDateString() && $this->relationLoaded('todayRoster')
+                ? $this->todayRoster
+                : $this->rosters()->whereDate('roster_date', $targetDate)->with('shift')->first());
+
+        if ($roster !== null) {
+            if (! $roster->is_on_duty) {
+                return null;
+            }
+            if ($roster->shift !== null) {
+                return $roster->shift;
+            }
+        }
+
+        if ($this->team !== null && $this->team->shift !== null) {
+            return $this->team->shift;
+        }
+
+        return $this->defaultShift;
+    }
+
+    public function effectiveAvailabilityStatus(?string $date = null): string
+    {
+        $targetDate = $date ?? today()->toDateString();
+
+        $roster = $this->relationLoaded('rosters')
+            ? $this->rosters->first(fn (EmployeeRoster $r): bool => $r->roster_date->toDateString() === $targetDate)
+            : ($targetDate === today()->toDateString() && $this->relationLoaded('todayRoster')
+                ? $this->todayRoster
+                : $this->rosters()->whereDate('roster_date', $targetDate)->first());
+
+        if ($roster !== null) {
+            if (! $roster->is_on_duty) {
+                return 'Off Duty';
+            }
+
+            return $roster->availability_status ?? 'Available';
+        }
+
+        if ($this->status !== 'Active') {
+            return 'Unavailable';
+        }
+
+        if ($this->team !== null && $this->team->shift !== null) {
+            return 'Available';
+        }
+
+        if ($this->defaultShift !== null) {
+            return 'Available';
+        }
+
+        return 'Off Duty';
+    }
+
     public function supervisedTeams(): BelongsToMany
     {
         return $this->belongsToMany(Team::class, 'supervisor_teams', 'supervisor_id', 'team_id');
