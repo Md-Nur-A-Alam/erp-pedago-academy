@@ -31,6 +31,7 @@ class CreateEnrollmentFromLead
         Course $course,
         Employee $salesExecutive,
         array $enrollmentDetails,
+        string $leadStatus = 'Converted',
     ): Enrollment {
         $validated = Validator::make($enrollmentDetails, [
             'student_phone' => ['required', 'string', 'max:25'],
@@ -42,7 +43,7 @@ class CreateEnrollmentFromLead
             'total_installments' => ['sometimes', 'integer', 'min:1', 'max:4294967295'],
         ])->validate();
 
-        return DB::transaction(function () use ($lead, $course, $salesExecutive, $validated): Enrollment {
+        return DB::transaction(function () use ($lead, $course, $salesExecutive, $validated, $leadStatus): Enrollment {
             $lockedCourse = Course::query()
                 ->whereKey($course->getKey())
                 ->lockForUpdate()
@@ -95,7 +96,7 @@ class CreateEnrollmentFromLead
 
             $lockedLead->update([
                 'interested_course_id' => $lockedCourse->id,
-                'status' => 'Converted',
+                'status' => $leadStatus,
             ]);
 
             return $enrollment;

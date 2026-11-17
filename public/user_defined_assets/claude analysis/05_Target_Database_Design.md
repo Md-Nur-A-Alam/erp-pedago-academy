@@ -439,3 +439,27 @@ The migration is rehearsed on a copy and must report:
 4. Admin sets teams, shifts and campaign courses.
 5. Switch the engine on.
 6. Keep the sheet read-only for reference; withdraw the old web app link.
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Schema changes made since the first update:
+
+| Change | Purpose |
+| :--- | :--- |
+| New table `notifications` (Laravel database notifications) | Inbox for every role |
+| `lead_followups.reminder_sent_at`, `overdue_notified_at` | Reminder and repeat notice tracking |
+| `leave_requests` (new) with `required_approvals`, `approvals_done`, `has_certificate`, `first_reviewed_by_employee_id`, `first_review_note`, `first_reviewed_at`; type adds Maternity | Leave and the two-step chain |
+| `developer_activity_logs` (new) and role `Developer` | Developer panel audit |
+| `leads.status` adds `Invalid/Junk` | Closed outcome |
+| `leads.priority` (High, Medium, Low), `leads.remarks` | Priority and standing remark |
+| `employees.assign_mode`, `daily_lead_cap`, `auto_count_date`, `auto_count_today` | Auto or Manual and the daily limit |
+| `lead_phones` (lead_id, phone_number unique, label, added_by_employee_id) | Extra numbers of a lead |
+| `lead_inquiries` (lead_id, source_id, interested_course_id, outcome, created_by_employee_id) | Every inquiry and repeat |
+| `lead_events` (lead_id, employee_id, type, note, created_at) | Non-call history |
+| `system_settings` keys | Follow-up window and repeat, leave days (casual, sick, certificate, earned, earned cap, maternity), discount cap, installments, WhatsApp message, KPI targets |
+| Private disk `payment-slips/` | Payment slips |
+
+Of the tables listed as not made above, `lead_phones`, `lead_inquiries`, `notifications` and the history table (as `lead_events`) now exist. Still not made: `distribution_runs`, `audit_logs`, `import_runs`, `receipt_counters`, and the database guards of section 4. The live structure, with an ER diagram, is on the Developer Database page.

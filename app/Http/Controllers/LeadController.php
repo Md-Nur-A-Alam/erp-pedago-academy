@@ -2,6 +2,8 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\HandleRepeatInquiry;
+use App\Actions\PhoneNumbers;
 use App\Models\Course;
 use App\Models\CourseTopic;
 use App\Models\DuplicateLeadReview;
@@ -141,7 +143,7 @@ class LeadController extends Controller
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where('status', 'Active')->where('role', 'Sales Executive'),
+                Rule::exists('employees', 'id')->where('status', 'Active')->whereIn('role', Employee::SALES_ROLES),
             ],
         ]);
 
@@ -225,7 +227,7 @@ class LeadController extends Controller
                 ],
             );
 
-            $existingLead = Lead::query()->where('contact_number', $validated['contact_number'])->first();
+            $existingLead = app(PhoneNumbers::class)->findLead($validated['contact_number']);
 
             if ($existingLead !== null) {
                 DuplicateLeadReview::query()->create([
@@ -239,6 +241,7 @@ class LeadController extends Controller
                     'matched_lead_id' => $existingLead->id,
                     'match_reason' => 'Matching contact number',
                 ]);
+                app(HandleRepeatInquiry::class)->handle($existingLead, $source->source_id, $courseId, $currentEmployee);
 
                 return true;
             }
@@ -565,7 +568,7 @@ class LeadController extends Controller
 
         abort_unless(
             $employee instanceof Employee
-                && in_array($employee->role, ['Admin', 'MarketingExecutive', 'Supervisor', 'Team Leader', 'Sales Executive'], true),
+                && in_array($employee->role, ['Admin', 'Developer', 'MarketingExecutive', 'Supervisor', 'Team Leader', 'Sales Executive'], true),
             403,
             'You are not authorized to access leads.',
         );

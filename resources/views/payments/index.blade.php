@@ -67,6 +67,7 @@
                                 <td class="px-2 py-2.5">
                                     <span class="block whitespace-nowrap">{{ $payment->payment_method }}</span>
                                     <span class="num block max-w-40 truncate text-xs text-pedago-muted" title="{{ $payment->transaction_id }}">{{ $payment->transaction_id ? 'TrxID '.$payment->transaction_id : ($payment->slip_screenshot_path ? 'Slip attached' : 'No reference given') }}</span>
+                                    @if ($payment->slip_screenshot_path)<a class="text-xs font-semibold text-pedago-blue-dark underline-offset-2 hover:underline" href="{{ route('payments.slip', $payment) }}" target="_blank" rel="noopener">View slip</a>@endif
                                 </td>
                                 <td class="px-4 py-2.5 sm:pr-5">
                                     @if ($payment->status === 'Pending')

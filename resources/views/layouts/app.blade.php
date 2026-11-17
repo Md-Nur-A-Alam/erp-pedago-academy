@@ -35,21 +35,30 @@
             $seesFinance = $isAdmin || $role === 'Accounts';
             $navCounts ??= [];
             $isDeveloper = $role === 'Developer';
+            $isSalesPerson = (bool) $currentEmployee?->isSalesPerson();
+            $reviewsLeave = $isAdmin || in_array($role, ['Supervisor', 'Team Leader'], true);
 
             // label, route, active route patterns, icon, visible, count key, count is urgent
             $navigation = [
                 'Overview' => [
-                    ['Dashboard', 'dashboard', ['dashboard'], 'grid', ! $isDeveloper, null, false],
+                    ['Dashboard', 'dashboard', ['dashboard'], 'grid', true, null, false],
+                    ['Notifications', 'notifications.index', ['notifications.*'], 'bell', true, 'notifications', true],
+                    ['Performance', 'performance.index', ['performance.*'], 'trending-up', true, null, false],
                     ['Reports', 'reports.index', ['reports.*'], 'bar-chart', $isAdmin, null, false],
                 ],
                 'Sales' => [
                     ['Central queue', 'central-queue.index', ['central-queue.*'], 'inbox', $isAdmin, 'queue', false],
-                    ['My tasks', 'sales.tasks', ['sales.tasks'], 'check-square', $role === 'Sales Executive', 'tasks', false],
+                    ['Assignment controls', 'assignment-controls.index', ['assignment-controls.*'], 'sliders', $isAdmin, null, false],
+                    ['My tasks', 'sales.tasks', ['sales.tasks'], 'check-square', $isSalesPerson, 'tasks', false],
                     [$role === 'Sales Executive' ? 'My leads' : 'All leads', 'leads.index', ['leads.index', 'leads.workspace'], 'list', $seesLeads, null, false],
+                    ['Number check', 'number-check.index', ['number-check.*'], 'search', $seesLeads, null, false],
                     ['Upload leads', 'leads.upload', ['leads.upload'], 'upload', $managesIntake, null, false],
+                    ['Paste leads', 'leads.paste', ['leads.paste*'], 'copy', $managesIntake, null, false],
+                    ['Merge duplicates', 'leads.merge', ['leads.merge*'], 'repeat', $isAdmin, null, false],
                     ['Campaigns', 'campaigns.index', ['campaigns.*'], 'flag', $managesIntake, null, false],
                     ['Duplicate review', 'duplicate-lead-reviews.index', ['duplicate-lead-reviews.*'], 'copy', $isAdmin, 'duplicates', false],
-                    [$role === 'Sales Executive' ? 'My follow-ups' : 'Follow-ups', 'follow-ups.index', ['follow-ups.*'], 'clock', $isAdmin || in_array($role, ['Supervisor', 'Team Leader', 'Sales Executive'], true), 'overdue', true],
+                    ['My follow-ups', 'follow-ups.mine', ['follow-ups.mine'], 'clock', $role === 'Team Leader', 'myoverdue', true],
+                    [$role === 'Sales Executive' ? 'My follow-ups' : ($role === 'Team Leader' ? 'Team follow-ups' : 'Follow-ups'), 'follow-ups.index', $role === 'Sales Executive' ? ['follow-ups.*'] : ['follow-ups.index'], 'clock', $isAdmin || in_array($role, ['Supervisor', 'Team Leader', 'Sales Executive'], true), 'overdue', true],
                     ['Transfers', 'lead-transfers.index', ['lead-transfers.*'], 'repeat', $isAdmin || $role === 'Team Leader', 'transfers', false],
                 ],
                 'Enrollment & Finance' => [
@@ -59,6 +68,8 @@
                 'People' => [
                     ['Teams & roster', 'teams.index', ['teams.*'], 'users', $isAdmin || in_array($role, ['Supervisor', 'Team Leader'], true), null, false],
                     ['Employees', 'employees.index', ['employees.*'], 'user', $isAdmin, null, false],
+                    ['Leave', 'leave.index', ['leave.index'], 'sun', ! $isDeveloper, null, false],
+                    ['Leave requests', 'leave.requests', ['leave.requests'], 'check-square', $reviewsLeave, 'leave', false],
                     ['Approvals', 'employee-change-requests.index', ['employee-change-requests.*'], 'check-square', $currentEmployee?->lowerAuthorityRoles() !== [], 'approvals', false],
                 ],
                 'Catalogue' => [
@@ -68,13 +79,15 @@
                 ],
                 'Developer' => [
                     ['Developer panel', 'developer.index', ['developer.index'], 'terminal', $isDeveloper, null, false],
+                    ['Database', 'developer.database', ['developer.database'], 'database', $isDeveloper, null, false],
                     ['Developer guide', 'developer.guide', ['developer.guide'], 'code', $isDeveloper, null, false],
                 ],
                 'Help' => [
-                    [$isAdmin ? 'Documentation' : 'My guide', 'guide.index', ['guide.*'], 'help', ! $isDeveloper, null, false],
+                    [$isAdmin ? 'Documentation' : 'My guide', 'guide.index', ['guide.*'], 'help', true, null, false],
                 ],
                 'System' => [
                     ['Settings', 'settings.index', ['settings.*'], 'sliders', $isAdmin, null, false],
+                    ['Data health', 'data-health.index', ['data-health.*'], 'check-square', $isAdmin, null, false],
                     ['Staff passwords', 'staff-passwords.index', ['staff-passwords.*'], 'lock', $isAdmin, null, false],
                 ],
             ];
@@ -92,11 +105,15 @@
 
             <aside class="fixed inset-y-0 left-0 z-40 flex w-16 flex-col border-r border-pedago-line bg-white transition-[width] duration-200 ease-out group-data-[sidebar=open]/app:w-64 max-lg:group-data-[sidebar=open]/app:shadow-xl" id="app-sidebar" aria-label="Primary navigation">
                 <div class="flex h-16 shrink-0 items-center border-b border-pedago-line px-3 group-data-[sidebar=closed]/app:justify-center group-data-[sidebar=closed]/app:px-0">
-                    <a class="block rounded-md" href="{{ route($isDeveloper ? 'developer.index' : 'dashboard') }}" aria-label="Pedago Academy home">
+                    <a class="block rounded-md" href="{{ route('dashboard') }}" aria-label="Pedago Academy home">
                         <img class="h-auto w-full max-w-44 group-data-[sidebar=closed]/app:hidden" src="{{ asset('user_defined_assets/img/horizontal%20logo%201%20on%20whtie%20bg.png') }}" alt="Pedago Academy" width="176" height="48">
                         <img class="hidden size-9 group-data-[sidebar=closed]/app:block" src="{{ asset('user_defined_assets/img/only%20logo%20icon.png') }}" alt="" width="36" height="36">
                     </a>
                 </div>
+
+                <button class="absolute -right-3 top-5 z-10 inline-flex size-6 items-center justify-center rounded-full border border-pedago-line bg-white text-pedago-muted transition-colors duration-150 hover:border-pedago-blue hover:text-pedago-blue-dark" id="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Collapse navigation to icons">
+                    <x-ui.icon name="chevron-left" class="size-4 transition-transform duration-200 group-data-[sidebar=closed]/app:rotate-180" />
+                </button>
 
                 <nav class="flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3 py-3 group-data-[sidebar=closed]/app:gap-2 group-data-[sidebar=closed]/app:px-2">
                     @foreach ($navigation as $group => $items)
@@ -179,9 +196,6 @@
                     </div>
                 @endif
                 <header class="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-pedago-line bg-white px-4 py-2.5 sm:px-6 lg:min-h-16">
-                    <button class="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-pedago-line text-pedago-ink transition-colors duration-150 hover:bg-pedago-canvas" id="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Toggle navigation">
-                        <x-ui.icon name="menu" class="size-5" />
-                    </button>
                     <div class="mr-auto min-w-0">
                         <h1 class="truncate text-lg font-bold tracking-tight text-pedago-ink">@yield('page-title', $title ?? 'Pedago Academy ERP')</h1>
                         @hasSection('page-description')
@@ -213,6 +227,49 @@
                             </button>
                         </form>
                     @endif
+
+                    <details class="group/bell relative" data-bell>
+                        <summary class="relative inline-flex size-9 cursor-pointer list-none items-center justify-center rounded-md border border-pedago-line bg-white text-pedago-ink transition-colors duration-150 hover:bg-pedago-canvas [&::-webkit-details-marker]:hidden" aria-label="Notifications, {{ $unreadCount }} unread">
+                            <x-ui.icon name="bell" class="size-[18px]" />
+                            <span class="num absolute -right-1.5 -top-1.5 min-w-[18px] rounded-full bg-pedago-red px-1 text-center text-[11px] font-semibold leading-[18px] text-white" data-bell-count @if ($unreadCount === 0) hidden @endif>{{ $unreadCount > 99 ? '99+' : $unreadCount }}</span>
+                        </summary>
+                        <div class="absolute right-0 z-30 mt-2 w-[min(22rem,calc(100vw-2rem))] overflow-hidden rounded-lg border border-pedago-line bg-white shadow-lg">
+                            <div class="flex items-center justify-between border-b border-pedago-line px-3.5 py-2.5">
+                                <p class="text-sm font-semibold">Notifications</p>
+                                @if ($unreadCount > 0)
+                                    <form method="POST" action="{{ route('notifications.read-all') }}">@csrf<button class="text-xs font-semibold text-pedago-blue hover:underline" type="submit">Mark all read</button></form>
+                                @endif
+                            </div>
+                            @forelse ($recentNotifications as $note)
+                                <a class="flex gap-2.5 border-b border-pedago-line px-3.5 py-2.5 last:border-0 hover:bg-pedago-row {{ $note->read_at === null ? 'bg-pedago-tint/40' : '' }}" href="{{ route('notifications.open', $note->id) }}">
+                                    <span @class(['mt-1.5 size-2 shrink-0 rounded-full', 'bg-pedago-red' => ($note->data['tone'] ?? '') === 'red', 'bg-pedago-amber' => ($note->data['tone'] ?? '') === 'amber', 'bg-pedago-green' => ($note->data['tone'] ?? '') === 'green', 'bg-pedago-blue' => ! in_array($note->data['tone'] ?? '', ['red', 'amber', 'green'], true)]) aria-hidden="true"></span>
+                                    <span class="min-w-0">
+                                        <span class="block truncate text-[13px] {{ $note->read_at === null ? 'font-semibold' : 'font-medium' }}">{{ $note->data['title'] ?? 'Notification' }}</span>
+                                        <span class="line-clamp-2 text-xs leading-5 text-pedago-muted">{{ $note->data['body'] ?? '' }}</span>
+                                        <span class="text-[11px] text-pedago-muted">{{ $note->created_at->diffForHumans() }}</span>
+                                    </span>
+                                </a>
+                            @empty
+                                <p class="px-3.5 py-6 text-center text-sm text-pedago-muted">Nothing yet. Reminders and updates appear here.</p>
+                            @endforelse
+                            <a class="block border-t border-pedago-line px-3.5 py-2.5 text-center text-xs font-semibold text-pedago-blue hover:bg-pedago-row" href="{{ route('notifications.index') }}">See all notifications</a>
+                        </div>
+                    </details>
+                    <script>
+                        (() => {
+                            const badge = document.querySelector('[data-bell-count]');
+                            if (!badge) return;
+                            const refresh = () => fetch(@json(route('notifications.count')), { headers: { Accept: 'application/json' }, credentials: 'same-origin' })
+                                .then((response) => (response.ok ? response.json() : null))
+                                .then((data) => {
+                                    if (!data) return;
+                                    badge.textContent = data.unread > 99 ? '99+' : data.unread;
+                                    badge.hidden = data.unread === 0;
+                                })
+                                .catch(() => {});
+                            setInterval(refresh, 60000);
+                        })();
+                    </script>
 
                     <div class="flex max-w-full flex-wrap items-center justify-end gap-2 empty:hidden">@yield('page-actions')@if (request()->routeIs('dashboard') && $managesIntake)<x-ui.button :href="route('leads.upload')" icon="upload">Upload leads</x-ui.button>@endif</div>
                 </header>
@@ -259,6 +316,7 @@
                     root.dataset.sidebar = open ? 'open' : 'closed';
                     toggle.setAttribute('aria-expanded', String(open));
                     toggle.setAttribute('aria-label', open ? 'Collapse navigation to icons' : 'Expand navigation');
+                    toggle.title = open ? 'Collapse navigation' : 'Expand navigation';
                     document.body.classList.toggle('overflow-hidden', open && !desktop.matches);
                     if (persist && desktop.matches) {
                         remember(open);
@@ -296,6 +354,51 @@
                     });
                 }
 
+                const placeTip = (host) => {
+                    const tip = host.querySelector('[role="tooltip"]');
+                    const anchor = host.querySelector('button').getBoundingClientRect();
+                    const left = Math.min(Math.max(8, anchor.left + anchor.width / 2 - tip.offsetWidth / 2), window.innerWidth - tip.offsetWidth - 8);
+                    let top = anchor.bottom + 6;
+                    if (top + tip.offsetHeight > window.innerHeight - 8) {
+                        top = Math.max(8, anchor.top - tip.offsetHeight - 6);
+                    }
+                    tip.style.left = left + 'px';
+                    tip.style.top = top + 'px';
+                    host.dataset.shown = 'true';
+                };
+                const hideTip = (host) => {
+                    delete host.dataset.shown;
+                };
+                document.addEventListener('mouseover', (event) => {
+                    const host = event.target.closest('[data-info]');
+                    if (host) {
+                        placeTip(host);
+                    }
+                });
+                document.addEventListener('mouseout', (event) => {
+                    const host = event.target.closest('[data-info]');
+                    if (host && !host.contains(event.relatedTarget) && !host.matches(':focus-within')) {
+                        hideTip(host);
+                    }
+                });
+                document.addEventListener('focusin', (event) => {
+                    const host = event.target.closest('[data-info]');
+                    if (host) {
+                        placeTip(host);
+                    }
+                });
+                document.addEventListener('focusout', (event) => {
+                    const host = event.target.closest('[data-info]');
+                    if (host) {
+                        hideTip(host);
+                    }
+                });
+                document.addEventListener('keydown', (event) => {
+                    if (event.key === 'Escape') {
+                        document.querySelectorAll('[data-info][data-shown]').forEach(hideTip);
+                    }
+                });
+
                 document.addEventListener('submit', (event) => {
                     const message = event.target.dataset ? event.target.dataset.confirm : null;
                     if (message && !window.confirm(message)) {
@@ -323,9 +426,7 @@
             })();
         </script>
     @else
-        <main class="flex min-h-screen w-full items-start justify-center bg-[#F8F8F8] px-4 py-4 min-[861px]:items-center min-[861px]:px-0 min-[861px]:py-0">
-            @yield('content')
-        </main>
+        @yield('content')
     @endauth
     @stack('scripts')
 </body>

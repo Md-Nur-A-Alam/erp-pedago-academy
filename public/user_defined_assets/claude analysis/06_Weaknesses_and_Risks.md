@@ -422,3 +422,20 @@ Not defects in the code — consequences of rules as written, to accept or chang
 | R-11 | The batch-slot decision and the Lazy decision together would mark an executive Lazy while a customer has not yet paid | Q-03 with Q-04 | Count only leads not yet acted on towards the unfinished-batch condition (Q-04a, awaiting confirmation) |
 | R-9 | A gateway-confirmed payment still waits for Accounts | v-03 §9 | Auto-verify gateway payments, with Accounts reconciling later (Q-15) |
 | R-10 | Staff logins and customer phones are personal data with no stated retention or access policy | — | Define before go-live |
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Reduced since the first update: stuck engaged leads and orphaned leads (Data health), lost history on hand moves (lead events), the same customer entered twice from another number (extra numbers, number check, merge), leads closed in error by wrong numbers (Invalid/Junk), the missing conversion path, silent overdue follow-ups (notifications), uncontrolled leave.
+
+Still open or new:
+
+- W-SEC-01 remains the first thing to fix: customer data and PINs under `public/user_defined_assets`, pushed to the repository.
+- The scheduler must be running or nothing is distributed or notified; the Central Queue warns when it is not.
+- Payment slips are only checked by a person, there is no gateway or bank feed.
+- Labour Act figures are settings and have not been checked by a lawyer; the Act varies by establishment type.
+- There is no gender field, so maternity leave is checked by service length only.
+- The old Duplicate review queue and the automatic repeat rules both act on a duplicate; keep an eye on admins repeating work.
+- No browser testing has been done on any screen.

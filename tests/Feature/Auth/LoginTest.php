@@ -8,7 +8,7 @@ uses(RefreshDatabase::class);
 it('renders the branded phone and password login form', function () {
     $this->get(route('login'))
         ->assertOk()
-        ->assertSee('Login please')
+        ->assertSee('Sign in to your account')
         ->assertSee('name="phone_number"', false)
         ->assertSee('name="password"', false)
         ->assertSee('minlength="6" maxlength="12"', false)
@@ -16,7 +16,7 @@ it('renders the branded phone and password login form', function () {
         ->assertSee(route('login.store'), false)
         ->assertSee(asset('user_defined_assets/img/Welcome%20to%20Pedago%20Academy%20ERP%20System.png'), false)
         ->assertSee('Forgot Password?')
-        ->assertSee('min-[861px]:aspect-[1465/974]', false);
+        ->assertSee('id="password-toggle"', false);
 });
 
 it('shows validation errors and retains the phone number after an unsuccessful login', function () {

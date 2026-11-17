@@ -3,6 +3,7 @@
 namespace App\Actions;
 
 use App\Models\DuplicateLeadReview;
+use App\Models\Employee;
 use App\Models\Lead;
 use App\Models\LeadSource;
 use App\Models\User;
@@ -63,12 +64,15 @@ class ImportLeadsFromCsv
             foreach ($rows as $row) {
                 $row['source_id'] = $source->source_id;
 
-                if ($knownLeads->has($row['contact_number'])) {
+                $known = $knownLeads->get($row['contact_number']) ?? app(PhoneNumbers::class)->findLead($row['contact_number']);
+
+                if ($known !== null) {
                     DuplicateLeadReview::query()->create([
                         'incoming_lead_data' => $row,
-                        'matched_lead_id' => $knownLeads->get($row['contact_number'])->id,
+                        'matched_lead_id' => $known->id,
                         'match_reason' => 'Matching contact number',
                     ]);
+                    app(HandleRepeatInquiry::class)->handle($known, $source->source_id, null, Employee::query()->find($createdByEmployeeId));
                     $duplicates++;
 
                     continue;

@@ -25,6 +25,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'ad_set_id',
     'interested_course_id',
     'status',
+    'priority',
+    'remarks',
     'current_owner_id',
     'previous_owner_id',
     'assigned_by_employee_id',
@@ -94,6 +96,13 @@ class Lead extends Model
         return $this->belongsTo(Employee::class, 'current_owner_id');
     }
 
+    protected static function booted(): void
+    {
+        static::created(function (Lead $lead): void {
+            LeadInquiry::query()->create(['lead_id' => $lead->id, 'source_id' => $lead->source_id, 'interested_course_id' => $lead->interested_course_id, 'outcome' => 'First inquiry']);
+        });
+    }
+
     public function previousOwner(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'previous_owner_id');
@@ -144,6 +153,21 @@ class Lead extends Model
     public function enrollment(): HasOne
     {
         return $this->hasOne(Enrollment::class);
+    }
+
+    public function phones(): HasMany
+    {
+        return $this->hasMany(LeadPhone::class);
+    }
+
+    public function inquiries(): HasMany
+    {
+        return $this->hasMany(LeadInquiry::class);
+    }
+
+    public function events(): HasMany
+    {
+        return $this->hasMany(LeadEvent::class);
     }
 
     public function duplicateReviews(): HasMany

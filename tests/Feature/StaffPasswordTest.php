@@ -99,3 +99,16 @@ it('keeps the password module away from every other role', function (string $rol
     expect(PasswordRevealLog::query()->count())->toBe(0)
         ->and(Hash::check('Target789', $target->fresh()->password))->toBeTrue();
 })->with(['Supervisor', 'Team Leader', 'Sales Executive', 'Accounts', 'MarketingExecutive']);
+
+it('sends a refreshed or failed password request back to the list instead of an error page', function () {
+    $admin = createPasswordUser('Admin', 'AdminPass1');
+    $target = createPasswordUser('Sales Executive', 'Target789');
+
+    $this->actingAs($admin)->get(route('staff-passwords.reveal', $target->employee))->assertRedirect(route('staff-passwords.index'));
+    $this->actingAs($admin)->get(route('staff-passwords.reset', $target->employee))->assertRedirect(route('staff-passwords.index'));
+
+    $this->actingAs($admin)->from(route('staff-passwords.reveal', $target->employee))
+        ->post(route('staff-passwords.reveal', $target->employee), ['current_password' => 'wrong', 'reason' => 'Customer escalation'])
+        ->assertRedirect(route('staff-passwords.index'))
+        ->assertSessionHasErrors('current_password');
+});

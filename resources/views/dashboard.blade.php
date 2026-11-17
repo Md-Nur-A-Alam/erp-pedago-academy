@@ -18,6 +18,7 @@
                 :hint="'of '.$metrics['on_duty'].' on duty today'" />
             <x-ui.stat label="Overdue follow-ups" :value="number_format($metrics['overdue_followups'])" :href="route('follow-ups.index')" :alert="$metrics['overdue_followups'] > 0"
                 :hint="$metrics['lazy_executives'].' '.Str::plural('executive', $metrics['lazy_executives']).' flagged Lazy'" />
+            <x-ui.stat label="Follow-ups coming up" :value="number_format($metrics['coming_followups'])" :href="route('follow-ups.index', ['tab' => 'soon'])" hint="Within the reminder window" />
             <x-ui.stat label="Payments under review" :value="number_format($metrics['payments_pending'])" :href="route('payments.index')"
                 :hint="$metrics['oldest_payment_at'] ? 'Oldest waiting '.$waiting($metrics['oldest_payment_at']) : 'Nothing waiting'" />
             <x-ui.stat label="Pending transfers" :value="number_format($metrics['transfers_pending'])" :href="route('lead-transfers.index')"
@@ -35,7 +36,7 @@
                 <dl class="mb-3 grid grid-cols-3 gap-2.5">
                     @foreach (['Queue leads (L)' => number_format($plan['queue']), 'Available (S)' => number_format($plan['executives']), 'Rule' => $plan['rule']] as $term => $figure)
                         <div class="rounded-md bg-pedago-canvas px-2.5 py-2">
-                            <dt class="text-xs text-pedago-muted">{{ $term }}</dt>
+                            <dt class="flex items-center gap-1 text-xs text-pedago-muted">{{ $term }}<x-ui.info :term="$term" /></dt>
                             <dd class="num truncate text-lg font-semibold" title="{{ $figure }}">{{ $figure }}</dd>
                         </div>
                     @endforeach
@@ -140,7 +141,7 @@
                                     <th class="px-2 py-2 font-semibold" scope="col">Team</th>
                                     <th class="px-2 py-2 font-semibold" scope="col">Shift</th>
                                     <th class="px-2 py-2 font-semibold" scope="col">Status</th>
-                                    <th class="px-2 py-2 font-semibold" scope="col">Batch</th>
+                                    <th class="px-2 py-2 font-semibold" scope="col"><span class="inline-flex items-center gap-1">Batch<x-ui.info term="Batch" /></span></th>
                                     <th class="px-2 py-2 font-semibold" scope="col">Overdue</th>
                                     <th class="px-4 py-2 sm:px-5" scope="col"><span class="sr-only">Action</span></th>
                                 </tr>
@@ -238,16 +239,28 @@
             </x-ui.card>
         </div>
     @else
-        @includeWhen(! empty($panel), 'panels.'.($panel ?? 'none'))
+        @foreach ($panels as $panelName)
+            @if (count($panels) > 1)
+                <h2 class="-mb-1 mt-1 text-xs font-semibold uppercase tracking-[0.08em] text-pedago-muted">{{ $panelName === 'executive' ? 'My work' : 'My team' }}</h2>
+            @endif
+            @include('panels.'.$panelName)
+        @endforeach
 
-        <x-ui.card>
-            <p class="text-sm font-semibold uppercase tracking-wide text-pedago-blue">{{ $employee->designation }}</p>
-            <p class="mt-1 text-sm text-pedago-muted">{{ $employee->office_id }} · {{ $employee->role }}</p>
-        </x-ui.card>
+        @if ($panels === [])
+            <x-ui.card>
+                <p class="text-sm font-semibold uppercase tracking-wide text-pedago-blue">{{ $employee->designation }}</p>
+                <p class="mt-1 text-sm text-pedago-muted">{{ $employee->office_id }} · {{ $employee->role }}</p>
+            </x-ui.card>
+        @endif
 
         <section class="grid gap-3 sm:grid-cols-2" aria-label="Shortcuts">
             @php
-                $shortcuts = [['My profile', route('profile.edit'), 'Update personal details and submit essential employment changes for approval.', true]];
+                $shortcuts = [
+                    ['Leave', route('leave.index'), 'Apply for leave and follow your requests.', true],
+                    ['Performance', route('performance.index'), 'See your KPIs against the targets for this period.', true],
+                    ['My profile', route('profile.edit'), 'Update personal details and submit essential employment changes for approval.', true],
+                ];
+                $shortcuts[] = ['Leave requests', route('leave.requests'), 'Decide leave for the people you manage.', in_array($employee->role, ['Supervisor', 'Team Leader'], true)];
                 $shortcuts[] = ['Review employee changes', route('employee-change-requests.index'), 'Review requests submitted by employees below your authority level.', $employee->lowerAuthorityRoles() !== []];
                 $shortcuts[] = ['Upload leads', route('leads.upload'), 'Import a validated CSV file and send phone matches to duplicate review.', $employee->role === 'MarketingExecutive'];
                 $shortcuts[] = ['Payments review', route('payments.index'), 'Verify or reject payments that students have submitted.', $employee->role === 'Accounts'];

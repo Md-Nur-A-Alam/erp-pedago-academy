@@ -136,7 +136,7 @@ class EmployeeController extends Controller
         $this->authorizeAdmin($request);
 
         return view('employees.create', [
-            'roles' => Employee::ROLES,
+            'roles' => Employee::assignableRoles($request->user()->employee),
             'nextOfficeId' => Employee::nextOfficeId(),
         ]);
     }
@@ -262,7 +262,7 @@ class EmployeeController extends Controller
             'office_id' => ['required', 'string', 'max:50', 'unique:employees,office_id'],
             'designation' => ['required', 'string', 'max:100'],
             'joining_date' => ['required', 'date'],
-            'role' => ['required', Rule::in(Employee::ROLES)],
+            'role' => ['required', Rule::in(Employee::assignableRoles($request->user()->employee))],
             'phone_number' => ['required', 'string', 'max:25', new PhoneNumber, 'unique:users,phone_number'],
             'password' => ['required', 'string', 'min:6', 'max:12', 'confirmed'],
         ]);

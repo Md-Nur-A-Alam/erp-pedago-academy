@@ -20,7 +20,14 @@ Internal ERP for Pedago Academy. Its first module manages sales leads from the m
 | Catalogue | Subjects, topics, courses, course batches with seats, campaigns |
 | Lead intake | CSV upload, single entry, duplicate review |
 | Distribution | Central queue, batch engine with hot/warm/cool/cold priority, manual assignment, on/off switch |
-| Sales work | Ranked task list, lead page, call feedback, follow-ups, transfer requests |
+| Sales work | Ranked task list, lead page, call feedback, follow-ups, transfer requests. Team leaders work leads too |
+| Performance | KPIs per person and team against company targets: calls a day, first-call time, follow-ups kept on time, conversion, revenue |
+| Repeat inquiries | Every inquiry is logged. A repeat reopens a closed lead to its previous owner, or sets a follow-up on an open one. Extra numbers per lead, a number check, paste import by campaign and course name, and merging duplicates |
+| Assignment controls | Per sales person Auto or Manual and a daily limit on engine-given leads |
+| Conversion | Enroll a student from the lead page (course, discount, installments), submit each payment with slip or transaction ID, Accounts verify, and only then the lead is Converted |
+| Follow-ups | Two stages: Coming up (from 30 hours before the time, with a reminder) and Overdue (from the exact time until an outcome is logged, with repeated notices) |
+| Notifications | A bell and inbox for every role: follow-ups, new leads, transfers, payments, conversions, leave, duplicates, Lazy alerts. Needs the scheduler |
+| Leave | Casual, sick, annual, maternity and unpaid leave under the Bangladesh Labour Act 2006, with Friday as the weekly holiday. Sales executives need two approvals (team leader, then supervisor or admin), other staff one from a higher authority, administrators none. Approved leave stops new leads |
 | Control | Overdue and Lazy tracking, reassignment, transfers with team-leader approval and auto-approval |
 | Finance | Payment verification, installment views |
 | Insight | A dashboard per role, reports by executive, team and campaign |
@@ -34,10 +41,12 @@ Not built yet: the enrollment form, the customer payment page, payment gateways,
 | :--- | :--- |
 | Admin | Everything |
 | Supervisor | The teams they supervise |
-| Team Leader | Their own team |
+| Team Leader | Their own team, plus their own leads and tasks (a team leader is also a sales person) |
 | Sales Executive | Their own leads and tasks |
 | Marketer (`MarketingExecutive`) | Campaigns, uploads, all leads |
 | Accounts | Payments and installments |
+
+Every role except Developer can apply for leave and sees its own KPIs. A **Developer** holds every administrator permission and can open any employee's panel.
 
 Each role has a training guide inside the application under **My guide**; administrators see the full rule book under **Documentation**.
 
@@ -123,6 +132,7 @@ php artisan schedule:work                       # development
 For testing, an administrator can give an employee the **Developer** role. A developer's sidebar holds:
 
 - **Developer panel** — open the system as any active employee with one click, switch between employees from the banner at the top of every page, and return to the developer account. It also shows the environment, the scheduled commands and record counts, and runs maintenance tools.
+- **Database** — the live structure drawn as an interactive ER diagram (drag, zoom, search, filter by module, click a table to see its columns, keys, model and the code that uses it), plus table, mapping and relationship lists, and export to SVG, JSON or Mermaid.
 - **Developer guide** — architecture, where each rule lives in the code, settings, interface components, recipes for common changes, testing and troubleshooting.
 
 Every switch and tool run is logged. The panel is on by default outside production; set `DEVELOPER_PANEL=true` to enable it in production, or `false` to turn it off anywhere.

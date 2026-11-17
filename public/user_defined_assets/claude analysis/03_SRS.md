@@ -460,3 +460,27 @@ The v-01 list of twelve, the v-03 list of ten, and the additions this analysis r
 | AC-22 | No employee can raise their own role | FR-EMP-05 |
 | AC-23 | Deactivating an executive leaves none of their leads without an owner or a queue | FR-OVR-07 |
 | AC-24 | After migration, lead, inquiry and activity counts match the sheet, with every difference listed | FR-MIG-03 |
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Requirements added to the specification:
+
+| ID | Requirement |
+| :--- | :--- |
+| FR-FUP-04 | A follow-up is Coming up from N hours before its time (default 30) to the exact time, and Overdue from the exact time until a new follow-up, a conversion or another outcome |
+| FR-NOT-01 | Every employee has a notification inbox and a bell with an unread count |
+| FR-NOT-02 | Notices are sent by role: sales (new leads, follow-ups, outcomes), leaders and supervisors (transfers, Lazy people, leave), Accounts (payments), marketing (conversions), admins (duplicates, changes, payments, Lazy, leave) |
+| FR-NOT-03 | A notice clears itself when the work it asks for is done |
+| FR-LEV-01 | Leave types casual, sick, annual, maternity, unpaid with Labour Act entitlements as settings; Friday is not counted |
+| FR-LEV-02 | Approval: sales executive two steps (team leader, then supervisor or admin); team leader, accounts, marketing one step from a higher authority; supervisor one from an admin; admin none |
+| FR-ENR-01 | The owner enrolls an interested lead with a course, a capped discount and 1 to 6 installments |
+| FR-ENR-02 | The owner submits each installment with a transaction ID or a slip; amount must equal the installment |
+| FR-ENR-03 | A lead is Converted only when Accounts verify a payment |
+| FR-RPT-01 | Every inquiry is logged; a repeat reopens a closed lead or schedules a follow-up on an open one |
+| FR-RPT-02 | Any number of a lead finds that lead |
+| FR-ASG-01 | Per sales person Auto or Manual, and a daily limit on engine-given leads |
+| FR-CAL-05 | A wrong-number call closes the lead as Invalid/Junk; a connected call that leaves the lead open needs a call-back time |
+| FR-OVR-08 | Admin tools: assignment controls, paste import, merge duplicates, data health |

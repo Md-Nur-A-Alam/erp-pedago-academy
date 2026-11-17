@@ -34,9 +34,11 @@ class SystemSettingController extends Controller
 
         $rules = ['settings' => ['required', 'array:'.implode(',', array_keys(SystemSetting::DEFINITIONS))]];
         foreach (SystemSetting::DEFINITIONS as $key => $definition) {
-            $rules["settings.{$key}"] = $definition['type'] === 'boolean'
-                ? ['sometimes', 'required', 'in:0,1']
-                : ['sometimes', 'required', 'integer', 'min:'.$definition['min'], 'max:'.$definition['max']];
+            $rules["settings.{$key}"] = match ($definition['type']) {
+                'boolean' => ['sometimes', 'required', 'in:0,1'],
+                'text' => ['sometimes', 'required', 'string', 'max:'.$definition['max']],
+                default => ['sometimes', 'required', 'integer', 'min:'.$definition['min'], 'max:'.$definition['max']],
+            };
         }
         $attributes = collect(SystemSetting::DEFINITIONS)
             ->mapWithKeys(fn (array $definition, string $key): array => ["settings.{$key}" => strtolower($definition['label'])])

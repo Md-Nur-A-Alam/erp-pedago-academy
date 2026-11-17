@@ -86,11 +86,12 @@ it('lists overdue follow-ups and flags lazy executives', function () {
     LeadFollowup::factory()->create(['employee_id' => $lazy->id, 'followup_date_time' => now()->subDays(3)]);
     LeadFollowup::factory()->create(['employee_id' => $punctual->id, 'followup_date_time' => now()->subHour()]);
     LeadFollowup::factory()->create(['employee_id' => $punctual->id, 'followup_date_time' => now()->addDays(2)]);
+    LeadFollowup::factory()->create(['employee_id' => $punctual->id, 'followup_date_time' => now()->addHours(5)]);
 
     $this->actingAs($admin)->get(route('follow-ups.index'))
         ->assertOk()
         ->assertSee('Executives flagged Lazy')
-        ->assertViewHas('counts', fn (array $counts): bool => $counts['overdue'] === 2 && $counts['upcoming'] === 1 && $counts['done'] === 0)
+        ->assertViewHas('counts', fn (array $counts): bool => $counts['overdue'] === 2 && $counts['soon'] === 1 && $counts['later'] === 1 && $counts['done'] === 0)
         ->assertViewHas('lazyExecutives', fn ($executives): bool => $executives->pluck('id')->all() === [$lazy->id]);
 
     $this->actingAs($admin)->get(route('follow-ups.index', ['employee_id' => $punctual->id]))

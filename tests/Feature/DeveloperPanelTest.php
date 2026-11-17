@@ -28,8 +28,8 @@ it('opens the developer panel and guide for developers only', function () {
     $developer = createDeveloperPanelUser('Developer');
     createDeveloperPanelUser('Sales Executive');
 
-    $this->actingAs($developer)->get(route('dashboard'))->assertRedirect(route('developer.index'));
-    $this->actingAs($developer)->get(route('guide.index'))->assertRedirect(route('developer.guide'));
+    $this->actingAs($developer)->get(route('dashboard'))->assertOk()->assertSee('Admin dashboard');
+    $this->actingAs($developer)->get(route('guide.index'))->assertOk()->assertSee('Documentation');
     $this->actingAs($developer)->get(route('developer.index'))->assertOk()->assertSee('Switch panel')->assertSee('Environment')->assertSee('Sales executive');
     $this->actingAs($developer)->get(route('developer.guide'))->assertOk()->assertSee('Where each rule lives')->assertSee('distribution_engine_enabled');
 });
@@ -132,4 +132,56 @@ it('renders the collapsible icon rail with labels for screen readers', function 
         ->assertSee('id="app-sidebar-toggle"', false)
         ->assertSee('title="Central queue"', false)
         ->assertSee('only%20logo%20icon.png', false);
+});
+
+it('explains figures with an information tooltip and keeps the toggle on the sidebar edge', function () {
+    $admin = createDeveloperPanelUser('Admin');
+
+    $response = $this->actingAs($admin)->get(route('central-queue.index'))->assertOk();
+    $response
+        ->assertSee('Available executives')
+        ->assertSee('role="tooltip"', false)
+        ->assertSee('Sales executives who can receive leads right now', false)
+        ->assertSee('What does this mean?');
+
+    $html = $response->getContent();
+    expect($html)->toContain('-right-3')
+        ->and(strpos($html, 'id="app-sidebar-toggle"'))->toBeLessThan(strpos($html, '<header'));
+});
+
+it('gives status pills a plain-language hover text', function () {
+    $admin = createDeveloperPanelUser('Admin');
+
+    $this->actingAs($admin)->get(route('follow-ups.index'))->assertOk();
+    $this->actingAs($admin)->get(route('payments.index'))->assertOk()->assertSee('Waiting for review');
+    expect(config('glossary.statuses.Lazy'))->toContain('overdue');
+});
+
+it('shows the live database structure to developers only', function () {
+    $developer = createDeveloperPanelUser('Developer');
+    $admin = createDeveloperPanelUser('Admin');
+    Lead::factory()->count(2)->create();
+
+    $response = $this->actingAs($developer)->get(route('developer.database'))
+        ->assertOk()
+        ->assertSee('ER diagram')
+        ->assertSee('Mapping')
+        ->assertSee('Download SVG');
+
+    $schema = $response->viewData('schema');
+    $tables = collect($schema['tables'])->keyBy('name');
+    $leads = $tables['leads'];
+
+    expect($tables->keys()->all())->toContain('leads', 'employees', 'leave_requests', 'payments', 'developer_activity_logs')
+        ->and($leads['module'])->toBe('Leads and distribution')
+        ->and($leads['rows'])->toBe(2)
+        ->and($leads['model']['name'])->toBe('Lead')
+        ->and(collect($leads['model']['relations'])->pluck('name')->all())->toContain('source', 'currentOwner', 'feedbacks')
+        ->and(collect($leads['foreign_keys'])->pluck('table')->all())->toContain('leads_source', 'employees', 'teams')
+        ->and(collect($tables['leads_source']['referenced_by'])->pluck('table')->all())->toContain('leads')
+        ->and(collect($leads['columns'])->firstWhere('name', 'id')['pk'])->toBeTrue()
+        ->and(collect($leads['columns'])->firstWhere('name', 'source_id')['fk'])->toBeTrue()
+        ->and($leads['used_by'])->toContain('LeadController', 'DistributeLeads');
+
+    $this->actingAs($admin)->get(route('developer.database'))->assertForbidden();
 });

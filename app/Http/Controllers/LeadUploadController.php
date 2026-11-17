@@ -2,7 +2,9 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\HandleRepeatInquiry;
 use App\Actions\ImportLeadsFromCsv;
+use App\Actions\PhoneNumbers;
 use App\Models\DuplicateLeadReview;
 use App\Models\Employee;
 use App\Models\Lead;
@@ -154,7 +156,7 @@ class LeadUploadController extends Controller
                     'edited_by' => $employee->id,
                 ],
             );
-            $lead = Lead::query()->where('contact_number', $validated['contact_number'])->first();
+            $lead = app(PhoneNumbers::class)->findLead($validated['contact_number']);
 
             if ($lead !== null) {
                 DuplicateLeadReview::query()->create([
@@ -162,6 +164,7 @@ class LeadUploadController extends Controller
                     'matched_lead_id' => $lead->id,
                     'match_reason' => 'Matching contact number',
                 ]);
+                app(HandleRepeatInquiry::class)->handle($lead, $source->source_id, null, $employee);
 
                 return true;
             }
@@ -232,7 +235,7 @@ class LeadUploadController extends Controller
         abort_unless(
             $user instanceof User
                 && $user->employee instanceof Employee
-                && in_array($user->employee->role, ['Admin', 'MarketingExecutive'], true),
+                && in_array($user->employee->role, ['Admin', 'Developer', 'MarketingExecutive'], true),
             403,
         );
 

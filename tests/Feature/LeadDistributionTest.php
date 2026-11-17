@@ -245,3 +245,20 @@ it('puts high-intent channels ahead inside the same temperature and deals the ho
     expect($firstItem->lead->student_name)->toBe('Hot ad lead')
         ->and($firstItem->lead->current_owner_id)->toBe($executive->id);
 });
+
+it('warns the admin when the scheduler is not running while leads wait', function () {
+    $admin = createDistributionUser('Admin');
+    createAvailableExecutives(2);
+    createQueueLeads(3);
+
+    $this->actingAs($admin)->get(route('central-queue.index'))
+        ->assertOk()
+        ->assertViewHas('schedulerRunning', false)
+        ->assertSee('The scheduler is not running');
+
+    Cache::put('scheduler.heartbeat', now()->timestamp, 3600);
+
+    $this->actingAs($admin)->get(route('central-queue.index'))
+        ->assertViewHas('schedulerRunning', true)
+        ->assertDontSee('The scheduler is not running');
+});

@@ -9,6 +9,7 @@ use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 use Illuminate\View\View;
 
 class StaffPasswordController extends Controller
@@ -31,7 +32,7 @@ class StaffPasswordController extends Controller
         $stored = (string) $employee->user?->password;
 
         if ($hasher === null || ! $hasher->isReadable($stored)) {
-            return back()->withErrors([
+            return redirect()->route('staff-passwords.index')->withErrors([
                 'reveal' => "{$employee->name}'s password cannot be read yet. It becomes readable the next time they sign in, or you can reset it now.",
             ]);
         }
@@ -62,13 +63,18 @@ class StaffPasswordController extends Controller
      */
     private function confirm(Request $request): array
     {
-        return $request->validate([
-            'current_password' => ['required', 'current_password:web'],
-            'reason' => ['required', 'string', 'min:5', 'max:255'],
-        ], [
-            'current_password.current_password' => 'Your own password is not correct.',
-            'reason.required' => 'Say why you need this password. The reason is kept in the log.',
-        ]);
+        try {
+            return $request->validate([
+                'current_password' => ['required', 'current_password:web'],
+                'reason' => ['required', 'string', 'min:5', 'max:255'],
+            ], [
+                'current_password.current_password' => 'Your own password is not correct.',
+                'reason.required' => 'Say why you need this password. The reason is kept in the log.',
+            ]);
+        } catch (ValidationException $exception) {
+            // The result page is shown at the POST address, so going "back" would try a GET there.
+            throw $exception->redirectTo(route('staff-passwords.index'));
+        }
     }
 
     private function log(Request $request, Employee $admin, Employee $target, string $action, string $reason): void

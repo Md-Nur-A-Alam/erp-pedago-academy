@@ -2,21 +2,22 @@
 
 namespace App\Http\Controllers;
 
+use App\Actions\CallList;
 use App\Actions\DistributeLeads;
+use App\Actions\PerformanceMetrics;
 use App\Models\DuplicateLeadReview;
 use App\Models\Employee;
 use App\Models\EmployeeChangeRequest;
 use App\Models\Lead;
 use App\Models\LeadBatch;
-use App\Models\LeadBatchItem;
 use App\Models\LeadFollowup;
 use App\Models\LeadSource;
 use App\Models\LeadTransfer;
+use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\User;
-use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -29,19 +30,15 @@ class DashboardController extends Controller
      */
     public const PIPELINE_ORDER = [
         'New', 'Assigned', 'Contacted', 'Follow-up', 'Interested', 'Enrolled - Pending Payment',
-        'Payment Under Review', 'Converted', 'Not Interested', 'Unreachable', 'Lost',
+        'Payment Under Review', 'Converted', 'Not Interested', 'Unreachable', 'Lost', 'Invalid/Junk',
     ];
 
-    private const OFF_DUTY_STATES = ['Off Duty', 'Holiday', 'Unavailable', 'Resigned'];
+    private const OFF_DUTY_STATES = ['Off Duty', 'Holiday', 'On Leave', 'Unavailable', 'Resigned'];
 
-    public function index(Request $request, DistributeLeads $engine): View|RedirectResponse
+    public function index(Request $request, DistributeLeads $engine): View
     {
         $user = $request->user();
         abort_unless($user instanceof User && $user->employee instanceof Employee, 403);
-
-        if ($user->employee->role === 'Developer') {
-            return redirect()->route('developer.index');
-        }
 
         $period = $this->reportingPeriod($request);
         $employee = $user->employee;
@@ -54,11 +51,12 @@ class DashboardController extends Controller
         ];
 
         $data += match ($employee->role) {
-            'Admin' => $this->adminData($engine, $period),
-            'Sales Executive' => ['panel' => 'executive'] + $this->executiveData($employee),
-            'Team Leader', 'Supervisor' => ['panel' => 'team'] + $this->teamData($employee, $engine),
-            'MarketingExecutive' => ['panel' => 'marketing'] + $this->marketingData($period),
-            default => ['panel' => null],
+            'Admin', 'Developer' => $this->adminData($engine, $period),
+            'Sales Executive' => ['panels' => ['executive']] + $this->executiveData($employee),
+            'Team Leader' => ['panels' => ['executive', 'team']] + $this->executiveData($employee) + $this->teamData($employee, $engine),
+            'Supervisor' => ['panels' => ['team']] + $this->teamData($employee, $engine),
+            'MarketingExecutive' => ['panels' => ['marketing']] + $this->marketingData($period),
+            default => ['panels' => []],
         };
 
         return view('dashboard', $data);
@@ -96,10 +94,8 @@ class DashboardController extends Controller
                 'on_duty' => $executives->reject(
                     fn (Employee $executive): bool => in_array($executive->availability, self::OFF_DUTY_STATES, true),
                 )->count(),
-                'overdue_followups' => LeadFollowup::query()
-                    ->where('is_done', false)
-                    ->where('followup_date_time', '<', now())
-                    ->count(),
+                'overdue_followups' => LeadFollowup::query()->overdue()->count(),
+                'coming_followups' => LeadFollowup::query()->comingUp()->count(),
                 'lazy_executives' => LeadFollowup::query()
                     ->where('is_done', false)
                     ->where('followup_date_time', '<', now()->subHours($lazyThreshold))
@@ -172,35 +168,48 @@ class DashboardController extends Controller
     }
 
     /**
+     * A sales person's own day: status, work counts, call order and KPI snapshot.
+     *
      * @return array<string, mixed>
      */
     private function executiveData(Employee $executive): array
     {
-        $openItems = LeadBatchItem::query()
-            ->whereHas('batch', fn ($batch) => $batch->where('employee_id', $executive->id)->where('status', 'Active'));
+        $list = app(CallList::class)->for($executive);
+        $items = $list['items'];
         $pendingFollowUps = LeadFollowup::query()->where('employee_id', $executive->id)->where('is_done', false);
         $shift = $executive->effectiveShift();
+        $metrics = app(PerformanceMetrics::class);
+        $month = $metrics->forEmployees([$executive->id], now()->startOfMonth(), now()->endOfDay())->get($executive->id);
+        $leave = $executive->leaveRequests()->whereIn('status', ['Pending', 'Approved'])->whereDate('end_date', '>=', today())->orderBy('start_date')->first();
 
         return [
             'availability' => $executive->effectiveAvailabilityStatus(),
             'shiftLabel' => $shift === null ? null : substr($shift->shift_start_time, 0, 5).'–'.substr($shift->shift_end_time, 0, 5),
-            'metrics' => [
-                'batch_total' => (clone $openItems)->count(),
-                'batch_done' => (clone $openItems)->where('is_completed', true)->count(),
-                'due_today' => (clone $pendingFollowUps)->whereBetween('followup_date_time', [now(), now()->endOfDay()])->count(),
+            'mine' => [
+                'batch_total' => $items->count(),
+                'batch_done' => $items->where('is_completed', true)->count(),
+                'coming_up' => (clone $pendingFollowUps)->comingUp()->count(),
                 'overdue' => (clone $pendingFollowUps)->where('followup_date_time', '<', now())->count(),
                 'open_leads' => $executive->ownedLeads()->whereIn('status', ['Assigned', 'Contacted', 'Follow-up', 'Interested'])->count(),
                 'awaiting_payment' => $executive->ownedLeads()->whereIn('status', ['Enrolled - Pending Payment', 'Payment Under Review'])->count(),
                 'converted' => $executive->ownedLeads()->where('status', 'Converted')->count(),
+                'calls_today' => $executive->leadFeedbacks()->whereBetween('created_at', [now()->startOfDay(), now()->endOfDay()])->count(),
             ],
-            'nextLeads' => (clone $openItems)->where('is_completed', false)
-                ->with(['lead:id,source_id,student_name,contact_number,status,created_at', 'lead.source:source_id,channel'])
-                ->get()
-                ->filter(fn (LeadBatchItem $item): bool => $item->lead !== null)
-                ->sortBy(fn (LeadBatchItem $item): array => [$item->lead->priorityRank(), -$item->lead->created_at->getTimestamp()])
-                ->take(5)
-                ->values(),
-            'nextFollowUps' => (clone $pendingFollowUps)->with('lead:id,student_name,contact_number')->orderBy('followup_date_time')->limit(5)->get(),
+            'kpi' => $month,
+            'kpiTargets' => $metrics->targets(),
+            'followUps' => LeadFollowup::query()
+                ->where('employee_id', $executive->id)
+                ->where('is_done', false)
+                ->where('followup_date_time', '<=', now()->addHours(LeadFollowup::noticeHours()))
+                ->with('lead:id,student_name,contact_number,status')
+                ->orderBy('followup_date_time')
+                ->limit(10)
+                ->get(),
+            'noticeHours' => LeadFollowup::noticeHours(),
+            'callNext' => $list['callNext']->take(5),
+            'callNextTotal' => $list['callNext']->count(),
+            'leave' => $leave,
+            'leavePending' => $executive->leaveRequests()->where('status', 'Pending')->count(),
         ];
     }
 
@@ -239,6 +248,9 @@ class DashboardController extends Controller
                 ->orderBy('name')
                 ->get(),
             'roster' => $roster,
+            'teamKpi' => $this->teamKpi($manager, $executiveIds),
+            'onLeaveToday' => Employee::query()->whereIn('id', $executiveIds)->whereHas('todayLeave')->orderBy('name')->get(['id', 'name']),
+            'leaveToReview' => LeaveRequest::awaiting($manager)->count(),
             'uncalled' => Lead::query()
                 ->whereIn('current_owner_id', $executiveIds)
                 ->where('status', 'Assigned')
@@ -252,6 +264,7 @@ class DashboardController extends Controller
                 'available' => $roster->where('status', 'Available')->count(),
                 'active_batches' => LeadBatch::query()->whereIn('employee_id', $executiveIds)->where('status', 'Active')->count(),
                 'overdue' => (clone $pendingFollowUps)->where('followup_date_time', '<', now())->count(),
+                'coming_up' => (clone $pendingFollowUps)->comingUp()->count(),
                 'lazy' => (clone $pendingFollowUps)->where('followup_date_time', '<', now()->subHours($lazyThreshold))->distinct()->count('employee_id'),
                 'open_leads' => $manager->visibleLeads()->whereIn('status', ['Assigned', 'Contacted', 'Follow-up', 'Interested'])->count(),
                 'assigned_month' => $manager->visibleLeads()->where('assigned_at', '>=', $monthStart)->count(),
@@ -301,5 +314,19 @@ class DashboardController extends Controller
                 ->orderByDesc('total')
                 ->pluck('total', 'channel'),
         ];
+    }
+
+    /**
+     * This month's KPI totals for the people a manager oversees.
+     *
+     * @param  list<int>  $executiveIds
+     * @return array<string, mixed>
+     */
+    private function teamKpi(Employee $manager, array $executiveIds): array
+    {
+        $metrics = app(PerformanceMetrics::class);
+        $rows = $metrics->forEmployees($executiveIds, now()->startOfMonth(), now()->endOfDay());
+
+        return $metrics->summarise($rows, now()->startOfMonth(), now()->endOfDay()) + ['targets' => $metrics->targets()];
     }
 }

@@ -90,22 +90,22 @@ it('gives each role its own dashboard', function () {
 
     $this->actingAs($executive)->get(route('dashboard'))
         ->assertOk()
-        ->assertSee('Next leads to call')
+        ->assertSee('Call next')
         ->assertSee($lead->student_name)
         ->assertDontSee('Lead pipeline')
-        ->assertViewHas('metrics', fn (array $metrics): bool => $metrics['batch_total'] === 1 && $metrics['batch_done'] === 0 && $metrics['open_leads'] === 1);
+        ->assertViewHas('mine', fn (array $mine): bool => $mine['batch_total'] === 1 && $mine['batch_done'] === 0 && $mine['open_leads'] === 1);
 
     $this->actingAs($leader)->get(route('dashboard'))
         ->assertOk()
         ->assertSee('My team')
         ->assertSee($executive->employee->name)
-        ->assertViewHas('metrics', fn (array $metrics): bool => $metrics['members'] === 1 && $metrics['active_batches'] === 1 && $metrics['open_leads'] === 1);
+        ->assertViewHas('metrics', fn (array $metrics): bool => $metrics['members'] === 2 && $metrics['active_batches'] === 1 && $metrics['open_leads'] === 1);
 
     $this->actingAs($supervisor)->get(route('dashboard'))
         ->assertOk()
         ->assertSee('My teams')
         ->assertSee('Alpha')
-        ->assertViewHas('metrics', fn (array $metrics): bool => $metrics['members'] === 1 && $metrics['assigned_month'] === 1);
+        ->assertViewHas('metrics', fn (array $metrics): bool => $metrics['members'] === 2 && $metrics['assigned_month'] === 1);
 
     $this->actingAs($marketing)->get(route('dashboard'))
         ->assertOk()
@@ -128,7 +128,8 @@ it('lists the executive tasks and keeps the page away from other roles', functio
         ->assertSee('Overdue by')
         ->assertViewHas('items', fn ($items): bool => $items->count() === 1);
     $this->actingAs($executive)->get(route('follow-ups.index'))->assertOk()->assertSee('My follow-ups')->assertSee('Call now');
-    $this->actingAs($leader)->get(route('sales.tasks'))->assertForbidden();
+    $this->actingAs(createPanelUser('Accounts'))->get(route('sales.tasks'))->assertForbidden();
+    $this->actingAs($leader)->get(route('sales.tasks'))->assertOk();
 });
 
 it('records call feedback, schedules the follow-up and frees the batch slot', function () {

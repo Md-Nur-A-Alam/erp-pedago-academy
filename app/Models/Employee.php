@@ -24,6 +24,10 @@ use Illuminate\Validation\ValidationException;
     'status',
     'shift_id',
     'team_id',
+    'assign_mode',
+    'daily_lead_cap',
+    'auto_count_date',
+    'auto_count_today',
     'edited_by',
 ])]
 class Employee extends Model
@@ -32,6 +36,11 @@ class Employee extends Model
     use HasFactory;
 
     public const UPDATED_AT = 'edited_at';
+
+    /**
+     * Roles that call leads: they receive batches, work leads and keep follow-ups.
+     */
+    public const SALES_ROLES = ['Sales Executive', 'Team Leader'];
 
     public const ROLES = ['Admin', 'Supervisor', 'Team Leader', 'Sales Executive', 'Accounts', 'MarketingExecutive', 'Developer'];
 
@@ -42,14 +51,49 @@ class Employee extends Model
         'Sales Executive' => 1,
         'Accounts' => 1,
         'MarketingExecutive' => 1,
-        'Developer' => 0,
+        'Developer' => 5,
     ];
 
     protected function casts(): array
     {
         return [
             'joining_date' => 'date',
+            'auto_count_date' => 'date',
+            'daily_lead_cap' => 'integer',
         ];
+    }
+
+    /**
+     * A Manual-mode sales person never receives automatically distributed leads. Only a person can hand them leads.
+     */
+    public function receivesAutoLeads(): bool
+    {
+        return $this->assign_mode !== 'Manual';
+    }
+
+    /**
+     * How many leads the engine has already given this person today.
+     */
+    public function autoLeadsToday(): int
+    {
+        return $this->auto_count_date?->isToday() ? (int) $this->auto_count_today : 0;
+    }
+
+    /**
+     * How many more leads the engine may give this person today, or null when there is no daily limit.
+     */
+    public function remainingDailyCap(): ?int
+    {
+        return $this->daily_lead_cap === null ? null : max(0, $this->daily_lead_cap - $this->autoLeadsToday());
+    }
+
+    public function addAutoLeads(int $count): void
+    {
+        $total = $this->autoLeadsToday() + $count;
+
+        // A direct update: this model may carry computed attributes that are not columns.
+        static::query()->whereKey($this->id)->update(['auto_count_date' => today()->toDateString(), 'auto_count_today' => $total]);
+        $this->setRawAttributes(array_merge($this->getAttributes(), ['auto_count_date' => today()->toDateString(), 'auto_count_today' => $total]), true);
     }
 
     protected static function booted(): void
@@ -113,9 +157,65 @@ class Employee extends Model
         return $this->hasMany(EmployeeChangeRequest::class);
     }
 
+    /**
+     * Administrators and developers hold every permission.
+     */
     public function isAdmin(): bool
     {
-        return $this->role === 'Admin';
+        return in_array($this->role, ['Admin', 'Developer'], true);
+    }
+
+    public function isDeveloper(): bool
+    {
+        return $this->role === 'Developer';
+    }
+
+    /**
+     * Sales executives and team leaders both work leads.
+     */
+    public function isSalesPerson(): bool
+    {
+        return in_array($this->role, self::SALES_ROLES, true);
+    }
+
+    /**
+     * Roles that the given employee may give to someone. Only a developer may make a developer.
+     *
+     * @return list<string>
+     */
+    public static function assignableRoles(self $actor): array
+    {
+        return $actor->isDeveloper()
+            ? self::ROLES
+            : array_values(array_filter(self::ROLES, fn (string $role): bool => $role !== 'Developer'));
+    }
+
+    public function leaveRequests(): HasMany
+    {
+        return $this->hasMany(LeaveRequest::class);
+    }
+
+    public function todayLeave(): HasOne
+    {
+        return $this->hasOne(LeaveRequest::class)
+            ->where('status', 'Approved')
+            ->whereDate('start_date', '<=', today())
+            ->whereDate('end_date', '>=', today());
+    }
+
+    public function isOnLeave(?string $date = null): bool
+    {
+        $targetDate = $date ?? today()->toDateString();
+
+        if ($targetDate === today()->toDateString() && $this->relationLoaded('todayLeave')) {
+            return $this->todayLeave !== null;
+        }
+
+        return $this->leaveRequests()
+            ->where('status', 'Approved')
+            ->whereDate('start_date', '<=', $targetDate)
+            ->whereDate('end_date', '>=', $targetDate)
+            ->exists();
     }
 
     /**
@@ -153,11 +253,17 @@ class Employee extends Model
             return [];
         }
 
-        return static::query()
-            ->where('role', 'Sales Executive')
-            ->whereIn('team_id', $this->managedTeamIds())
-            ->pluck('id')
+        $teamIds = $this->managedTeamIds();
+        $members = static::query()->where('role', 'Sales Executive')->whereIn('team_id', $teamIds)->pluck('id');
+        $leaders = static::query()->where('role', 'Team Leader')
+            ->whereIn('id', Team::query()->whereIn('id', $teamIds)->whereNotNull('team_leader_id')->select('team_leader_id'))
+            ->pluck('id');
+
+        return $members->merge($leaders)
+            ->when($this->role === 'Team Leader', fn ($ids) => $ids->push($this->id))
             ->map(fn ($id): int => (int) $id)
+            ->unique()
+            ->values()
             ->all();
     }
 
@@ -301,6 +407,9 @@ class Employee extends Model
         }
         if ($this->status === 'Suspended') {
             return 'Unavailable';
+        }
+        if ($this->isOnLeave($targetDate)) {
+            return 'On Leave';
         }
 
         // 2. Check date-specific roster override

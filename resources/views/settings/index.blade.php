@@ -32,6 +32,11 @@
                                         <option value="0" @selected((string) $value !== '1')>Off</option>
                                     </select>
                                 </div>
+                            @elseif ($definition['type'] === 'text')
+                                <div>
+                                    <textarea class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm" id="{{ $key }}" name="settings[{{ $key }}]" rows="4" maxlength="{{ $definition['max'] }}" required aria-describedby="{{ $key }}-help">{{ $value }}</textarea>
+                                    <p class="mt-1 text-xs text-pedago-muted">Up to {{ $definition['max'] }} characters</p>
+                                </div>
                             @else
                                 <div>
                                     <div class="flex items-center gap-2">

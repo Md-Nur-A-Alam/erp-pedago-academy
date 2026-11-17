@@ -27,7 +27,7 @@ class ReportController extends Controller
         $convertedInPeriod = fn (Builder $leads) => $leads->whereBetween('assigned_at', $between)->where('status', 'Converted');
 
         $executives = Employee::query()
-            ->where('role', 'Sales Executive')
+            ->whereIn('role', Employee::SALES_ROLES)
             ->with('team:id,name')
             ->withCount([
                 'ownedLeads as assigned_count' => $assignedInPeriod,

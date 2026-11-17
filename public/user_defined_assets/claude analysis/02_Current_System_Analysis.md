@@ -316,3 +316,31 @@ Counts refer to the functional requirements in document 03.
 - Seat reservation is derived from enrollments rather than stored, so it cannot drift.
 - Blade output is escaped everywhere.
 - A real test suite with factories for every model, which makes the missing tests cheap to add.
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+The interim script now exists in two versions. `Code-2.txt` adds to `Code.txt`: guardian name and a lead-level remark, per-rep Auto or Manual mode with a daily cap counted by day, and a WhatsApp thank-you logged as a note.
+
+How each interim feature maps to the application:
+
+| Interim script | In the application |
+| :--- | :--- |
+| Sheets Staff, PIN login, IsOnline | Employees with hashed staff passwords; availability comes from shifts, roster and leave, not a manual online flag |
+| Batch of 3 topped up on login and after feedback | Distribution engine cycle every minute, scarcity rule, batch size setting |
+| Least-loaded-first pick | Longest-idle-first, with temperature priority |
+| AssignMode and DailyCap on Staff | `employees.assign_mode`, `daily_lead_cap`, `auto_count_date`, `auto_count_today`; page Assignment controls |
+| Priority High, Medium, Low | `leads.priority`, set on the feedback form, tie-break in Call next |
+| SecondaryPhones | Table `lead_phones` and the other number fields; any finds the lead |
+| Inquiries sheet and reactivation | Table `lead_inquiries`; closed lead reopens to its previous owner; open lead gets a follow-up on a new day |
+| Activities with Note rows | Calls in `lead_feedbacks`; non-call history in `lead_events` |
+| lookupLeadByPhone | Number check page |
+| bulkImportLeads (paste) | Paste leads page, with per-line skip reasons |
+| mergeDuplicateContacts | Merge duplicates page |
+| diagnose and fix functions | Data health page |
+| WhatsAppThanksMsg | Setting `whatsapp_thanks_message` and the Thank on WhatsApp button |
+| GuardianName, Remarks | `leads.guardian_name`, `leads.remarks` |
+
+Not carried over because a database makes them unnecessary: phone and settings text-format repairs, the Number-to-text conversion bug, and the single spreadsheet row limit.

@@ -35,13 +35,17 @@
                         $columns = ['Admin', 'Supervisor', 'Team leader', 'Sales exec.', 'Marketer', 'Accounts'];
                         $matrix = [
                             'See leads' => ['All', 'Own teams', 'Own team', 'Own leads', 'All', '—'],
-                            'Record call feedback' => ['—', '—', '—', 'Own leads', '—', '—'],
+                            'Receive and call leads' => ['—', '—', 'Own leads', 'Own leads', '—', '—'],
+                            'Record call feedback' => ['—', '—', 'Own leads', 'Own leads', '—', '—'],
                             'Upload leads, manage campaigns' => ['Yes', '—', '—', '—', 'Yes', '—'],
                             'Central queue, run distribution' => ['Yes', '—', '—', '—', '—', '—'],
                             'Duplicate review' => ['Yes', '—', '—', '—', '—', '—'],
-                            'See follow-ups' => ['All', 'Own teams', 'Own team', 'Own', '—', '—'],
+                            'See follow-ups' => ['All', 'Own teams', 'Own team and own', 'Own', '—', '—'],
+                            'Apply for leave' => ['Yes', 'Yes', 'Yes', 'Yes', 'Yes', 'Yes'],
+                            'Decide leave' => ['Any', 'Own teams', 'Own executives', '—', '—', '—'],
+                            'See KPIs' => ['Everyone', 'Own teams', 'Own team and own', 'Own', 'Marketing', 'Accounts'],
                             'Reassign a follow-up' => ['Yes', '—', '—', '—', '—', '—'],
-                            'Request a transfer' => ['—', '—', '—', 'Own leads', '—', '—'],
+                            'Request a transfer' => ['—', '—', 'Own leads', 'Own leads', '—', '—'],
                             'Decide a transfer' => ['Any', '—', 'Own team’s', '—', '—', '—'],
                             'Verify or reject payments' => ['Yes', '—', '—', '—', '—', 'Yes'],
                             'Change a team' => ['Any', 'Own teams', 'Own team', '—', '—', '—'],
@@ -51,6 +55,7 @@
                             'Read or reset staff passwords' => ['Yes, logged', '—', '—', '—', '—', '—'],
                         ];
                     @endphp
+                    <p class="px-4 pb-3 text-xs text-pedago-muted sm:px-5">Developers hold every administrator permission, plus the developer panel, and can open any employee’s panel for testing.</p>
                     <div class="overflow-x-auto">
                         <table class="w-full min-w-[760px] border-collapse text-left">
                             <thead>

@@ -745,3 +745,58 @@ Recorded so it is a known, accepted property of the design rather than a surpris
 - Actions taken by an admin using a staff member's password are recorded as that staff member's actions. The audit log of the decrypt screen is the only link back to the admin.
 
 Database access, backups and the server environment file therefore need the same protection as the passwords themselves.
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+### Follow-up stages
+
+```
+phase(f): if done: Done
+          elif f.time <= now: Overdue
+          elif f.time <= now + N hours: Coming up
+          else Scheduled
+every minute:
+  Coming up and not yet reminded and created over 5 minutes ago -> remind owner once
+  Overdue and not announced -> announce; announced and last notice older than R hours -> repeat
+  Overdue older than the Lazy threshold -> tell owner and managers once a day
+  Done -> clear its notices
+```
+
+### Leave
+
+```
+days = working days in range (Friday not counted; maternity counts every day)
+refuse if days > balance of the type, or sick > C days without a certificate confirmation
+required = 0 for admin (approved at once)
+         = 2 for a sales executive whose team has a leader, else 1
+step 1 (of 2): the team leader of the applicant's team -> approvals_done = 1
+final: supervisor of the team or admin; an admin may settle any step; a rejection ends it
+```
+
+### Conversion
+
+```
+enroll(lead): owner, lead open, course active, discount <= cap, 1..max installments
+              reserve first batch with room; amount = fee x (1 - discount); split into installments
+              (rounding on the first); lead -> Enrolled - Pending Payment; open follow-ups close
+submit(installment): amount == installment; payment Pending; installment Under Review; lead Payment Under Review
+verify: installment Paid, enrollment Enrolled, lead Converted, slot freed
+reject: back to Pending with the reason
+```
+
+### Repeat inquiry
+
+```
+log inquiry
+closed (not interested, unreachable, lost, invalid): reopen; previous owner active -> assign (outside the cap)
+                                                     else status New in the queue
+open: owner exists and last contact not today -> follow-up now; else log only
+enrolled or paying: log only
+```
+
+### Assignment with limits
+
+Available for the engine = Available and Auto mode and remaining daily limit not zero. Each allocation is clamped to the remaining limit. Only engine runs add to the count; hand assignment, reassignment and returning customers do not.

@@ -19,7 +19,11 @@ abstract class Controller
         $user = $request->user();
         $employee = $user instanceof User ? $user->employee : null;
 
-        abort_unless($employee instanceof Employee && in_array($employee->role, $roles, true), 403);
+        abort_unless(
+            $employee instanceof Employee
+                && (in_array($employee->role, $roles, true) || ($employee->isDeveloper() && in_array('Admin', $roles, true))),
+            403,
+        );
 
         return $employee;
     }

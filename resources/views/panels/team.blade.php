@@ -1,6 +1,7 @@
 @php
     $isLeader = $employee->role === 'Team Leader';
     $rate = fn (int $part, int $whole): string => $whole > 0 ? number_format($part / $whole * 100, 1).'%' : '—';
+    $rate2 = fn ($value): string => $value === null ? '—' : rtrim(rtrim(number_format((float) $value, 1), '0'), '.').'%';
 @endphp
 
 @if ($teams->isEmpty())
@@ -10,11 +11,12 @@
         </x-ui.empty>
     </x-ui.card>
 @else
-    <section class="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6" aria-label="Team summary">
+    <section class="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7" aria-label="Team summary">
         <x-ui.stat label="Executives" :value="number_format($metrics['members'])" :hint="$metrics['available'].' available now'" />
         <x-ui.stat label="Active batches" :value="number_format($metrics['active_batches'])" hint="Being worked now" />
         <x-ui.stat label="Overdue follow-ups" :value="number_format($metrics['overdue'])" :href="route('follow-ups.index')" :alert="$metrics['overdue'] > 0"
             :hint="$metrics['lazy'].' '.Str::plural('executive', $metrics['lazy']).' flagged Lazy'" />
+        <x-ui.stat label="Follow-ups coming up" :value="number_format($metrics['coming_up'])" :href="route('follow-ups.index', ['tab' => 'soon'])" hint="Within the reminder window" />
         <x-ui.stat label="Open leads" :value="number_format($metrics['open_leads'])" :href="route('leads.index')" hint="Still in progress" />
         <x-ui.stat label="Converted this month" :value="number_format($metrics['converted_month'])"
             :hint="$rate($metrics['converted_month'], $metrics['assigned_month']).' of '.$metrics['assigned_month'].' assigned'" />
@@ -24,6 +26,40 @@
             <x-ui.stat label="Teams" :value="number_format($teams->count())" :href="route('teams.index')" hint="Under your supervision" />
         @endif
     </section>
+
+    @php $targets = $teamKpi['targets']; @endphp
+    <section class="flex flex-col gap-3" aria-labelledby="team-kpi-heading">
+        <div class="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 class="text-sm font-bold" id="team-kpi-heading">{{ $isLeader ? 'Team' : 'Teams' }} KPIs this month</h2>
+            <a class="text-xs font-semibold text-pedago-blue-dark underline-offset-2 hover:underline" href="{{ route('performance.index') }}">Full performance</a>
+        </div>
+        <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+            <x-ui.kpi label="Calls per working day" :value="number_format($teamKpi['calls_per_day'], 1)" :target="$targets['calls_per_day'].' each'" :grade="$teamKpi['people'] > 0 ? app(\App\Actions\PerformanceMetrics::class)->grade($teamKpi['calls_per_day'], $targets['calls_per_day'], true) : null" :progress="$targets['calls_per_day'] > 0 ? $teamKpi['calls_per_day'] / $targets['calls_per_day'] * 100 : null" :hint="number_format($teamKpi['calls']).' calls in total'" />
+            <x-ui.kpi label="Follow-ups kept on time" :value="$rate2($teamKpi['followup_on_time'])" :target="$targets['followup_on_time'].'%'" :grade="$teamKpi['followup_on_time'] === null ? null : app(\App\Actions\PerformanceMetrics::class)->grade($teamKpi['followup_on_time'], $targets['followup_on_time'], true)" :progress="$teamKpi['followup_on_time']" />
+            <x-ui.kpi label="Conversion rate" :value="$rate2($teamKpi['conversion'])" :target="$targets['conversion'].'%'" :grade="$teamKpi['conversion'] === null ? null : app(\App\Actions\PerformanceMetrics::class)->grade($teamKpi['conversion'], $targets['conversion'], true)" :progress="$teamKpi['conversion'] === null ? null : $teamKpi['conversion'] / max(1, $targets['conversion']) * 100" :hint="$teamKpi['converted'].' converted'" />
+            <x-ui.stat label="Revenue collected" :value="'৳ '.number_format($teamKpi['revenue'])" hint="Verified this month" />
+        </div>
+    </section>
+
+    @if ($onLeaveToday->isNotEmpty() || $leaveToReview > 0)
+        <x-ui.card title="Leave">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-2 text-[13px]">
+                    @if ($onLeaveToday->isNotEmpty())
+                        <span class="font-medium text-pedago-muted">On leave today:</span>
+                        @foreach ($onLeaveToday as $person)
+                            <x-ui.pill tone="slate">{{ $person->name }}</x-ui.pill>
+                        @endforeach
+                    @else
+                        <span class="text-pedago-muted">Nobody is on leave today.</span>
+                    @endif
+                </div>
+                @if ($leaveToReview > 0)
+                    <x-ui.button :href="route('leave.requests')" size="sm" icon="calendar">{{ $leaveToReview }} {{ Str::plural('request', $leaveToReview) }} to decide</x-ui.button>
+                @endif
+            </div>
+        </x-ui.card>
+    @endif
 
     <x-ui.card :title="$isLeader ? 'My team' : 'My teams'" flush>
         <x-slot:meta>Leads assigned since {{ now()->startOfMonth()->format('M j') }}</x-slot:meta>
@@ -92,7 +128,7 @@
                             <th class="px-2 py-2 font-semibold" scope="col">Team</th>
                             <th class="px-2 py-2 font-semibold" scope="col">Shift</th>
                             <th class="px-2 py-2 font-semibold" scope="col">Status</th>
-                            <th class="px-2 py-2 font-semibold" scope="col">Batch</th>
+                            <th class="px-2 py-2 font-semibold" scope="col"><span class="inline-flex items-center gap-1">Batch<x-ui.info term="Batch" /></span></th>
                             <th class="px-2 py-2 font-semibold" scope="col">Overdue</th>
                             <th class="px-4 py-2 sm:pr-5" scope="col"><span class="sr-only">Action</span></th>
                         </tr>

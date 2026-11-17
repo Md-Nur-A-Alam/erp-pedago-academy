@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Models\Employee;
 use App\Models\Lead;
 use App\Models\LeadBatch;
+use App\Models\LeadEvent;
 use App\Models\SystemSetting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
@@ -73,7 +74,7 @@ class DistributeLeads
     }
 
     /**
-     * Sales executives who can receive a batch right now, longest idle first.
+     * Sales people (executives and team leaders) who can receive a batch right now, longest idle first.
      *
      * @param  Collection<int, Employee>|null  $executives  Executives already loaded by executivesWithAvailability()
      * @return Collection<int, Employee>
@@ -81,7 +82,7 @@ class DistributeLeads
     public function availableExecutives(?Collection $executives = null): Collection
     {
         return ($executives ?? $this->executivesWithAvailability())
-            ->filter(fn (Employee $executive): bool => $executive->availability === 'Available')
+            ->filter(fn (Employee $executive): bool => $executive->availability === 'Available' && $executive->receivesAutoLeads() && $executive->remainingDailyCap() !== 0)
             ->sort(function (Employee $first, Employee $second): int {
                 return [$first->last_batch_completed_at !== null, (string) $first->last_batch_completed_at, $first->id]
                     <=> [$second->last_batch_completed_at !== null, (string) $second->last_batch_completed_at, $second->id];
@@ -97,9 +98,10 @@ class DistributeLeads
     public function executivesWithAvailability(): Collection
     {
         return Employee::query()
-            ->where('role', 'Sales Executive')
+            ->whereIn('role', Employee::SALES_ROLES)
             ->where('status', 'Active')
             ->with([
+                'todayLeave',
                 'team.shift',
                 'teamsLed.shift',
                 'defaultShift',
@@ -133,8 +135,9 @@ class DistributeLeads
         $allocations = [];
         foreach ($executives as $index => $executive) {
             $bonus = $index < $extra ? 1 : 0;
-            if ($base + $bonus > 0) {
-                $allocations[] = ['employee' => $executive, 'count' => $base + $bonus, 'base' => $base, 'extra' => $bonus];
+            $count = min($base + $bonus, $executive->remainingDailyCap() ?? PHP_INT_MAX);
+            if ($count > 0) {
+                $allocations[] = ['employee' => $executive, 'count' => $count, 'base' => min($base, $count), 'extra' => max(0, $count - $base)];
             }
         }
         $assignable = array_sum(array_column($allocations, 'count'));
@@ -189,6 +192,7 @@ class DistributeLeads
             $assigned = 0;
             foreach ($hands as $index => $hand) {
                 $this->assignBatch($plan['allocations'][$index]['employee'], new Collection($hand), $triggeredBy);
+                $plan['allocations'][$index]['employee']->addAutoLeads(count($hand));
                 $assigned += count($hand);
             }
 
@@ -238,9 +242,13 @@ class DistributeLeads
                 $lead->save();
 
                 $batch->items()->firstOrCreate(['lead_id' => $lead->id], ['is_completed' => false]);
+                LeadEvent::record($lead, $assignedBy, 'Assigned', "Assigned to {$executive->name}".($assignedBy === null ? ' by the engine' : " by {$assignedBy->name}").'.');
             }
 
             $batch->update(['batch_size' => $batch->items()->count()]);
+
+            $count = $leads->count();
+            app(Notifier::class)->send($executive, 'leads.assigned', $count === 1 ? '1 new lead for you' : "{$count} new leads for you", 'Open My tasks and call them in order. Hot leads first.', route('sales.tasks'), 'green');
 
             return $batch;
         });

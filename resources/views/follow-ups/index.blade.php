@@ -1,7 +1,7 @@
 @extends('layouts.app', ['title' => 'Follow-ups'])
 
-@section('page-title', $viewer->role === 'Sales Executive' ? 'My follow-ups' : 'Follow-ups')
-@section('page-description', $viewer->role === 'Sales Executive' ? 'Call-backs you promised to your leads.' : 'Scheduled call-backs across the sales team you oversee.')
+@section('page-title', $personal ? 'My follow-ups' : ($viewer->role === 'Team Leader' ? 'Team follow-ups' : 'Follow-ups'))
+@section('page-description', $personal ? 'Call-backs you promised to your leads.' : 'Scheduled call-backs across the sales team you oversee.')
 
 @section('content')
     @if ($lazyExecutives->isNotEmpty())
@@ -15,7 +15,7 @@
                                 <span class="block truncate text-[13px] font-semibold">{{ $executive->name }}</span>
                                 <span class="block truncate text-xs text-pedago-muted">{{ $executive->team?->name ?? 'No team' }}</span>
                             </span>
-                            <x-ui.pill tone="red">{{ $executive->overdue_count }} overdue</x-ui.pill>
+                            <span class="flex shrink-0 flex-col items-end gap-1"><x-ui.pill tone="red">{{ $executive->overdue_count }} overdue</x-ui.pill>@if ($executive->coming_count > 0)<x-ui.pill tone="blue">{{ $executive->coming_count }} coming up</x-ui.pill>@endif</span>
                         </a>
                     </li>
                 @endforeach
@@ -24,7 +24,7 @@
     @endif
 
     <x-ui.card flush>
-        @if ($viewer->role !== 'Sales Executive')
+        @if (! $personal)
         <div class="flex flex-wrap items-end justify-between gap-3 px-4 pt-3 sm:px-5">
             <form class="flex flex-wrap items-end gap-2" method="GET" action="{{ route('follow-ups.index') }}" aria-label="Filter follow-ups">
                 <input type="hidden" name="tab" value="{{ $tab }}">
@@ -39,18 +39,19 @@
                 </div>
                 <x-ui.button type="submit" variant="secondary">Filter</x-ui.button>
                 @if ($employeeId !== null)
-                    <a class="inline-flex min-h-9 items-center px-2 text-sm font-semibold text-pedago-blue-dark underline-offset-2 hover:underline" href="{{ route('follow-ups.index', ['tab' => $tab]) }}">Clear</a>
+                    <a class="inline-flex min-h-9 items-center px-2 text-sm font-semibold text-pedago-blue-dark underline-offset-2 hover:underline" href="{{ route($personal ? 'follow-ups.mine' : 'follow-ups.index', ['tab' => $tab]) }}">Clear</a>
                 @endif
             </form>
         </div>
         @endif
 
         <div class="mt-2 px-4 sm:px-5">
+            <p class="px-1 pb-2 pt-3 text-xs leading-5 text-pedago-muted"><span class="font-semibold text-pedago-blue-dark">Coming up</span>: from {{ $noticeHours }} {{ Str::plural('hour', $noticeHours) }} before the time until the exact time, with a reminder. <span class="font-semibold text-pedago-red">Overdue</span>: from the exact time until a new follow-up, a conversion or another outcome is logged.</p>
             <x-ui.tabs :tabs="$tabs" :current="$tab" :counts="$counts" route="follow-ups.index" :query="array_filter(['employee_id' => $employeeId])" label="Follow-up views" />
         </div>
 
         @if ($followUps->isEmpty())
-            @php $emptyTitle = ['overdue' => 'No overdue follow-ups', 'today' => 'Nothing else is due today', 'upcoming' => 'No upcoming follow-ups', 'done' => 'No completed follow-ups yet'][$tab]; @endphp
+            @php $emptyTitle = ['overdue' => 'No overdue follow-ups', 'soon' => 'Nothing is coming up soon', 'later' => 'Nothing is scheduled further ahead', 'done' => 'No completed follow-ups yet'][$tab]; @endphp
             <x-ui.empty :title="$emptyTitle" icon="clock">
                 {{ $tab === 'overdue' ? 'Every scheduled call-back has been made on time.' : 'Follow-ups appear here when executives schedule a call-back from a lead.' }}
             </x-ui.empty>
@@ -77,6 +78,8 @@
                                         <span class="block text-xs font-semibold text-pedago-red">Overdue by {{ $followUp->followup_date_time->diffForHumans(null, true) }}</span>
                                     @elseif ($followUp->is_done)
                                         <span class="block text-xs text-pedago-green">Completed</span>
+                                    @elseif ($followUp->phase() === 'Coming up')
+                                        <span class="block text-xs font-semibold text-pedago-blue-dark">Coming up, in {{ $followUp->followup_date_time->diffForHumans(null, true) }}</span>
                                     @else
                                         <span class="block text-xs text-pedago-muted">In {{ $followUp->followup_date_time->diffForHumans(null, true) }}</span>
                                     @endif
@@ -92,7 +95,7 @@
                                 </td>
                                 <td class="px-2 py-2"><span class="block max-w-64 truncate text-pedago-muted" title="{{ $followUp->note }}">{{ $followUp->note ?: '—' }}</span></td>
                                 <td class="px-4 py-2 text-right sm:pr-5">
-                                    @if ($viewer->role === 'Sales Executive' && ! $followUp->is_done)
+                                    @if (($personal || $followUp->employee_id === $viewer->id) && $viewer->isSalesPerson() && ! $followUp->is_done)
                                         <x-ui.button :href="route('leads.workspace', $followUp->lead_id)" size="sm">Call now</x-ui.button>
                                     @elseif ($canReassign && ! $followUp->is_done)
                                         <x-ui.button variant="secondary" size="sm" data-dialog-open="reassign-dialog"

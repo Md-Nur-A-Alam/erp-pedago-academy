@@ -306,3 +306,32 @@ Topics no document specifies, but the system cannot be built without. Each is ca
 | Data retention and customer privacy | Thousands of parents' phone numbers |
 | Audit requirements for admin actions | Especially if admins can enter staff accounts |
 | Under Age / Over Age outcome | Listed as a call status but it is a disqualification |
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Requirements raised after the first analysis, and where they stand:
+
+| Requirement | State |
+| :--- | :--- |
+| Team leaders are sales people (batches, tasks, follow-ups, KPIs, leave) | Built |
+| KPI and performance pages for every role | Built |
+| Leave by the Bangladesh Labour Act: casual, sick, annual, maternity, unpaid; Friday not counted | Built |
+| Leave approval: executive needs team leader then supervisor or admin; others one higher authority; admin none | Built |
+| Follow-up in two stages, coming up (30 hours before) and overdue (until an outcome) | Built, window is a setting |
+| Notifications for every role, by need | Built |
+| Dashboards show both coming-up and overdue follow-ups | Built |
+| Conversion way: enroll, installment plan, payment, verification | Built |
+| Priority High, Medium, Low on a lead | Built |
+| Invalid/Junk status; wrong number closes the lead | Built |
+| Several numbers per lead and a number check | Built |
+| Repeat inquiry log and automatic reopen | Built |
+| Per-person Auto or Manual mode and a daily lead limit | Built |
+| Guardian name and standing remark per lead | Built |
+| WhatsApp thank-you message | Built |
+| Paste import, merge duplicates, data health | Built |
+| Developer: full access, database map with ER diagram | Built |
+
+Still open: the customer payment page, online gateways, receipts, data migration from the sheet, and a public inquiry form.

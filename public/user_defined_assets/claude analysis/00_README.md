@@ -116,3 +116,14 @@ Q-03 and Q-04 together raise one follow-on point, **Q-04a**: taken literally, an
 ## 7. A note on this folder's location
 
 You asked for these documents to be stored under `public/user_defined_assets/`. Everything under `public/` is served directly by the web server, so on a deployed instance these files — including the weakness list — would be readable by anyone who knows the URL. Finding W-SEC-01 recommends moving the whole `user_defined_assets` folder out of `public/` (for example to `docs/`); these documents should move with it.
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Since the first build update the application gained: a developer panel and database page, team leaders as sales people, KPIs and performance, leave under the Bangladesh Labour Act with a two-step approval chain, two follow-up stages with a notification centre for every role, the conversion flow (enroll, pay, verify), and every requirement of the interim Google Sheets script (`Code.txt` and `Code-2.txt`).
+
+`10_Implementation_Update.md` holds the full record in sixteen numbered sections, 10 to 16 being the newest. The web version in `web/` explains the rules for non-technical readers. Documents 01 to 09 each carry this second update block, so read it after the original text.
+
+Reading order for a new developer: `10_Implementation_Update.md`, then `05_Target_Database_Design.md` (schema and what exists), then `04_Business_Logic_and_Algorithms.md`.

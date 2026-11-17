@@ -223,3 +223,19 @@ Q-01 to Q-04 were decided on 16 November 2026 (document 09, Part 1). Their effec
 | Cut-over during working hours | Two systems in use at once | Freeze the sheet at close of business; go live next morning |
 | Excel, PDF and gateway packages need approval | Import, receipts and payments delayed | Decide the package list once in Q-17 |
 | Phase 3 started before Phase 2 | Money handled without audit, reassignment or deactivation rules | Keep the order |
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Done: role panels, priority engine, password module, guides, developer panel and database page, KPIs and performance, leave with two-step approval, follow-up stages and notifications, conversion flow, interim script parity (priority, extra numbers, number check, repeat inquiries, assignment controls, paste import, merge, data health, WhatsApp).
+
+Next, in suggested order:
+
+1. W-SEC-01: rotate PINs, move `user_defined_assets` out of `public/`, purge history.
+2. Run on a real server with the scheduler, check every screen in a browser, load the data from the sheet.
+3. Customer payment page, gateways and receipts.
+4. Public inquiry form and inbound channels.
+5. The remaining tables: `distribution_runs`, `audit_logs`, `import_runs`.
+6. Email or SMS delivery for notifications, if wanted.

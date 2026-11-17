@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\Lead;
 use App\Models\LeadBatchItem;
+use App\Models\LeadEvent;
 use App\Models\LeadFollowup;
 use App\Models\SystemSetting;
 use Illuminate\Database\Eloquent\Builder;
@@ -18,7 +19,7 @@ class FollowUpController extends Controller
 {
     private const ROLES = ['Admin', 'Supervisor', 'Team Leader', 'Sales Executive'];
 
-    private const TABS = ['overdue' => 'Overdue', 'today' => 'Due today', 'upcoming' => 'Upcoming', 'done' => 'Completed'];
+    private const TABS = ['overdue' => 'Overdue', 'soon' => 'Coming up', 'later' => 'Scheduled later', 'done' => 'Completed'];
 
     public function index(Request $request): View
     {
@@ -29,7 +30,8 @@ class FollowUpController extends Controller
             'employee_id' => ['nullable', 'integer'],
         ]);
         $tab = $filters['tab'] ?? 'overdue';
-        $employeeId = $viewer->role === 'Sales Executive' ? $viewer->id : ($filters['employee_id'] ?? null);
+        $personal = $viewer->role === 'Sales Executive' || $request->routeIs('follow-ups.mine');
+        $employeeId = $personal ? $viewer->id : ($filters['employee_id'] ?? null);
 
         if ($employeeId !== null && $reach !== null && ! in_array((int) $employeeId, $reach, true)) {
             $employeeId = null;
@@ -53,7 +55,7 @@ class FollowUpController extends Controller
 
         $lazyThreshold = SystemSetting::integer('lazy_threshold_hours');
         $executives = Employee::query()
-            ->where('role', 'Sales Executive')
+            ->whereIn('role', Employee::SALES_ROLES)
             ->where('status', 'Active')
             ->when($reach !== null, fn (Builder $query) => $query->whereIn('id', $reach))
             ->with('team:id,name')
@@ -61,6 +63,7 @@ class FollowUpController extends Controller
                 'leadFollowups as overdue_count' => fn (Builder $query) => $query
                     ->where('is_done', false)
                     ->where('followup_date_time', '<', now()),
+                'leadFollowups as coming_count' => fn (Builder $query) => $query->comingUp(),
                 'leadFollowups as lazy_count' => fn (Builder $query) => $query
                     ->where('is_done', false)
                     ->where('followup_date_time', '<', now()->subHours($lazyThreshold)),
@@ -75,10 +78,12 @@ class FollowUpController extends Controller
             'followUps' => $followUps,
             'employeeId' => $employeeId,
             'executives' => $executives,
-            'lazyExecutives' => $viewer->role === 'Sales Executive' ? collect() : $executives->where('lazy_count', '>', 0)->sortByDesc('overdue_count')->values(),
+            'personal' => $personal,
+            'lazyExecutives' => $personal ? collect() : $executives->where('lazy_count', '>', 0)->sortByDesc('overdue_count')->values(),
             'viewer' => $viewer,
             'canReassign' => $viewer->isAdmin(),
             'lazyThreshold' => $lazyThreshold,
+            'noticeHours' => LeadFollowup::noticeHours(),
         ]);
     }
 
@@ -94,7 +99,7 @@ class FollowUpController extends Controller
                 'exclude_unless:target,executive',
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where('status', 'Active')->where('role', 'Sales Executive'),
+                Rule::exists('employees', 'id')->where('status', 'Active')->whereIn('role', Employee::SALES_ROLES),
                 Rule::notIn([$leadFollowup->employee_id]),
             ],
         ], [
@@ -118,6 +123,8 @@ class FollowUpController extends Controller
                     ->where('is_done', false)
                     ->update(['is_done' => true]);
 
+                LeadEvent::record($lead, $admin, 'Returned', "{$admin->name} returned this lead to the queue.");
+
                 return "Lead L-{$lead->id} was returned to the central queue.";
             }
 
@@ -131,6 +138,8 @@ class FollowUpController extends Controller
                 ->where('lead_id', $lead->id)
                 ->where('is_done', false)
                 ->update(['employee_id' => $executive->id]);
+
+            LeadEvent::record($lead, $admin, 'Reassigned', "{$admin->name} reassigned this lead to {$executive->name}.");
 
             return "Lead L-{$lead->id} and its follow-up now belong to {$executive->name}.";
         });
@@ -149,10 +158,10 @@ class FollowUpController extends Controller
             ->when($employeeId !== null, fn (Builder $builder) => $builder->where('employee_id', $employeeId));
 
         return match ($tab) {
-            'today' => $query->where('is_done', false)->whereBetween('followup_date_time', [now(), now()->endOfDay()]),
-            'upcoming' => $query->where('is_done', false)->where('followup_date_time', '>', now()->endOfDay()),
+            'soon' => $query->comingUp(),
+            'later' => $query->scheduledLater(),
             'done' => $query->where('is_done', true),
-            default => $query->where('is_done', false)->where('followup_date_time', '<', now()),
+            default => $query->overdue(),
         };
     }
 }

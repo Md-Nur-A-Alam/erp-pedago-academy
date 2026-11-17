@@ -16,6 +16,13 @@
         <x-ui.stat label="Available executives" :value="number_format($availableCount)" :hint="'of '.$executives->count().' active sales executives'" />
     </section>
 
+    @if ($autoTotal > 0 && ! $schedulerRunning)
+        <div class="rounded-lg border border-pedago-amber/40 bg-pedago-amber-tint px-4 py-3 text-sm leading-6 text-pedago-amber" role="alert">
+            <p class="font-semibold">The scheduler is not running, so nothing is assigned automatically.</p>
+            <p>The distribution engine is started once a minute by Laravel's scheduler. Until it runs, {{ number_format($autoTotal) }} {{ Str::plural('lead', $autoTotal) }} wait here. Use "Run distribution now" below, and ask your developer to start it (<code>php artisan schedule:work</code>, or a cron or Windows Task Scheduler job for <code>php artisan schedule:run</code>).</p>
+        </div>
+    @endif
+
     <x-ui.card title="Next distribution cycle">
         <x-slot:meta>
             <x-ui.pill :tone="$engineEnabled ? 'green' : 'slate'">Automatic: {{ $engineEnabled ? 'on' : 'off' }}</x-ui.pill>
@@ -26,7 +33,7 @@
                 <dl class="grid grid-cols-3 gap-2 lg:grid-cols-1">
                     @foreach (['Queue leads (L)' => number_format($plan['queue']), 'Available (S)' => number_format($plan['executives']), 'Rule' => $plan['rule']] as $term => $figure)
                         <div class="flex flex-col justify-between gap-x-3 rounded-md bg-pedago-canvas px-2.5 py-2 lg:flex-row lg:items-baseline">
-                            <dt class="text-xs text-pedago-muted">{{ $term }}</dt>
+                            <dt class="flex items-center gap-1 text-xs text-pedago-muted">{{ $term }}<x-ui.info :term="$term" /></dt>
                             <dd class="num truncate text-base font-semibold">{{ $figure }}</dd>
                         </div>
                     @endforeach
@@ -138,9 +145,9 @@
                                 <th class="px-2 py-2 font-semibold" scope="col">Phone</th>
                                 <th class="px-2 py-2 font-semibold" scope="col">Campaign</th>
                                 <th class="px-2 py-2 font-semibold" scope="col">Course</th>
-                                <th class="px-2 py-2 font-semibold" scope="col">Priority</th>
-                                <th class="px-2 py-2 font-semibold" scope="col">Distribution</th>
-                                <th class="px-4 py-2 font-semibold sm:pr-5" scope="col">Waiting</th>
+                                <th class="px-2 py-2 font-semibold" scope="col"><span class="inline-flex items-center gap-1">Priority<x-ui.info term="Priority" /></span></th>
+                                <th class="px-2 py-2 font-semibold" scope="col"><span class="inline-flex items-center gap-1">Distribution<x-ui.info term="Distribution" /></span></th>
+                                <th class="px-4 py-2 font-semibold sm:pr-5" scope="col"><span class="inline-flex items-center gap-1">Waiting<x-ui.info term="Waiting" /></span></th>
                             </tr>
                         </thead>
                         <tbody class="text-[13px]">
@@ -160,7 +167,7 @@
                                     </td>
                                     <td class="px-2 py-2"><span class="block max-w-48 truncate">{{ $lead->interestedCourse?->title ?? '—' }}</span></td>
                                     <td class="px-2 py-2"><x-ui.pill :status="$lead->temperature()" /></td>
-                                    <td class="px-2 py-2"><x-ui.pill :status="$lead->source?->distribution_mode ?? 'Auto'" /></td>
+                                    <td class="px-2 py-2"><x-ui.pill :status="$lead->source?->distribution_mode ?? 'Auto'" /><span class="mt-0.5 block max-w-44 text-xs leading-4 text-pedago-muted">{{ ($lead->source?->distribution_mode ?? 'Auto') === 'Manual' ? 'Manual campaign. Assign it by hand.' : (! $engineEnabled ? 'Automatic distribution is off.' : ($plan['executives'] === 0 ? 'No one is available now.' : 'Waits for the next cycle.')) }}</span></td>
                                     <td class="whitespace-nowrap px-4 py-2 text-xs text-pedago-muted sm:pr-5" title="{{ $lead->created_at->format('M j, Y g:i A') }}">{{ $lead->created_at->diffForHumans(null, true) }}</td>
                                 </tr>
                             @endforeach

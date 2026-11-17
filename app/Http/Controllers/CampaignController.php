@@ -290,7 +290,7 @@ class CampaignController extends Controller
 
         abort_unless(
             $employee instanceof Employee
-                && in_array($employee->role, ['Admin', 'MarketingExecutive'], true),
+                && in_array($employee->role, ['Admin', 'Developer', 'MarketingExecutive'], true),
             403,
         );
 

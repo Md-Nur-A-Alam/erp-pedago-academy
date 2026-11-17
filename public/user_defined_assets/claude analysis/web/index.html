@@ -48,14 +48,18 @@
                 <thead><tr><th>Action</th><th>Admin</th><th>Supervisor</th><th>Team leader</th><th>Sales executive</th><th>Marketer</th><th>Accounts</th></tr></thead>
                 <tbody>
                 <tr><th>See leads</th><td class="y">All</td><td class="y">Own teams</td><td class="y">Own team</td><td class="y">Own leads</td><td class="y">All</td><td>—</td></tr>
-                <tr><th>Record call feedback</th><td>—</td><td>—</td><td>—</td><td class="y">Own leads</td><td>—</td><td>—</td></tr>
+                <tr><th>Receive and call leads</th><td>—</td><td>—</td><td class="y">Own leads</td><td class="y">Own leads</td><td>—</td><td>—</td></tr>
+                <tr><th>Record call feedback</th><td>—</td><td>—</td><td class="y">Own leads</td><td class="y">Own leads</td><td>—</td><td>—</td></tr>
                 <tr><th>Upload leads, manage campaigns</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td class="y">Yes</td><td>—</td></tr>
                 <tr><th>Central queue, run distribution</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
                 <tr><th>Duplicate review</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
                 <tr><th>See follow-ups</th><td class="y">All</td><td class="y">Own teams</td><td class="y">Own team</td><td class="y">Own</td><td>—</td><td>—</td></tr>
                 <tr><th>Reassign a follow-up</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
-                <tr><th>Request a transfer</th><td>—</td><td>—</td><td>—</td><td class="y">Own leads</td><td>—</td><td>—</td></tr>
+                <tr><th>Request a transfer</th><td>—</td><td>—</td><td class="y">Own leads</td><td class="y">Own leads</td><td>—</td><td>—</td></tr>
                 <tr><th>Decide a transfer</th><td class="y">Any</td><td>—</td><td class="y">Own team’s</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>Apply for leave</th><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td><td class="y">Yes</td></tr>
+                <tr><th>Decide leave</th><td class="y">Any</td><td class="y">Own teams</td><td class="y">Own executives</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>See KPIs</th><td class="y">Everyone</td><td class="y">Own teams</td><td class="y">Own team and own</td><td class="y">Own</td><td class="y">Marketing</td><td class="y">Accounts</td></tr>
                 <tr><th>Verify or reject payments</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="y">Yes</td></tr>
                 <tr><th>Change a team</th><td class="y">Any</td><td class="y">Own teams</td><td class="y">Own team</td><td>—</td><td>—</td><td>—</td></tr>
                 <tr><th>Create or delete a team</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
@@ -64,6 +68,8 @@
                 </tbody>
             </table></div>
             <ul>
+                <li>A team leader is also a sales person: they receive batches and work leads like an executive, as well as leading their team.</li>
+                <li>A developer holds every administrator permission and can open any employee’s panel for testing.</li>
                 <li>Nobody can request a role or status change for themselves.</li>
                 <li>The last active administrator cannot be demoted or deactivated.</li>
                 <li>An inactive or suspended employee is signed out on their next click.</li>
@@ -89,7 +95,8 @@
             <ul>
                 <li>Leads arrive by CSV upload, single entry or quick-create, always under a <b>campaign</b> (channel, optional course, distribution mode).</li>
                 <li><b>Auto</b> campaigns feed the engine. <b>Manual</b> campaigns wait for an administrator to assign their leads.</li>
-                <li>A lead whose phone number already exists is not created. It is held in <b>Duplicate review</b>, where an administrator approves it as new, merges it or discards it.</li>
+                <li>A lead whose phone number already exists, as any of its numbers, is not created twice. The inquiry is logged on the existing lead. A closed lead is reopened to its previous owner, an open lead gets a follow-up when it is a new day, and the entry also waits in <b>Duplicate review</b> in case it is a separate student such as a sibling.</li>
+                <li>A lead can hold extra numbers. <b>Number check</b> shows who owns a number before you add it. <b>Paste leads</b> takes spreadsheet rows, and an administrator can <b>merge</b> two records of one customer.</li>
                 <li><b>High-intent channels</b> — phone, reference, WhatsApp, website, Google form — are served ahead of ad leads of the same temperature, because the person contacted Pedago first.</li>
             </ul>
         </section>
@@ -174,7 +181,8 @@
         <section id="followups" data-title="Follow-ups and the Lazy rule">
             <h2>Follow-ups and the Lazy rule</h2>
             <ul>
-                <li>A follow-up is overdue the moment its time passes, and shows in red for the executive and their managers.</li>
+                <li><b>Coming up:</b> from 30 hours before its time until the exact time. The owner gets one reminder and it shows in blue on the dashboard.</li>
+                <li><b>Overdue:</b> from the exact time until a new follow-up, a conversion or another outcome is logged. It shows in red, and the owner is told at the exact time and again every few hours.</li>
                 <li>An executive with a follow-up overdue for more than <b>24 hours</b> is flagged <span class="pill red">Lazy</span> and receives no new leads until it is handled.</li>
                 <li>An administrator can move an open follow-up, with its lead, to another executive, or return the lead to the central queue.</li>
             </ul>
@@ -191,15 +199,61 @@
             <p>An administrator can approve or reject any request at once. Rejection always needs a reason.</p>
         </section>
 
+        <section id="performance" data-title="Performance and KPIs">
+            <h2>Performance and KPIs</h2>
+            <p>Four KPIs show how well each sales person works the leads they are given. Targets are the same for everyone and are set in Settings.</p>
+            <div class="scroll"><table>
+                <thead><tr><th>KPI</th><th>How it is measured</th><th>Default target</th></tr></thead>
+                <tbody>
+                <tr><th>Calls per working day</th><td>Logged calls ÷ days in the period up to today, Fridays left out</td><td class="mono">25</td></tr>
+                <tr><th>First-call time</th><td>Median wait from assignment to the first logged call (lower is better)</td><td class="mono">30 min</td></tr>
+                <tr><th>Follow-ups kept on time</th><td>Call-backs done within an hour of the promised time ÷ call-backs due</td><td class="mono">90%</td></tr>
+                <tr><th>Conversion rate</th><td>Leads assigned in the period that have since converted ÷ leads assigned</td><td class="mono">10%</td></tr>
+                </tbody>
+            </table></div>
+            <p>Green means the target is met, amber within a fifth of it, red further away. Sales people see their own KPIs and a six-week trend; leaders, supervisors and administrators see a table of their people.</p>
+        </section>
+
+        <section id="leave" data-title="Leave">
+            <h2>Leave</h2>
+            <ul>
+                <li>Everyone except developers can apply: type, first and last day, reason. No past start, no overlap with another request. Friday, the weekly holiday, is not counted.</li>
+                <li>Types follow the Bangladesh Labour Act 2006: <b>casual</b> 10 days a year, <b>sick</b> 14 (a doctor’s certificate above 3 days), <b>annual</b> 1 day per 18 worked after a year of service, <b>maternity</b> 16 weeks after 6 months, and <b>unpaid</b>.</li>
+                <li><b>Approval:</b> a sales executive needs the team leader, then a supervisor or administrator. A team leader, accounts or marketing person needs one approval from a supervisor or administrator. A supervisor needs an administrator. An administrator needs none. A rejection ends the request and needs a reason.</li>
+                <li>While approved leave covers today the status is <span class="pill slate">On Leave</span>: no new leads, and the person shows on their manager’s dashboard.</li>
+            </ul>
+        </section>
+
         <section id="finance" data-title="Enrollment, payments and installments">
             <h2>Enrollment, payments and installments</h2>
             <ul>
+                <li><b>Converting a lead:</b> the owner presses Enroll this student, picks the course, gives a discount within the limit and sets the installments. The lead waits as <i>Enrolled - Pending Payment</i>. The owner submits each payment with a transaction ID or slip.</li>
                 <li>Money is confirmed by <b>Accounts</b> (or an administrator), never by sales.</li>
                 <li><b>Verify:</b> the installment becomes Paid, the student Enrolled, the lead Converted, and the executive’s batch slot is freed.</li>
                 <li><b>Reject:</b> a reason is required; the installment, enrollment and lead return to awaiting payment.</li>
                 <li>Installments due within <b>2 days</b> are listed as Due soon; unpaid installments past their date are Overdue.</li>
             </ul>
-            <p class="note">The enrollment form, the customer payment page, online gateways and receipts are not built yet, so these screens fill only when that data exists.</p>
+            <p class="note">The customer payment page, online gateways and receipts are not built yet.</p>
+        </section>
+
+        <section id="notifications" data-title="Notifications">
+            <h2>Notifications</h2>
+            <ul>
+                <li>A bell at the top right and a Notifications page tell each role what it can act on. Opening one takes you to the work.</li>
+                <li><b>Sales:</b> new leads, follow-ups coming up and overdue, transfer and payment results, conversions, leave decisions. <b>Leaders and supervisors:</b> transfers, Lazy people, leave to approve. <b>Accounts:</b> payments to verify. <b>Marketing:</b> campaign conversions. <b>Administrators:</b> duplicates, profile changes, payments, Lazy people, leave.</li>
+                <li>A reminder clears itself when the work is done.</li>
+            </ul>
+            <p class="note">Notices are created by the scheduler, so it must be running.</p>
+        </section>
+
+        <section id="assignment" data-title="Assignment controls and tools">
+            <h2>Assignment controls and tools</h2>
+            <ul>
+                <li>Each sales person is <b>Auto</b> or <b>Manual</b>. Manual people never receive engine leads. An optional <b>daily limit</b> caps what the engine gives in a day. Leads handed over by a person do not count.</li>
+                <li>A wrong-number call closes the lead as <span class="pill slate">Invalid/Junk</span>. A connected call that leaves the lead open needs a call-back time.</li>
+                <li>A lead can carry a <b>priority</b> (High, Medium, Low), a guardian name and a standing remark. High priority leads come first within their group.</li>
+                <li><b>Data health</b> lists stuck leads and offers safe fixes. <b>Thank on WhatsApp</b> opens WhatsApp with a ready message.</li>
+            </ul>
         </section>
 
         <section id="availability" data-title="Shifts and availability">
@@ -212,6 +266,7 @@
                 <tr><th><span class="pill blue">Busy</span></th><td>Has an unfinished batch</td><td>No</td></tr>
                 <tr><th><span class="pill amber">Cut Off</span></th><td>Last 30 minutes of the shift</td><td>No</td></tr>
                 <tr><th><span class="pill red">Lazy</span></th><td>A follow-up overdue more than 24 hours</td><td>No</td></tr>
+                <tr><th><span class="pill slate">On Leave</span></th><td>Approved leave covers today</td><td>No</td></tr>
                 <tr><th><span class="pill slate">Off Duty</span></th><td>Outside shift hours, or no shift set</td><td>No</td></tr>
                 <tr><th><span class="pill slate">Holiday / Unavailable</span></th><td>Set for a date by an administrator</td><td>No</td></tr>
                 </tbody>
@@ -244,6 +299,8 @@
                 <tr><th>Lazy threshold</th><td class="mono">24 h</td><td>Overdue time that flags an executive Lazy</td></tr>
                 <tr><th>Transfer auto-approval</th><td class="mono">7 days</td><td>Wait before a pending transfer approves itself</td></tr>
                 <tr><th>Installment reminder</th><td class="mono">2 days</td><td>Window for “Due soon”</td></tr>
+                <tr><th>Paid leave per year</th><td class="mono">20 days</td><td>Yearly allowance for paid leave</td></tr>
+                <tr><th>KPI targets</th><td class="mono">25 · 30 min · 90% · 10%</td><td>Calls a day, first-call time, follow-ups on time, conversion</td></tr>
                 </tbody>
             </table></div>
         </section>

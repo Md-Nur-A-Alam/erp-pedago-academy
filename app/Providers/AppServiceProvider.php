@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Actions\DistributeLeads;
+use App\Actions\NotifyOnEvents;
 use App\Actions\StaffPasswordCipher;
 use App\Actions\StaffPasswordHasher;
 use App\Http\Controllers\DeveloperController;
@@ -12,6 +13,7 @@ use App\Models\EmployeeChangeRequest;
 use App\Models\LeadBatchItem;
 use App\Models\LeadFollowup;
 use App\Models\LeadTransfer;
+use App\Models\LeaveRequest;
 use App\Models\Payment;
 use App\Models\SystemSetting;
 use Illuminate\Cache\RateLimiting\Limit;
@@ -47,6 +49,8 @@ class AppServiceProvider extends ServiceProvider
             return Limit::perMinute(5)->by($phoneNumber.'|'.$request->ip());
         });
 
+        NotifyOnEvents::register();
+
         if (filled(config('app.staff_password_key'))) {
             Hash::extend('pedago', fn (): StaffPasswordHasher => new StaffPasswordHasher(
                 new StaffPasswordCipher((string) config('app.staff_password_key')),
@@ -57,6 +61,9 @@ class AppServiceProvider extends ServiceProvider
         ViewFactory::composer('layouts.app', function (View $view): void {
             $employee = auth()->user()?->employee;
 
+            $user = auth()->user();
+            $view->with('unreadCount', $user?->unreadNotifications()->count() ?? 0);
+            $view->with('recentNotifications', $user?->notifications()->limit(6)->get() ?? collect());
             $view->with('navCounts', $employee instanceof Employee ? $this->navigationCounts($employee) : []);
             $view->with('impersonation', session()->has(DeveloperController::SESSION_KEY) && (bool) config('app.developer_panel')
                 ? ['targets' => DeveloperController::switchTargets()]
@@ -74,7 +81,7 @@ class AppServiceProvider extends ServiceProvider
      */
     private function navigationCounts(Employee $employee): array
     {
-        $counts = [];
+        $counts = ['notifications' => (int) $employee->user?->unreadNotifications()->count()];
 
         if ($employee->isAdmin()) {
             $counts['queue'] = app(DistributeLeads::class)->queueQuery()->count();
@@ -90,7 +97,7 @@ class AppServiceProvider extends ServiceProvider
             )->count();
         }
 
-        if (in_array($employee->role, ['Admin', 'Supervisor', 'Team Leader', 'Sales Executive'], true)) {
+        if ($employee->isAdmin() || in_array($employee->role, ['Supervisor', 'Team Leader', 'Sales Executive'], true)) {
             $reach = $employee->managedExecutiveIds();
             $counts['overdue'] = LeadFollowup::query()
                 ->when($reach !== null, fn ($followUps) => $followUps->whereIn('employee_id', $reach))
@@ -99,14 +106,26 @@ class AppServiceProvider extends ServiceProvider
                 ->count();
         }
 
-        if ($employee->role === 'Sales Executive') {
+        if ($employee->role === 'Team Leader') {
+            $counts['myoverdue'] = LeadFollowup::query()
+                ->where('employee_id', $employee->id)
+                ->where('is_done', false)
+                ->where('followup_date_time', '<', now())
+                ->count();
+        }
+
+        if ($employee->isAdmin() || in_array($employee->role, ['Supervisor', 'Team Leader'], true)) {
+            $counts['leave'] = LeaveRequest::awaiting($employee)->count();
+        }
+
+        if ($employee->isSalesPerson()) {
             $counts['tasks'] = LeadBatchItem::query()
                 ->where('is_completed', false)
                 ->whereHas('batch', fn ($batch) => $batch->where('employee_id', $employee->id)->where('status', 'Active'))
                 ->count();
         }
 
-        if (in_array($employee->role, ['Admin', 'Accounts'], true)) {
+        if ($employee->isAdmin() || $employee->role === 'Accounts') {
             $counts['payments'] = Payment::query()->where('status', 'Pending')->count();
         }
 

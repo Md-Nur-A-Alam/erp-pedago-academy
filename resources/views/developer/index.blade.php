@@ -4,6 +4,7 @@
 @section('page-description', 'Open the system as any employee, check the environment and run maintenance tools.')
 
 @section('page-actions')
+    <x-ui.button :href="route('developer.database')" variant="secondary" icon="database">Database</x-ui.button>
     <x-ui.button :href="route('developer.guide')" variant="secondary" icon="code">Developer guide</x-ui.button>
 @endsection
 
@@ -16,6 +17,14 @@
         <x-ui.icon name="alert" class="mt-0.5 size-4" />
         <p>Opening a panel signs you in as that employee. Everything you do there is real and is saved under their name. Every switch is recorded below. Use a test database when you can.</p>
     </div>
+
+    <x-ui.card title="Full access" info="A developer holds every permission an administrator has, and can also open any employee's panel. These shortcuts go straight to the controls.">
+        <ul class="grid gap-2 sm:grid-cols-2 xl:grid-cols-4">
+            @foreach ([['Dashboard', 'dashboard', 'grid'], ['Settings', 'settings.index', 'sliders'], ['Employees', 'employees.index', 'user'], ['Teams & roster', 'teams.index', 'users'], ['Central queue', 'central-queue.index', 'inbox'], ['Payments review', 'payments.index', 'credit-card'], ['Reports', 'reports.index', 'bar-chart'], ['Staff passwords', 'staff-passwords.index', 'lock']] as [$name, $routeName, $icon])
+                <li><a class="flex min-h-11 items-center gap-2.5 rounded-md border border-pedago-line px-3 text-sm font-semibold transition-colors duration-150 hover:border-pedago-blue hover:bg-pedago-row" href="{{ route($routeName) }}"><x-ui.icon :name="$icon" class="text-pedago-blue" />{{ $name }}</a></li>
+            @endforeach
+        </ul>
+    </x-ui.card>
 
     <x-ui.card title="Switch panel" flush>
         <x-slot:meta>One click opens the system exactly as that person sees it</x-slot:meta>
@@ -119,6 +128,19 @@
             </x-ui.card>
         </div>
     </div>
+
+    <x-ui.card title="Recent errors" flush>
+        <x-slot:meta>From storage/logs/laravel.log</x-slot:meta>
+        @if ($logErrors === [])
+            <x-ui.empty class="border-t border-pedago-line" title="No error in the log" icon="check-circle" />
+        @else
+            <ul class="divide-y divide-pedago-line border-t border-pedago-line">
+                @foreach ($logErrors as $line)
+                    <li class="num break-words px-4 py-2 text-xs leading-5 text-pedago-red sm:px-5">{{ $line }}</li>
+                @endforeach
+            </ul>
+        @endif
+    </x-ui.card>
 
     <x-ui.card title="Developer activity" flush>
         <x-slot:meta>Last {{ $logs->count() }} entries</x-slot:meta>

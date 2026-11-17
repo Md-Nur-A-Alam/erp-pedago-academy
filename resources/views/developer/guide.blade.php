@@ -64,8 +64,11 @@ php artisan schedule:work   # automatic distribution and auto-approval</code>
 
             <x-ui.card title="Developer access" id="access">
                 <ul class="{{ $list }}">
-                    <li>An administrator gives an employee the <b>Developer</b> role in Employees. Developers have no business screens of their own: their sidebar holds the developer panel and this guide.</li>
-                    <li>The Developer role has no authority level, so a developer approves nobody’s change requests.</li>
+                    <li>A developer gives another employee the <b>Developer</b> role in Employees. Administrators cannot make developers.</li>
+                    <li>A developer holds <b>every administrator permission</b>: all screens, settings, the engine switch, staff passwords, employees, teams, leads, finance and reports. On top of that the sidebar shows the developer panel and this guide.</li>
+                    <li>The developer ranks above administrators for change requests, and does not count as an administrator for the “last active administrator” rule.</li>
+                    <li>The <b>Database</b> page reads the live schema: an ER diagram you can drag, zoom and filter, a table list, a table-to-model-to-code mapping and every foreign key. Export it as SVG, JSON or Mermaid.</li>
+                    <li>A developer is not a sales person, so has no leave or KPI pages. Open someone’s panel to see theirs.</li>
                     <li>When <span class="num">DEVELOPER_PANEL</span> is off, every developer route answers 404.</li>
                 </ul>
             </x-ui.card>
@@ -122,6 +125,12 @@ php artisan schedule:work   # automatic distribution and auto-approval</code>
                                 'Availability now (Available, Busy, Cut Off, Lazy…)' => 'Employee::effectiveAvailabilityStatus(), effectiveShift()',
                                 'Lead temperature and priority' => 'Lead::temperature(), priorityRank(), HIGH_INTENT_CHANNELS',
                                 'Distribution cycle, plan and batch assignment' => 'Actions\\DistributeLeads: plan(), pickForCycle(), run(), assignBatch()',
+                                'A sales person’s ranked call list' => 'Actions\\CallList::for()',
+                                'KPIs, targets and grades' => 'Actions\\PerformanceMetrics: forEmployees(), summarise(), grade(), targets()',
+                                'Leave: who may decide, overlap, balance' => 'Models\\LeaveRequest::canBeReviewedBy(), reviewableBy(); LeaveController',
+                                'On Leave in availability' => 'Employee::isOnLeave(), todayLeave(); effectiveAvailabilityStatus()',
+                                'Who counts as a sales person' => 'Employee::SALES_ROLES, isSalesPerson()',
+                                'Developer holds admin permissions' => 'Employee::isAdmin(); Controller::employeeWithRole()',
                                 'Call feedback and follow-up scheduling' => 'Actions\\RecordLeadFeedback',
                                 'Freeing a batch slot' => 'LeadBatchItem::completeOpenForLead()',
                                 'Transfer approval, rejection, auto-approval' => 'Actions\\DecideLeadTransfer',

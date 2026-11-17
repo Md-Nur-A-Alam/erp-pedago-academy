@@ -9,6 +9,7 @@ use App\Models\SystemSetting;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 
@@ -55,6 +56,7 @@ class CentralQueueController extends Controller
             'manualTotal' => $queueTotal - $autoTotal,
             'oldestLead' => $engine->queueQuery()->reorder('created_at')->first(),
             'engineEnabled' => SystemSetting::enabled('distribution_engine_enabled'),
+            'schedulerRunning' => now()->timestamp - (int) Cache::get('scheduler.heartbeat', 0) <= 180,
             'campaigns' => LeadSource::query()
                 ->whereIn('source_id', $engine->queueQuery()->reorder()->select('source_id'))
                 ->orderBy('campaign_name')
@@ -83,7 +85,7 @@ class CentralQueueController extends Controller
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where('status', 'Active')->where('role', 'Sales Executive'),
+                Rule::exists('employees', 'id')->where('status', 'Active')->whereIn('role', Employee::SALES_ROLES),
             ],
         ], [
             'lead_ids.required' => 'Select at least one lead to assign.',

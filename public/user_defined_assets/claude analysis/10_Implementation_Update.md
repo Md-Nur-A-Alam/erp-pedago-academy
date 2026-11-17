@@ -134,11 +134,11 @@ Not repaired: phone-number normalisation, the course on imported leads, Excel im
 ## 9. Still open, in suggested order
 
 1. W-SEC-01: rotate the interim PINs, move `user_defined_assets` out of `public/`, purge the data files from Git history, confirm the repository is private.
-2. Enrollment form with installment plan — without it the finance screens stay empty.
-3. Phone normalisation and the lead history table.
-4. Automatic duplicate rules and the inquiry log (decision Q-02).
+2. (Done in section 15.) Enrollment form with installment plan.
+3. (Done in section 16.) Phone normalisation and the lead history table.
+4. (Done in section 16.) Automatic duplicate rules and the inquiry log (decision Q-02).
 5. Second Lazy condition (decision Q-04) with the rule for leads awaiting payment (Q-04a).
-6. Notifications, receipts, payment gateways, data migration from the sheet.
+6. Receipts, payment gateways, data migration from the sheet. (Notifications were done in section 14.)
 
 ---
 
@@ -154,3 +154,93 @@ Not repaired: phone-number normalisation, the course on imported leads, Excel im
 | Switch | `DEVELOPER_PANEL`, on by default outside production |
 | Guide | In the ERP under **Developer guide**: setup, access, switching, architecture, rule locations, settings, scheduler, interface kit, recipes, testing, troubleshooting |
 
+---
+
+## 11. Team leaders as sales people, KPIs, leave and full developer access (added 17 November 2026)
+
+| Change | Behaviour |
+| :--- | :--- |
+| Team leader sells | Receives batches, has My tasks, the lead page with feedback, My follow-ups and transfer requests. Dashboard has two parts: "My work" and "My team". Counts as a sales person in the roster, the reports and the Lazy rule |
+| Performance (all roles) | Four KPIs against company targets set in Settings: calls per working day (Fridays excluded), median first-call time, follow-ups kept on time (within 60 minutes), conversion rate; plus revenue collected. Own KPIs with a six-week trend for sales people; a table of people for leaders, supervisors and admins; marketing and Accounts figures for those roles |
+| Leave (all roles but developers) | Apply with type, dates and reason; at most 30 days; no past start, no overlap. Decided by the team leader or supervisor (executives), the supervisor (team leaders) or an administrator (everyone else); nobody decides their own. Paid leave counts against a yearly allowance. Approved leave makes the status **On Leave**, so no new leads |
+| Dashboards | Sales executive: status, calls today, ranked "Call next", KPIs, leave line, Lazy alert. Team leader: both parts. Supervisor: team KPIs, leave today and requests to decide, comparison, uncalled leads, roster |
+| Developer | Holds every administrator permission (`Employee::isAdmin()` is true for the Developer role) and ranks above administrators for change requests. Only a developer can give the Developer role. Panel adds tools (cache, scheduler, engine on/off), recent errors and a shortcut grid |
+| New data | `leave_requests`; settings `leave_casual_days`, `leave_sick_days`, `leave_earned_work_days`, `leave_maternity_days` (replacing `leave_days_per_year`), `kpi_calls_per_day`, `kpi_first_call_minutes`, `kpi_followup_on_time_percent`, `kpi_conversion_percent` |
+| Definitions | A follow-up is kept on time when done at most 60 minutes after the promised time. First-call time is measured from assignment to the first logged call by anyone. Conversion counts leads assigned in the period that have since converted |
+
+---
+
+## 12. Developer database page (added 17 November 2026)
+
+| Part | Behaviour |
+| :--- | :--- |
+| Source | Read live from the connected database (tables, columns, indexes, foreign keys, row counts), so it is never out of date |
+| ER diagram | Tables grouped by module and coloured; foreign keys drawn as links with N and 1 ends; drag tables, pan, zoom, fit; click a table to highlight what it connects to; search tables and columns; show only keys or all columns; toggle modules |
+| Tables | Sortable list with module, model, row count, columns, links out and in |
+| Mapping | Table to Eloquent model to declared relations to the controllers and actions that use it |
+| Relationships | Every foreign key with cardinality and on-delete and on-update rules |
+| Detail panel | Purpose, columns with keys and defaults, links out and in, indexes, model, code that uses it |
+| Export | SVG of the visible diagram, Mermaid erDiagram text, full schema as JSON |
+| Access | Developers only; no row data is shown, only counts |
+
+
+---
+
+## 13. Leave under the Labour Act and two-step approval (added 17 November 2026)
+
+| Part | Behaviour |
+| :--- | :--- |
+| Types | Casual (10 days a year, s.115), Sick (14, s.116; doctor's certificate confirmation above 3 days), Annual or earned (1 day per 18 days worked, s.117, usable after 1 year, held up to 40 days), Maternity (112 days, s.46, after 6 months of service, calendar days), Unpaid (no limit). All figures are settings |
+| Counting | Friday is the weekly holiday and is not counted, except in maternity leave. A request that exceeds the balance is refused with advice to ask for the rest as unpaid leave. Festival holidays are not leave |
+| Approval chain | Sales executive: team leader, then supervisor or admin (two approvals; one when the team has no leader). Team leader, marketer, accounts: one approval from a supervisor or admin. Supervisor: one approval from an admin. Admin and developer: none, approved on submission |
+| Rules | A rejection at any step ends the request. An administrator can settle any request at any step. Nobody decides their own. The second approver sees a request only after the first approval |
+| Data | `leave_requests` gains `required_approvals`, `approvals_done`, `has_certificate`, `first_reviewed_by_employee_id`, `first_review_note`, `first_reviewed_at`; type `Maternity` added |
+| Scheduler warning | A heartbeat is written every minute by the scheduler. The Central Queue shows a warning when auto-distributable leads wait and no heartbeat was seen in 3 minutes |
+
+Check the figures against your own employment terms or with legal counsel before relying on them; the Act has conditions (for example by type of establishment) that the system does not model.
+
+---
+
+## 14. Follow-up stages and notifications (added 17 November 2026)
+
+| Part | Behaviour |
+| :--- | :--- |
+| Coming up | An open follow-up from `followup_notice_hours` (default 30) before its time until the exact time. The owner gets one reminder when the window opens (not for follow-ups set in the last 5 minutes) |
+| Overdue | From the exact time until the owner logs a new follow-up, a conversion or another outcome (feedback closes the open follow-up). Announced at the exact time and repeated every `followup_overdue_repeat_hours` (default 6) |
+| Lazy | Overdue longer than the Lazy threshold: the owner and the team leader, supervisors and administrators are told once a day |
+| Dashboards | Sales executive and team leader: a My follow-ups card listing overdue and coming-up calls with a Call button. Team leader, supervisor and admin dashboards: overdue and coming-up counts. Follow-ups page tabs: Overdue, Coming up, Scheduled later, Completed |
+| Notification centre | Laravel database notifications (`notifications` table), the bell with an unread count refreshed each minute, the Notifications page, open-and-mark-read, mark all read |
+| Who is told | Executives and leaders: new batch, follow-ups, transfer and payment outcomes, conversions, leave decisions. Leaders and supervisors: transfers, Lazy people, leave to approve. Accounts: payments to verify. Marketing: campaign conversions. Admins and developers: duplicates, profile changes, payments, Lazy people, leave |
+| Running | `notifications:followups` runs every minute from the scheduler. The scheduler must be running |
+| Open point | The request said 30 hours; it is a setting, so change it if 30 minutes was meant |
+
+---
+
+## 15. Conversion flow and the interim Apps Script comparison (added 17 November 2026)
+
+The interim Google Sheets script (`temp_erp_appScript/Code.txt`) was compared with the application. The conversion flow was the largest gap and is now built; the rest are listed for decision.
+
+| Part | Behaviour |
+| :--- | :--- |
+| Enroll | The lead owner opens Enroll this student: course, discount (largest set in Settings, default 20%), 1 to 6 installments 30 days apart, first due date, student and guardian details. Final amount is computed on the server. A batch seat is reserved. Lead becomes Enrolled - Pending Payment, open follow-ups close |
+| Payment | The owner (or an administrator) submits an installment: amount must equal the installment, method (bKash, Manual MFS, Manual Bank), transaction ID or slip (JPG, PNG, PDF up to 4 MB, kept on the private disk and shown only to Accounts, administrators, the owner and managers). Lead and enrollment become Payment Under Review, Accounts are notified |
+| Verify | Accounts verify or reject (existing). Verified: installment Paid, enrollment Enrolled, lead Converted, batch slot released. Rejected: back to Pending, reason sent to the owner |
+| Not yet built | Priority High/Medium/Low on feedback and My tasks tie-break; Invalid/Junk status tied to Wrong Number; Connected call needs a next follow-up; number check for sales people; alternate numbers that match duplicates; repeat inquiry log with reactivation to the previous owner; bulk paste import by campaign and course name with skip reasons; merge duplicate contacts; data health checks; unassigned reason on the queue; assignment notes in the lead history |
+
+---
+
+## 16. Interim script requirements, second version (added 17 November 2026)
+
+`Code-2.txt` adds a guardian name and standing remark per lead, a per-rep Auto or Manual mode with a daily limit, and a WhatsApp thank-you. Everything missing from both scripts is now built.
+
+| Area | Behaviour |
+| :--- | :--- |
+| New fields | `leads.priority` (High, Medium, Low), `leads.remarks`, status `Invalid/Junk`; `employees.assign_mode`, `daily_lead_cap`, `auto_count_date`, `auto_count_today` |
+| New tables | `lead_phones` (extra numbers, unique), `lead_inquiries` (first inquiry and every repeat with its outcome), `lead_events` (assigned, returned, transferred, phone added or removed, WhatsApp, inquiry, merged) |
+| Feedback rules | Wrong Number forces Invalid/Junk. Connected with Follow-up or Interested needs a call-back time. The form can set priority, correct the student name and guardian, and keep a standing remark. Priority breaks ties inside Call next |
+| Numbers | Normalised to 01XXXXXXXXX (handles +880, 880, a lost zero) or +digits. Any of main, WhatsApp, other or extra numbers finds the lead. Number check page for sales, leaders, supervisors, marketing and admins shows owner, status and campaign only |
+| Repeat inquiry | Closed lead: reopened, back to the previous owner outside the daily limit, or to the queue. Open lead: follow-up now when it is a new day. Enrolled: logged. The duplicate review queue stays for admins to approve a separate student such as a sibling |
+| Assignment | Manual people are never auto-assigned. The daily limit counts engine assignments only and resets each day. Page: Assignment controls |
+| WhatsApp | Setting `whatsapp_thanks_message` with {name}, {guardian}, {sales} (and the Bangla forms). The button opens WhatsApp and logs it; the system cannot see whether it was sent |
+| Tools | Paste leads (name, phone, campaign, course, district, age, guardian, remarks), Merge duplicates, Data health (orphaned leads, no follow-up, old queue, odd numbers, big batches), queue shows why a lead is waiting |
+| Not carried over | Daily reset by Apps Script triggers (the date is compared instead), the Sheets formatting repairs (not needed in a database), PIN login (replaced by hashed staff passwords) |

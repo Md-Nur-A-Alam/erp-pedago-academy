@@ -149,7 +149,7 @@ class TeamController extends Controller
             // Open leads: leads assigned to this team that are not terminal
             $openLeadsCount = Lead::query()
                 ->where('team_id', $team->id)
-                ->whereNotIn('status', ['Converted', 'Lost', 'Not Interested'])
+                ->whereNotIn('status', ['Converted', 'Lost', 'Not Interested', 'Invalid/Junk'])
                 ->count();
 
             // Overdue followups for this team
@@ -313,7 +313,7 @@ class TeamController extends Controller
 
         $openLeadsCount = Lead::query()
             ->where('team_id', $team->id)
-            ->whereNotIn('status', ['Converted', 'Lost', 'Not Interested'])
+            ->whereNotIn('status', ['Converted', 'Lost', 'Not Interested', 'Invalid/Junk'])
             ->count();
 
         // Active batches for this team's members
@@ -553,7 +553,7 @@ class TeamController extends Controller
 
         $openLeadsCount = Lead::query()
             ->where('team_id', $team->id)
-            ->whereNotIn('status', ['Converted', 'Lost', 'Not Interested'])
+            ->whereNotIn('status', ['Converted', 'Lost', 'Not Interested', 'Invalid/Junk'])
             ->count();
 
         $supervisorsList = Employee::query()
@@ -790,7 +790,7 @@ class TeamController extends Controller
 
         abort_unless(
             $employee instanceof Employee
-                && in_array($employee->role, ['Admin', 'Supervisor', 'Team Leader'], true),
+                && in_array($employee->role, ['Admin', 'Developer', 'Supervisor', 'Team Leader'], true),
             403,
         );
 

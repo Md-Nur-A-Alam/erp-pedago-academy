@@ -106,3 +106,16 @@ The other 24 have a clear correct side and can be fixed without a decision.
 | `docs/course-catalog-and-batches.md` | Lead status at conversion |
 | `README.md` | Project description, setup, scheduler and queue instructions |
 | `prompt.txt` | Remove from the repository; its password instruction is now recorded in document 04 §16 |
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Found while building:
+
+- The legacy action `CreateEnrollmentFromLead` converts the lead immediately. The specification, and decision v-03, convert only when Accounts verify a payment. The new `EnrollStudent` flow passes the status `Enrolled - Pending Payment`; the legacy default is kept only because tests depend on it.
+- The request said follow-up reminders start 30 hours before. Thirty minutes may have been meant. It is a setting.
+- The interim script's `Converted` could be set by any rep in the feedback form. The application removes that option.
+- The interim script reactivates leads in Converted too. The application does not reopen converted or enrolled leads.
+- Two sources of availability: the script used a manual online flag, the application derives it from shifts, roster and leave.

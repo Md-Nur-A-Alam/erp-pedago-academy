@@ -65,7 +65,7 @@
                 @if ($isAdminEdit || $employee->isAdmin())
                     <label class="flex flex-col gap-2 text-sm font-medium">Role
                         <select class="rounded-md border border-pedago-line bg-white px-3 py-2 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="role" required>
-                            @foreach (\App\Models\Employee::ROLES as $role)
+                            @foreach (array_unique([...\App\Models\Employee::assignableRoles(auth()->user()->employee), $employee->role]) as $role)
                                 <option value="{{ $role }}" @selected(old('role', $employee->role) === $role)>{{ $role }}</option>
                             @endforeach
                         </select>

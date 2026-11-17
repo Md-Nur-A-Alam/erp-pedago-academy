@@ -74,7 +74,7 @@ class EmployeeProfileController extends Controller
             'office_id' => ['sometimes', 'required', 'string', 'max:50', Rule::unique('employees', 'office_id')->ignore($employee->id)],
             'designation' => ['sometimes', 'required', 'string', 'max:100'],
             'joining_date' => ['sometimes', 'required', 'date'],
-            'role' => ['sometimes', 'required', Rule::in(Employee::ROLES)],
+            'role' => ['sometimes', 'required', Rule::in(array_unique([...Employee::assignableRoles($actor), $employee->role]))],
             'status' => ['sometimes', 'required', Rule::in(['Active', 'Inactive', 'Suspended'])],
             'phone_number' => [
                 'sometimes',

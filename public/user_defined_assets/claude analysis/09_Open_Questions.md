@@ -222,3 +222,22 @@ The interim interface is Bangla; the ERP is English. **Default:** both, switchab
 3. Who is responsible for backups, and where are they kept?
 4. Is there a staging copy for the migration rehearsal?
 5. Customer data: how long is it kept, and who may export it?
+
+
+---
+
+## Build update 2 — 17 November 2026 (leave, follow-ups, notifications, conversion, interim script)
+
+Resolved by building: Q-02 repeat inquiries use automatic rules with an inquiry log. The duplicate review queue is kept for separate students sharing a number.
+
+New questions:
+
+| ID | Question | Current default |
+| :--- | :--- | :--- |
+| Q-20 | Follow-up reminder window: 30 hours or 30 minutes? | 30 hours, a setting |
+| Q-21 | Labour Act figures: casual 10, sick 14, earned 1 per 18 days worked, maternity 112 days. Confirm with HR or a lawyer | As stated, settings |
+| Q-22 | Largest discount a sales person may give | 20% |
+| Q-23 | Installments: how many and how far apart | Up to 6, 30 days apart |
+| Q-24 | Should a rep be able to enroll a lead from Follow-up status, or only Interested | Both, plus Assigned and Contacted |
+| Q-25 | Should marketing get more notices than conversions and leave | No |
+| Q-26 | Should an administrator be able to cancel an enrollment, freeing the seat | Not built |

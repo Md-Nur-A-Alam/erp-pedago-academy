@@ -5,6 +5,7 @@ namespace App\Actions;
 use App\Models\Employee;
 use App\Models\Lead;
 use App\Models\LeadBatchItem;
+use App\Models\LeadEvent;
 use App\Models\LeadFollowup;
 use App\Models\LeadTransfer;
 use App\Models\SystemSetting;
@@ -38,6 +39,7 @@ class DecideLeadTransfer
                 ->update(['employee_id' => $locked->to_employee_id]);
 
             LeadBatchItem::completeOpenForLead($lead->id, 'Transferred');
+            LeadEvent::record($lead, $decidedBy, 'Transferred', 'Transferred from '.(Employee::query()->find($locked->from_employee_id)?->name ?? 'a sales person').' to '.(Employee::query()->find($locked->to_employee_id)?->name ?? 'another sales person').($automatic ? ' automatically after the waiting period.' : '.'));
 
             $locked->update([
                 'status' => 'Approved',
