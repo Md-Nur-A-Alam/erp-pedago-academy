@@ -31,4 +31,31 @@ class LeadBatchItem extends Model
     {
         return $this->belongsTo(Lead::class);
     }
+
+    /**
+     * Close the open batch slots that hold a lead, and complete any batch left with no open slot.
+     */
+    public static function completeOpenForLead(int $leadId, string $actionTaken): void
+    {
+        $items = static::query()
+            ->where('lead_id', $leadId)
+            ->where('is_completed', false)
+            ->get();
+
+        foreach ($items as $item) {
+            $item->update(['is_completed' => true, 'action_taken' => $actionTaken, 'completed_at' => now()]);
+
+            $hasOpenItems = static::query()
+                ->where('batch_id', $item->batch_id)
+                ->where('is_completed', false)
+                ->exists();
+
+            if (! $hasOpenItems) {
+                LeadBatch::query()
+                    ->whereKey($item->batch_id)
+                    ->where('status', 'Active')
+                    ->update(['status' => 'Completed', 'completed_at' => now()]);
+            }
+        }
+    }
 }

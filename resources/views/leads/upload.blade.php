@@ -6,14 +6,14 @@
     <div class="inline-flex rounded-md border border-pedago-line bg-pedago-canvas p-1" role="group" aria-label="Lead entry method">
         <a @class([
             'rounded px-3 py-1.5 text-xs font-semibold transition-colors sm:px-4 sm:text-sm',
-            'bg-pedago-blue text-white shadow-sm' => $mode === 'bulk',
+            'bg-pedago-blue text-white' => $mode === 'bulk',
             'text-pedago-muted hover:bg-white hover:text-pedago-ink' => $mode !== 'bulk',
         ]) href="{{ route('leads.upload', ['mode' => 'bulk']) }}" @if ($mode === 'bulk') aria-current="page" @endif>
             Bulk import
         </a>
         <a @class([
             'rounded px-3 py-1.5 text-xs font-semibold transition-colors sm:px-4 sm:text-sm',
-            'bg-pedago-blue text-white shadow-sm' => $mode === 'single',
+            'bg-pedago-blue text-white' => $mode === 'single',
             'text-pedago-muted hover:bg-white hover:text-pedago-ink' => $mode !== 'single',
         ]) href="{{ route('leads.upload', ['mode' => 'single']) }}" @if ($mode === 'single') aria-current="page" @endif>
             Single lead
@@ -32,7 +32,7 @@
 @section('content')
     @if (session('import_result'))
         @php($result = session('import_result'))
-        <section class="rounded-xl border border-pedago-green/20 bg-pedago-green-tint p-5 shadow-sm" role="status" aria-label="Import result">
+        <section class="rounded-lg border border-pedago-green/20 bg-pedago-green-tint p-5" role="status" aria-label="Import result">
             <h2 class="font-semibold text-pedago-green">Import complete</h2>
             <p class="mt-1 text-sm text-pedago-green">
                 {{ number_format($result['imported']) }} leads imported; {{ number_format($result['duplicates']) }} possible duplicates queued for review, from {{ number_format($result['total']) }} rows.
@@ -41,7 +41,7 @@
     @endif
 
     @if (session('single_result'))
-        <div class="rounded-lg border border-pedago-green/20 bg-pedago-green-tint px-4 py-3 text-sm text-pedago-green shadow-sm" role="status">
+        <div class="rounded-lg border border-pedago-green/20 bg-pedago-green-tint px-4 py-3 text-sm text-pedago-green" role="status">
             {{ session('single_result') }}
         </div>
     @endif
@@ -53,7 +53,7 @@
                     @csrf
                 </form>
 
-                <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6" aria-labelledby="campaign-heading">
+                <section class="rounded-lg border border-pedago-line bg-white p-5 sm:p-6" aria-labelledby="campaign-heading">
                     <div class="mb-5 flex items-start gap-3">
                         <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-pedago-blue text-xs font-bold text-white" aria-hidden="true">1</span>
                         <div>
@@ -91,7 +91,7 @@
                     <p class="mt-4 rounded-md bg-pedago-tint/60 px-3 py-2 text-xs leading-5 text-pedago-blue-dark">Channel and campaign details are tagged on every imported row. They do not need to be columns in your file.</p>
                 </section>
 
-                <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6" aria-labelledby="columns-heading">
+                <section class="rounded-lg border border-pedago-line bg-white p-5 sm:p-6" aria-labelledby="columns-heading">
                     <form id="lead-template-form" method="GET" action="{{ route('leads.template') }}"></form>
                     <div class="mb-5 flex flex-wrap items-start justify-between gap-3">
                         <div class="flex items-start gap-3">
@@ -129,7 +129,7 @@
             </div>
 
             <aside class="flex flex-col gap-4">
-                <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6" aria-labelledby="upload-heading">
+                <section class="rounded-lg border border-pedago-line bg-white p-5 sm:p-6" aria-labelledby="upload-heading">
                     <div class="mb-5 flex items-start gap-3">
                         <span class="flex size-7 shrink-0 items-center justify-center rounded-full bg-pedago-blue text-xs font-bold text-white" aria-hidden="true">3</span>
                         <div>
@@ -173,7 +173,7 @@
                 </section>
             </aside>
         @else
-            <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6" aria-labelledby="single-heading">
+            <section class="rounded-lg border border-pedago-line bg-white p-5 sm:p-6" aria-labelledby="single-heading">
                 <h2 class="text-sm font-bold" id="single-heading">Add a single lead</h2>
                 <p class="mt-1 text-xs text-pedago-muted">Choose the source, then enter the lead details. Possible phone matches go to duplicate review.</p>
                 <form class="mt-5 flex flex-col gap-5" method="POST" action="{{ route('leads.store') }}">

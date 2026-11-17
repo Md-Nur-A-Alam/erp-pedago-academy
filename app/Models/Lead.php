@@ -48,6 +48,37 @@ class Lead extends Model
         ];
     }
 
+    /**
+     * Channels where the person contacted us first, so intent is high.
+     */
+    public const HIGH_INTENT_CHANNELS = ['phone', 'reference', 'wp', 'website', 'googleform'];
+
+    /**
+     * How fresh the lead is, measured from when it was received: Hot, Warm, Cool or Cold.
+     */
+    public function temperature(): string
+    {
+        $ageMinutes = $this->created_at === null ? PHP_INT_MAX : $this->created_at->diffInMinutes(now());
+
+        return match (true) {
+            $ageMinutes <= SystemSetting::integer('hot_lead_minutes') => 'Hot',
+            $ageMinutes <= SystemSetting::integer('warm_lead_hours') * 60 => 'Warm',
+            $ageMinutes <= SystemSetting::integer('cold_lead_hours') * 60 => 'Cool',
+            default => 'Cold',
+        };
+    }
+
+    /**
+     * Sort key for calling and distribution: lower is more urgent.
+     */
+    public function priorityRank(): int
+    {
+        $rank = ['Hot' => 0, 'Warm' => 2, 'Cool' => 4, 'Cold' => 6][$this->temperature()];
+        $highIntent = in_array($this->source?->channel, self::HIGH_INTENT_CHANNELS, true);
+
+        return $rank + ($highIntent ? 0 : 1);
+    }
+
     public function source(): BelongsTo
     {
         return $this->belongsTo(LeadSource::class, 'source_id', 'source_id');

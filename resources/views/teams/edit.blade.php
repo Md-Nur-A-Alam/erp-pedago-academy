@@ -21,7 +21,7 @@
 @endsection
 
 @section('content')
-    <section class="mx-auto w-full max-w-3xl rounded-xl border border-pedago-line bg-white shadow-sm" aria-labelledby="edit-team-heading">
+    <section class="mx-auto w-full max-w-3xl rounded-lg border border-pedago-line bg-white" aria-labelledby="edit-team-heading">
         <div class="border-b border-pedago-line px-6 py-4">
             <h2 class="text-base font-bold text-pedago-ink" id="edit-team-heading">Edit team {{ $team->name }}</h2>
         </div>
@@ -45,7 +45,7 @@
             <div class="flex flex-col gap-3 border-t border-pedago-line pt-4">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Shift)</span>
-                    <span class="rounded bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
+                    <span class="rounded bg-pedago-tint px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
                 </div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div class="sm:col-span-1">
@@ -75,7 +75,7 @@
                     </div>
                 </div>
                 @if ($team->shift)
-                    <p class="text-[11px] text-emerald-700">Current primary duty time: <strong>{{ \Carbon\Carbon::parse($team->shift->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($team->shift->shift_end_time)->format('h:i A') }}</strong> ({{ $team->shift->working_hours }} hrs).</p>
+                    <p class="text-[11px] text-pedago-green">Current primary duty time: <strong>{{ \Carbon\Carbon::parse($team->shift->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($team->shift->shift_end_time)->format('h:i A') }}</strong> ({{ $team->shift->working_hours }} hrs).</p>
                 @endif
                 <p class="text-[11px] text-pedago-muted">All team members will primarily inherit this duty time. Specific dates can be overridden from employee details calendar.</p>
             </div>
@@ -111,7 +111,7 @@
                         @foreach ($supervisors as $sup)
                             <label class="flex items-center gap-2 text-xs">
                                 <input class="size-4 rounded border-pedago-line text-pedago-blue focus:ring-pedago-blue" type="checkbox" name="supervisors[]" value="{{ $sup->id }}" @checked(in_array($sup->id, old('supervisors', $team->supervisors->pluck('id')->all()), false))>
-                                <span class="font-medium text-pedago-ink">{{ $sup->name }} <span class="font-mono text-xs text-pedago-muted">({{ $sup->office_id ?? '#'.$sup->id }})</span></span>
+                                <span class="font-medium text-pedago-ink">{{ $sup->name }} <span class="num text-xs text-pedago-muted">({{ $sup->office_id ?? '#'.$sup->id }})</span></span>
                                 <small class="text-pedago-muted">Supervises {{ $sup->supervisedTeams->pluck('name')->join(', ') ?: 'no teams' }}</small>
                             </label>
                         @endforeach
@@ -138,14 +138,14 @@
                         ]) data-edit-member-item data-name="{{ strtolower($exec->name . ' ' . ($exec->office_id ?? '') . ' #' . $exec->id) }}">
                             <span class="flex items-center gap-2">
                                 <input class="size-3.5 rounded border-pedago-line text-pedago-blue focus:ring-pedago-blue" type="checkbox" name="members[]" value="{{ $exec->id }}" @checked(in_array($exec->id, old('members', $team->members->pluck('id')->all()), false)) @disabled($isMemberOfOtherTeam) data-edit-member-checkbox>
-                                <span class="font-medium text-pedago-ink">{{ $exec->name }} <span class="font-mono text-[11px] text-pedago-muted">({{ $exec->office_id ?? '#'.$exec->id }})</span></span>
+                                <span class="font-medium text-pedago-ink">{{ $exec->name }} <span class="num text-[11px] text-pedago-muted">({{ $exec->office_id ?? '#'.$exec->id }})</span></span>
                             </span>
                             @if ($isMemberOfThisTeam)
                                 <span class="text-[10px] font-semibold text-pedago-blue-dark">In this team</span>
                             @elseif ($isMemberOfOtherTeam)
-                                <span class="text-[10px] font-semibold text-slate-500">In {{ $exec->team->name }}</span>
+                                <span class="text-[10px] font-semibold text-pedago-muted">In {{ $exec->team->name }}</span>
                             @else
-                                <span class="text-[10px] font-semibold text-emerald-700">No team</span>
+                                <span class="text-[10px] font-semibold text-pedago-green">No team</span>
                             @endif
                         </label>
                     @endforeach
@@ -153,7 +153,7 @@
                 <p class="text-[11px] text-pedago-muted">
                     <span data-edit-selected-member-count>{{ $team->members->count() }}</span> executives selected. Each executive belongs to one team. To move someone, remove them from their current team first.
                 </p>
-                <div class="rounded-md bg-amber-50 p-3 text-[11px] text-amber-800">
+                <div class="rounded-md bg-pedago-amber-tint p-3 text-[11px] text-pedago-amber">
                     Removing a member does not move their open leads. Reassign them from All leads.
                 </div>
             </div>
@@ -161,7 +161,7 @@
             {{-- 4. Status toggle and submit buttons --}}
             <div class="flex flex-wrap items-center justify-between gap-4 border-t border-pedago-line pt-5">
                 <div class="flex flex-col gap-0.5">
-                    <button class="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50" type="button" data-toggle-team-status>
+                    <button class="rounded-md border border-pedago-red-line px-3 py-1.5 text-xs font-semibold text-pedago-red transition hover:bg-pedago-red-tint" type="button" data-toggle-team-status>
                         {{ $team->is_active ? 'Deactivate team' : 'Activate team' }}
                     </button>
                     <span class="text-[10px] text-pedago-muted">

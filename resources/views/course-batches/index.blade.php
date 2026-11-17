@@ -4,7 +4,7 @@
 @section('page-description', 'Manage course cohorts, seat capacity, admissions, and start dates.')
 @section('content')
     <div class="flex flex-col gap-6">
-        <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm sm:p-6" aria-labelledby="create-batch-heading">
+        <section class="rounded-lg border border-pedago-line bg-white p-5 sm:p-6" aria-labelledby="create-batch-heading">
             <div class="mb-5 flex flex-col gap-1">
                 <h2 class="text-base font-bold" id="create-batch-heading">Add a course batch</h2>
                 <p class="text-sm text-pedago-muted">Admissions count enrolled students assigned to this batch; vacancy is calculated from capacity.</p>
@@ -44,7 +44,7 @@
             </form>
         </section>
 
-        <section class="overflow-hidden rounded-xl border border-pedago-line bg-white shadow-sm" aria-labelledby="batch-list-heading">
+        <section class="overflow-hidden rounded-lg border border-pedago-line bg-white" aria-labelledby="batch-list-heading">
             <div class="border-b border-pedago-line px-5 py-4">
                 <h2 class="text-base font-bold" id="batch-list-heading">All course batches</h2>
             </div>

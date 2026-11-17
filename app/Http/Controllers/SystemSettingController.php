@@ -2,9 +2,7 @@
 
 namespace App\Http\Controllers;
 
-use App\Models\Employee;
 use App\Models\SystemSetting;
-use App\Models\User;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,66 +10,61 @@ use Illuminate\View\View;
 
 class SystemSettingController extends Controller
 {
-    /**
-     * @var array<string, array{default: string, description: string}>
-     */
-    private const SETTING_DEFINITIONS = [
-        'lead_batch_size' => [
-            'default' => '3',
-            'description' => 'Default number of leads assigned in a batch.',
-        ],
-        'assignment_cutoff_minutes' => [
-            'default' => '30',
-            'description' => 'Minutes before shift end when new lead assignment stops.',
-        ],
-    ];
-
     public function index(Request $request): View
     {
-        $this->adminFor($request);
+        $this->employeeWithRole($request);
         $settings = [];
 
-        foreach (self::SETTING_DEFINITIONS as $key => $definition) {
+        foreach (SystemSetting::DEFINITIONS as $key => $definition) {
             $settings[$key] = SystemSetting::query()->firstOrCreate(
                 ['key' => $key],
                 ['value' => $definition['default'], 'description' => $definition['description']],
             );
         }
 
-        return view('settings.index', ['settings' => $settings]);
+        return view('settings.index', [
+            'settings' => $settings,
+            'groups' => collect(SystemSetting::DEFINITIONS)->groupBy('group', preserveKeys: true),
+        ]);
     }
 
     public function update(Request $request): RedirectResponse
     {
-        $this->adminFor($request);
-        $validated = $request->validate([
-            'settings' => ['required', 'array:lead_batch_size,assignment_cutoff_minutes'],
-            'settings.lead_batch_size' => ['required', 'integer', 'min:1', 'max:50'],
-            'settings.assignment_cutoff_minutes' => ['required', 'integer', 'min:0', 'max:180'],
-        ]);
+        $this->employeeWithRole($request);
+
+        $rules = ['settings' => ['required', 'array:'.implode(',', array_keys(SystemSetting::DEFINITIONS))]];
+        foreach (SystemSetting::DEFINITIONS as $key => $definition) {
+            $rules["settings.{$key}"] = $definition['type'] === 'boolean'
+                ? ['sometimes', 'required', 'in:0,1']
+                : ['sometimes', 'required', 'integer', 'min:'.$definition['min'], 'max:'.$definition['max']];
+        }
+        $attributes = collect(SystemSetting::DEFINITIONS)
+            ->mapWithKeys(fn (array $definition, string $key): array => ["settings.{$key}" => strtolower($definition['label'])])
+            ->all();
+        $validated = $request->validate($rules, [], $attributes);
 
         DB::transaction(function () use ($validated): void {
             foreach ($validated['settings'] as $key => $value) {
-                SystemSetting::query()->updateOrCreate(
-                    ['key' => $key],
-                    [
-                        'value' => (string) $value,
-                        'description' => self::SETTING_DEFINITIONS[$key]['description'],
-                    ],
-                );
+                SystemSetting::put($key, (string) $value);
             }
         });
 
         return redirect()->route('settings.index')->with('status', 'System settings saved successfully.');
     }
 
-    private function adminFor(Request $request): Employee
+    /**
+     * Turn automatic distribution on or off from the top bar.
+     */
+    public function toggleEngine(Request $request): RedirectResponse
     {
-        $user = $request->user();
-        $employee = $user instanceof User ? $user->employee : null;
+        $this->employeeWithRole($request);
+        $validated = $request->validate(['enabled' => ['required', 'boolean']]);
+        $enabled = (bool) $validated['enabled'];
 
-        abort_unless($employee instanceof Employee && $employee->isAdmin(), 403);
+        SystemSetting::put('distribution_engine_enabled', $enabled ? '1' : '0');
 
-        return $employee;
+        return back()->with('status', $enabled
+            ? 'Automatic distribution is on. Queue leads are assigned on every scheduled cycle.'
+            : 'Automatic distribution is off. Leads stay in the queue until you run a cycle or assign them yourself.');
     }
 }

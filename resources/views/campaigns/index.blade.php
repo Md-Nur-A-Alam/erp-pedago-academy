@@ -19,13 +19,13 @@
         ] as $stat)
             <article @class([
                 'rounded-lg border bg-white px-4 py-3',
-                'border-rose-200' => $stat['label'] === 'Not linked to a subject' && $stat['value'] > 0,
+                'border-pedago-red-line' => $stat['label'] === 'Not linked to a subject' && $stat['value'] > 0,
                 'border-pedago-line' => $stat['label'] !== 'Not linked to a subject' || $stat['value'] === 0,
             ])>
                 <p class="text-xs text-pedago-muted">{{ $stat['label'] }}</p>
                 <p @class([
                     'mt-1 text-2xl font-bold leading-none',
-                    'text-rose-700' => $stat['label'] === 'Not linked to a subject' && $stat['value'] > 0,
+                    'text-pedago-red' => $stat['label'] === 'Not linked to a subject' && $stat['value'] > 0,
                     'text-pedago-ink' => $stat['label'] !== 'Not linked to a subject' || $stat['value'] === 0,
                 ])>{{ number_format($stat['value']) }}</p>
                 @if ($stat['label'] === 'Not linked to a subject' && $stat['value'] > 0)
@@ -187,7 +187,7 @@
                                     </span>
                                     <span class="mt-1 block max-w-56 truncate text-[10px] text-pedago-muted" title="Course: {{ $campaign->course->title }}">Course: {{ $campaign->course->title }}</span>
                                 @else
-                                    <span class="rounded-full bg-amber-100 px-2 py-1 text-[10px] font-semibold text-amber-800">Not linked</span>
+                                    <span class="rounded-full bg-pedago-amber-tint px-2 py-1 text-[10px] font-semibold text-pedago-amber">Not linked</span>
                                 @endif
                             </td>
                             <td class="px-3 py-3 text-pedago-ink">{{ $channels[$campaign->channel] ?? $campaign->channel }}</td>
@@ -195,10 +195,10 @@
                                 <span @class([
                                     'inline-flex items-center gap-1 rounded-full px-2 py-1 text-[10px] font-semibold',
                                     'bg-pedago-tint text-pedago-blue-dark' => $campaign->distribution_mode === 'Auto',
-                                    'bg-amber-100 text-amber-800' => $campaign->distribution_mode === 'Manual',
+                                    'bg-pedago-amber-tint text-pedago-amber' => $campaign->distribution_mode === 'Manual',
                                 ])><span aria-hidden="true">●</span> {{ $campaign->distribution_mode }}</span>
                             </td>
-                            <td class="px-3 py-3 font-mono">{{ number_format($campaign->leads_count) }}</td>
+                            <td class="px-3 py-3 num">{{ number_format($campaign->leads_count) }}</td>
                             <td class="px-3 py-3">
                                 <span @class([
                                     'inline-flex items-center gap-1 rounded-md border px-2 py-1 text-[10px] font-semibold',
@@ -233,7 +233,7 @@
                                         data-editor="{{ $campaign->editedBy?->name ?? '—' }}">
                                         Edit
                                     </button>
-                                    <button class="rounded-md border border-rose-200 px-2.5 py-1.5 text-[10px] font-semibold text-rose-700 transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40" type="button" data-delete-campaign data-id="{{ $campaign->source_id }}" data-name="{{ $campaign->campaign_name }}" data-leads="{{ $campaign->leads_count }}" @disabled($campaign->leads_count > 0) title="{{ $campaign->leads_count > 0 ? 'Campaigns with leads cannot be deleted; deactivate instead' : 'Delete campaign' }}">
+                                    <button class="rounded-md border border-pedago-red-line px-2.5 py-1.5 text-[10px] font-semibold text-pedago-red transition hover:bg-pedago-red-tint disabled:cursor-not-allowed disabled:opacity-40" type="button" data-delete-campaign data-id="{{ $campaign->source_id }}" data-name="{{ $campaign->campaign_name }}" data-leads="{{ $campaign->leads_count }}" @disabled($campaign->leads_count > 0) title="{{ $campaign->leads_count > 0 ? 'Campaigns with leads cannot be deleted; deactivate instead' : 'Delete campaign' }}">
                                         Delete
                                     </button>
                                 </div>
@@ -257,7 +257,7 @@
 
     <p class="text-xs text-pedago-muted">Campaigns with leads cannot be deleted. Deactivate them instead.</p>
 
-    <dialog id="campaign-create-modal" class="m-auto max-h-[92vh] w-[min(94vw,32rem)] overflow-y-auto rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+    <dialog id="campaign-create-modal" class="m-auto max-h-[92vh] w-[min(94vw,32rem)] overflow-y-auto rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
         <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
             <h2 class="text-sm font-bold">Create campaign</h2>
             <button class="rounded p-1 text-pedago-muted hover:bg-pedago-canvas hover:text-pedago-ink" type="button" data-close-dialog aria-label="Close">×</button>
@@ -288,7 +288,7 @@
                 <span class="text-pedago-muted">Leads will show</span>
                 <span class="text-pedago-muted" data-preview-empty>Select a course to view subject and topic.</span>
                 <span class="hidden rounded-full bg-pedago-tint px-2 py-1 font-semibold text-pedago-blue-dark" data-preview-subject></span>
-                <span class="hidden rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" data-preview-topic></span>
+                <span class="hidden rounded-full bg-pedago-green-tint px-2 py-1 font-semibold text-pedago-green" data-preview-topic></span>
                 @if (auth()->user()->employee?->isAdmin())
                     <a class="ml-auto text-[11px] font-semibold text-pedago-blue-dark underline" href="{{ route('courses.index') }}">Manage courses</a>
                 @endif
@@ -328,7 +328,7 @@
         </form>
     </dialog>
 
-    <dialog id="campaign-edit-modal" class="m-auto max-h-[92vh] w-[min(94vw,32rem)] overflow-y-auto rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+    <dialog id="campaign-edit-modal" class="m-auto max-h-[92vh] w-[min(94vw,32rem)] overflow-y-auto rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
         <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
             <h2 class="text-sm font-bold">Edit campaign</h2>
             <button class="rounded p-1 text-pedago-muted hover:bg-pedago-canvas hover:text-pedago-ink" type="button" data-close-dialog aria-label="Close">×</button>
@@ -365,7 +365,7 @@
                 <span class="text-pedago-muted">Leads will show</span>
                 <span class="text-pedago-muted" data-preview-empty>Select a course to view subject and topic.</span>
                 <span class="hidden rounded-full bg-pedago-tint px-2 py-1 font-semibold text-pedago-blue-dark" data-preview-subject></span>
-                <span class="hidden rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" data-preview-topic></span>
+                <span class="hidden rounded-full bg-pedago-green-tint px-2 py-1 font-semibold text-pedago-green" data-preview-topic></span>
                 @if (auth()->user()->employee?->isAdmin())
                     <a class="ml-auto text-[11px] font-semibold text-pedago-blue-dark underline" href="{{ route('courses.index') }}">Manage courses</a>
                 @endif
@@ -406,7 +406,7 @@
 
             <div class="flex justify-between gap-2 border-t border-pedago-line pt-4">
                 <div>
-                    <button class="rounded-md border border-rose-200 px-4 py-2 text-sm font-semibold text-rose-700 hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-40" type="button" data-edit-delete>Delete</button>
+                    <button class="rounded-md border border-pedago-red-line px-4 py-2 text-sm font-semibold text-pedago-red hover:bg-pedago-red-tint disabled:cursor-not-allowed disabled:opacity-40" type="button" data-edit-delete>Delete</button>
                     <p class="mt-1 text-[10px] text-pedago-muted" data-edit-delete-note></p>
                 </div>
                 <div class="flex gap-2">
@@ -417,7 +417,7 @@
         </form>
     </dialog>
 
-    <dialog id="campaign-delete-modal" class="m-auto w-[min(94vw,28rem)] rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+    <dialog id="campaign-delete-modal" class="m-auto w-[min(94vw,28rem)] rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
         <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
             <h2 class="text-sm font-bold">Delete campaign?</h2>
             <button class="rounded p-1 text-pedago-muted hover:bg-pedago-canvas hover:text-pedago-ink" type="button" data-close-dialog aria-label="Close">×</button>
@@ -430,7 +430,7 @@
             @csrf
             @method('DELETE')
             <button class="rounded-md border border-pedago-line px-4 py-2 text-sm font-semibold text-pedago-ink hover:bg-pedago-canvas" type="button" data-close-dialog>Cancel</button>
-            <button class="rounded-md bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800" type="submit">Delete campaign</button>
+            <button class="rounded-md bg-pedago-red px-4 py-2 text-sm font-semibold text-white hover:bg-pedago-red" type="submit">Delete campaign</button>
         </form>
     </dialog>
 @endsection

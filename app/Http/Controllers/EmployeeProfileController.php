@@ -56,6 +56,11 @@ class EmployeeProfileController extends Controller
             abort(403, 'This employee has no login account.');
         }
 
+        if (! $actor->isAdmin()) {
+            $request->request->remove('role');
+            $request->request->remove('status');
+        }
+
         foreach (['phone_number', 'secondary_contact_number', 'emergency_contact_number'] as $phoneField) {
             if ($request->has($phoneField)) {
                 $request->merge([

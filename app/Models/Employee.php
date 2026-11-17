@@ -2,14 +2,17 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Database\Factories\EmployeeFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
+use Illuminate\Validation\ValidationException;
 
 #[Fillable([
     'user_id',
@@ -53,6 +56,18 @@ class Employee extends Model
         static::creating(function (Employee $employee): void {
             if (blank($employee->office_id)) {
                 $employee->office_id = static::nextOfficeId();
+            }
+        });
+
+        static::updating(function (Employee $employee): void {
+            $wasActiveAdmin = $employee->getOriginal('role') === 'Admin' && $employee->getOriginal('status') === 'Active';
+            $staysActiveAdmin = $employee->role === 'Admin' && $employee->status === 'Active';
+
+            if ($wasActiveAdmin && ! $staysActiveAdmin
+                && ! static::query()->where('role', 'Admin')->where('status', 'Active')->whereKeyNot($employee->id)->exists()) {
+                throw ValidationException::withMessages([
+                    'role' => 'The system must keep at least one active administrator. Make someone else an administrator first.',
+                ]);
             }
         });
     }
@@ -100,6 +115,75 @@ class Employee extends Model
     public function isAdmin(): bool
     {
         return $this->role === 'Admin';
+    }
+
+    /**
+     * Team ids this employee works with: supervised teams, led teams, or their own team.
+     *
+     * @return list<int>
+     */
+    public function managedTeamIds(): array
+    {
+        $ids = match ($this->role) {
+            'Supervisor' => $this->supervisedTeams()->pluck('teams.id')->all(),
+            'Team Leader' => $this->teamsLed()->pluck('id')->push($this->team_id)->all(),
+            default => [$this->team_id],
+        };
+
+        return array_values(array_unique(array_map('intval', array_filter($ids))));
+    }
+
+    /**
+     * Sales executives whose work this employee oversees, or null when everyone is in reach.
+     *
+     * @return list<int>|null
+     */
+    public function managedExecutiveIds(): ?array
+    {
+        if ($this->isAdmin()) {
+            return null;
+        }
+
+        if ($this->role === 'Sales Executive') {
+            return [$this->id];
+        }
+
+        if (! in_array($this->role, ['Supervisor', 'Team Leader'], true)) {
+            return [];
+        }
+
+        return static::query()
+            ->where('role', 'Sales Executive')
+            ->whereIn('team_id', $this->managedTeamIds())
+            ->pluck('id')
+            ->map(fn ($id): int => (int) $id)
+            ->all();
+    }
+
+    /**
+     * Leads this employee is allowed to see.
+     *
+     * @return Builder<Lead>
+     */
+    public function visibleLeads(): Builder
+    {
+        $query = Lead::query();
+
+        if ($this->isAdmin() || $this->role === 'MarketingExecutive') {
+            return $query;
+        }
+
+        if ($this->role === 'Sales Executive') {
+            return $query->where('current_owner_id', $this->id);
+        }
+
+        if (in_array($this->role, ['Supervisor', 'Team Leader'], true)) {
+            return $query->where(fn (Builder $scope) => $scope
+                ->whereIn('team_id', $this->managedTeamIds())
+                ->orWhereIn('current_owner_id', $this->managedExecutiveIds()));
+        }
+
+        return $query->whereRaw('1 = 0');
     }
 
     public function isProfileComplete(): bool
@@ -159,6 +243,19 @@ class Employee extends Model
         return $this->belongsTo(Team::class, 'team_id');
     }
 
+    public function effectiveTeam(): ?Team
+    {
+        if ($this->team !== null) {
+            return $this->team;
+        }
+
+        if ($this->relationLoaded('teamsLed')) {
+            return $this->teamsLed->first();
+        }
+
+        return $this->teamsLed()->first();
+    }
+
     public function todayRoster(): HasOne
     {
         return $this->hasOne(EmployeeRoster::class)->whereDate('roster_date', today());
@@ -183,44 +280,100 @@ class Employee extends Model
             }
         }
 
-        if ($this->team !== null && $this->team->shift !== null) {
-            return $this->team->shift;
+        $effectiveTeam = $this->effectiveTeam();
+        if ($effectiveTeam !== null && $effectiveTeam->shift !== null) {
+            return $effectiveTeam->shift;
         }
 
         return $this->defaultShift;
     }
 
-    public function effectiveAvailabilityStatus(?string $date = null): string
+    public function effectiveAvailabilityStatus(?string $date = null, ?Carbon $now = null): string
     {
         $targetDate = $date ?? today()->toDateString();
+        $isToday = $targetDate === today()->toDateString();
+        $currentTime = $now ?? Carbon::now();
 
+        // 1. Employee core status
+        if ($this->status === 'Inactive') {
+            return 'Unavailable';
+        }
+        if ($this->status === 'Suspended') {
+            return 'Unavailable';
+        }
+
+        // 2. Check date-specific roster override
         $roster = $this->relationLoaded('rosters')
             ? $this->rosters->first(fn (EmployeeRoster $r): bool => $r->roster_date->toDateString() === $targetDate)
-            : ($targetDate === today()->toDateString() && $this->relationLoaded('todayRoster')
+            : ($isToday && $this->relationLoaded('todayRoster')
                 ? $this->todayRoster
                 : $this->rosters()->whereDate('roster_date', $targetDate)->first());
 
         if ($roster !== null) {
+            // Day Off / Holiday
             if (! $roster->is_on_duty) {
+                return $roster->availability_status ?? 'Holiday';
+            }
+
+            // Explicit manual states set by Admin
+            if (in_array($roster->availability_status, ['Unavailable', 'Busy', 'Lazy', 'Holiday', 'Resigned', 'Cut Off'], true)) {
+                return $roster->availability_status;
+            }
+        }
+
+        // 3. Resolve effective shift (Override -> Team -> Individual default)
+        $shift = $this->effectiveShift($targetDate);
+        if ($shift === null) {
+            return ($roster !== null && ! $roster->is_on_duty) ? 'Holiday' : 'Off Duty';
+        }
+
+        // 4. For today, evaluate against wall-clock shift window & cutoff
+        if ($isToday) {
+            $shiftStart = Carbon::parse($currentTime->toDateString().' '.$shift->shift_start_time);
+            $shiftEnd = Carbon::parse($currentTime->toDateString().' '.$shift->shift_end_time);
+            if ($shiftEnd->lessThan($shiftStart)) {
+                $shiftEnd->addDay();
+            }
+
+            $cutoffMinutes = SystemSetting::integer('assignment_cutoff_minutes');
+            $cutoffTime = (clone $shiftEnd)->subMinutes($cutoffMinutes);
+
+            // Outside shift working window
+            if ($currentTime->lessThan($shiftStart)) {
+                return 'Off Duty';
+            }
+            if ($currentTime->greaterThanOrEqualTo($shiftEnd)) {
                 return 'Off Duty';
             }
 
-            return $roster->availability_status ?? 'Available';
+            // Inside cutoff window (last X minutes before shift ends)
+            if ($currentTime->greaterThanOrEqualTo($cutoffTime)) {
+                return 'Cut Off';
+            }
+
+            // Check if Lazy: follow-ups overdue beyond the configured threshold without action
+            $lazyThresholdHours = SystemSetting::integer('lazy_threshold_hours');
+            $hasLazyOverdue = $this->relationLoaded('leadFollowups')
+                ? $this->leadFollowups->contains(fn (LeadFollowup $f): bool => ! $f->is_done && $f->followup_date_time && $f->followup_date_time->lt($currentTime->copy()->subHours($lazyThresholdHours)))
+                : $this->leadFollowups()->where('is_done', false)->where('followup_date_time', '<', $currentTime->copy()->subHours($lazyThresholdHours))->exists();
+
+            if ($hasLazyOverdue) {
+                return 'Lazy';
+            }
+
+            // Check if Busy: currently has an active incomplete batch
+            $hasActiveBatch = $this->relationLoaded('batches')
+                ? $this->batches->contains(function (LeadBatch $b): bool {
+                    return $b->status === 'Active' && $b->items->contains(fn ($item): bool => ! $item->is_completed);
+                })
+                : $this->batches()->where('status', 'Active')->whereHas('items', fn ($q) => $q->where('is_completed', false))->exists();
+
+            if ($hasActiveBatch) {
+                return 'Busy';
+            }
         }
 
-        if ($this->status !== 'Active') {
-            return 'Unavailable';
-        }
-
-        if ($this->team !== null && $this->team->shift !== null) {
-            return 'Available';
-        }
-
-        if ($this->defaultShift !== null) {
-            return 'Available';
-        }
-
-        return 'Off Duty';
+        return 'Available';
     }
 
     public function supervisedTeams(): BelongsToMany

@@ -8,7 +8,7 @@
 
 @section('content')
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-6">
-        <form class="grid gap-5 rounded-xl border border-pedago-line bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:grid-cols-2 sm:p-7" method="POST" action="{{ route('courses.update', $course) }}">
+        <form class="grid gap-5 rounded-lg border border-pedago-line bg-white p-5 sm:grid-cols-2 sm:p-7" method="POST" action="{{ route('courses.update', $course) }}">
             @csrf
             @method('PUT')
             <label class="flex flex-col gap-2 text-sm font-semibold">Course title

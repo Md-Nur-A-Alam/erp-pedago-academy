@@ -3,7 +3,6 @@
 namespace App\Http\Controllers;
 
 use App\Models\Employee;
-use App\Models\EmployeeRoster;
 use App\Models\Lead;
 use App\Models\LeadBatch;
 use App\Models\LeadFollowup;
@@ -51,13 +50,26 @@ class TeamController extends Controller
 
         $totalSalesExecutives = $salesExecutivesInTeam + $salesExecutivesWithoutTeam;
 
-        // Available now: executives who have active roster on duty today and status 'Available'
-        $availableNowCount = EmployeeRoster::query()
-            ->whereDate('roster_date', Carbon::today())
-            ->where('is_on_duty', true)
-            ->where('availability_status', 'Available')
-            ->whereHas('employee', function (EloquentBuilder $query): void {
-                $query->where('role', 'Sales Executive')->whereNotNull('team_id');
+        // Available now: executives & leaders who have active roster on duty today and status 'Available',
+        // or active staff without a roster today whose team has a primary shift (or who have default shift)
+        $availableNowCount = Employee::query()
+            ->where(function (EloquentBuilder $q): void {
+                $q->where('role', 'Sales Executive')->whereNotNull('team_id')
+                    ->orWhere(function (EloquentBuilder $lq): void {
+                        $lq->where('role', 'Team Leader')->whereHas('teamsLed');
+                    });
+            })
+            ->where(function (EloquentBuilder $q): void {
+                $q->whereHas('todayRoster', fn (EloquentBuilder $rq) => $rq->where('is_on_duty', true)->where('availability_status', 'Available'))
+                    ->orWhere(function (EloquentBuilder $q2): void {
+                        $q2->whereDoesntHave('todayRoster')
+                            ->where('status', 'Active')
+                            ->where(function (EloquentBuilder $q3): void {
+                                $q3->whereHas('team', fn (EloquentBuilder $tq) => $tq->whereNotNull('shift_id'))
+                                    ->orWhereHas('teamsLed', fn (EloquentBuilder $tq) => $tq->whereNotNull('shift_id'))
+                                    ->orWhereNotNull('shift_id');
+                            });
+                    });
             })
             ->count();
 
@@ -72,7 +84,18 @@ class TeamController extends Controller
 
         // 2. Teams List Query
         $teamsQuery = Team::query()
-            ->with(['teamLeader', 'supervisors', 'members.todayRoster']);
+            ->with([
+                'shift',
+                'teamLeader.todayRoster.shift',
+                'teamLeader.defaultShift',
+                'teamLeader.batches.items',
+                'teamLeader.leadFollowups',
+                'supervisors',
+                'members.todayRoster.shift',
+                'members.defaultShift',
+                'members.batches.items',
+                'members.leadFollowups',
+            ]);
 
         if ($search !== '') {
             $teamsQuery->where(function (EloquentBuilder $query) use ($search): void {
@@ -105,11 +128,22 @@ class TeamController extends Controller
             $members = $team->members;
             $membersCount = $members->count();
 
-            // Count available members
-            $availableMembersCount = $members->filter(function (Employee $member): bool {
-                return $member->todayRoster !== null
-                    && $member->todayRoster->is_on_duty
-                    && $member->todayRoster->availability_status === 'Available';
+            foreach ($members as $member) {
+                $member->setRelation('team', $team);
+            }
+
+            if ($team->teamLeader) {
+                $team->teamLeader->setRelation('teamsLed', collect([$team]));
+            }
+
+            $allTeamStaff = $members->concat($team->teamLeader ? collect([$team->teamLeader]) : collect());
+
+            // Count staff (members + leader) who have an active calendar override today
+            $overwrittenCount = $allTeamStaff->filter(fn (Employee $staff): bool => $staff->todayRoster !== null)->count();
+
+            // Count available staff (members + leader) adhering to availability rules (override > team shift > default shift)
+            $availableStaffCount = $allTeamStaff->filter(function (Employee $staff): bool {
+                return $staff->effectiveAvailabilityStatus() === 'Available';
             })->count();
 
             // Open leads: leads assigned to this team that are not terminal
@@ -143,7 +177,9 @@ class TeamController extends Controller
 
             $teamStats[$team->id] = [
                 'members_count' => $membersCount,
-                'available_count' => $availableMembersCount,
+                'staff_count' => $allTeamStaff->count(),
+                'available_count' => $availableStaffCount,
+                'overwritten_count' => $overwrittenCount,
                 'open_leads_count' => $openLeadsCount,
                 'overdue_count' => $overdueCount,
                 'conversion_rate_30d' => $conversionRate,
@@ -231,19 +267,48 @@ class TeamController extends Controller
 
     public function show(Request $request, Team $team): View
     {
-        $this->employeeFor($request);
+        $this->employeeFor($request, $team);
 
-        $team->load(['shift', 'teamLeader', 'supervisors', 'members.defaultShift', 'members.todayRoster.shift']);
+        $team->load([
+            'shift',
+            'teamLeader.defaultShift',
+            'teamLeader.todayRoster.shift',
+            'teamLeader.batches.items',
+            'teamLeader.leadFollowups',
+            'supervisors',
+            'members.defaultShift',
+            'members.todayRoster.shift',
+            'members.batches.items',
+            'members.leadFollowups',
+        ]);
 
         $thirtyDaysAgo = Carbon::now()->subDays(30);
 
         $members = $team->members;
         $membersCount = $members->count();
 
+        foreach ($members as $member) {
+            $member->setRelation('team', $team);
+        }
+
+        if ($team->teamLeader) {
+            $team->teamLeader->setRelation('teamsLed', collect([$team]));
+        }
+
+        // Roster staff includes Team Leader (if assigned) followed by team members
+        $rosterStaff = collect();
+        if ($team->teamLeader) {
+            $rosterStaff->push($team->teamLeader);
+        }
+        foreach ($members as $member) {
+            $rosterStaff->push($member);
+        }
+
+        $allStaff = $members->concat($team->teamLeader ? collect([$team->teamLeader]) : collect());
+        $overwrittenCount = $allStaff->filter(fn (Employee $member): bool => $member->todayRoster !== null)->count();
+
         $availableNowCount = $members->filter(function (Employee $member): bool {
-            return $member->todayRoster !== null
-                && $member->todayRoster->is_on_duty
-                && $member->todayRoster->availability_status === 'Available';
+            return $member->effectiveAvailabilityStatus() === 'Available';
         })->count();
 
         $openLeadsCount = Lead::query()
@@ -281,7 +346,7 @@ class TeamController extends Controller
             ->whereHas('lead', fn (EloquentBuilder $q) => $q->where('team_id', $team->id))
             ->count();
 
-        $lazyExecutivesCount = $members->filter(function (Employee $member): bool {
+        $lazyExecutivesCount = $allStaff->filter(function (Employee $member): bool {
             return $member->todayRoster !== null
                 && $member->todayRoster->availability_status === 'Lazy';
         })->count();
@@ -296,73 +361,80 @@ class TeamController extends Controller
             ->where('status', 'Pending')
             ->count();
 
-        // Details for each member
+        // Details for each staff member in team roster
         $memberStats = [];
         $executivePerformance = [];
         $maxConv = 0;
 
-        foreach ($members as $member) {
+        foreach ($rosterStaff as $staff) {
+            $isLeader = $team->teamLeader && $team->teamLeader->id === $staff->id;
+
             // Shift display (Date override > Team shift > Individual default shift)
             $shiftDisplay = 'Day off';
-            if ($member->todayRoster && $member->todayRoster->shift) {
-                $shiftDisplay = substr($member->todayRoster->shift->shift_start_time, 0, 5).'–'.substr($member->todayRoster->shift->shift_end_time, 0, 5);
+            if ($staff->todayRoster && $staff->todayRoster->shift) {
+                $shiftDisplay = substr($staff->todayRoster->shift->shift_start_time, 0, 5).'–'.substr($staff->todayRoster->shift->shift_end_time, 0, 5);
             } elseif ($team->shift) {
                 $shiftDisplay = substr($team->shift->shift_start_time, 0, 5).'–'.substr($team->shift->shift_end_time, 0, 5);
-            } elseif ($member->defaultShift) {
-                $shiftDisplay = substr($member->defaultShift->shift_start_time, 0, 5).'–'.substr($member->defaultShift->shift_end_time, 0, 5);
+            } elseif ($staff->defaultShift) {
+                $shiftDisplay = substr($staff->defaultShift->shift_start_time, 0, 5).'–'.substr($staff->defaultShift->shift_end_time, 0, 5);
             }
 
             // Status display
-            $statusDisplay = $member->todayRoster?->availability_status ?? 'Off duty';
+            $statusDisplay = $staff->effectiveAvailabilityStatus();
+            $isOverridden = $staff->todayRoster !== null;
 
             // Active batch progress
             $activeBatch = LeadBatch::query()
-                ->where('employee_id', $member->id)
+                ->where('employee_id', $staff->id)
                 ->where('status', 'Active')
                 ->withCount(['items as completed_count' => fn ($q) => $q->where('is_completed', true)])
                 ->first();
 
             $batchDisplay = $activeBatch ? "{$activeBatch->completed_count}/{$activeBatch->batch_size}" : '—';
 
-            // Member overdue followups
-            $memberOverdue = LeadFollowup::query()
-                ->where('employee_id', $member->id)
+            // Staff overdue followups
+            $staffOverdue = LeadFollowup::query()
+                ->where('employee_id', $staff->id)
                 ->where('is_done', false)
                 ->where('followup_date_time', '<', Carbon::now())
                 ->count();
 
-            // Member 30d conversion
-            $mTotal30d = Lead::query()
-                ->where('current_owner_id', $member->id)
+            // Staff 30d conversion
+            $sTotal30d = Lead::query()
+                ->where('current_owner_id', $staff->id)
                 ->where('created_at', '>=', $thirtyDaysAgo)
                 ->count();
 
-            $mConverted30d = Lead::query()
-                ->where('current_owner_id', $member->id)
+            $sConverted30d = Lead::query()
+                ->where('current_owner_id', $staff->id)
                 ->where('status', 'Converted')
                 ->where('created_at', '>=', $thirtyDaysAgo)
                 ->count();
 
-            $mRate = $mTotal30d > 0 ? round(($mConverted30d / $mTotal30d) * 100, 1) : 0.0;
+            $sRate = $sTotal30d > 0 ? round(($sConverted30d / $sTotal30d) * 100, 1) : 0.0;
 
-            if ($mConverted30d > $maxConv) {
-                $maxConv = $mConverted30d;
+            if ($sConverted30d > $maxConv) {
+                $maxConv = $sConverted30d;
             }
 
-            $memberStats[$member->id] = [
+            $memberStats[$staff->id] = [
+                'is_leader' => $isLeader,
                 'shift' => $shiftDisplay,
+                'is_overridden' => $isOverridden,
                 'status' => $statusDisplay,
                 'batch' => $batchDisplay,
-                'overdue' => $memberOverdue,
-                'conversion_rate_30d' => $mRate,
-                'converted_count_30d' => $mConverted30d,
+                'overdue' => $staffOverdue,
+                'conversion_rate_30d' => $sRate,
+                'converted_count_30d' => $sConverted30d,
             ];
 
-            $executivePerformance[] = [
-                'id' => $member->id,
-                'name' => $member->name,
-                'conversions' => $mConverted30d,
-            ];
+            if (! $isLeader) {
+                $executivePerformance[] = [
+                    'id' => $staff->id,
+                    'name' => $staff->name,
+                    'conversions' => $sConverted30d,
+                ];
+            }
         }
 
         // Sort performance by conversions desc
@@ -415,9 +487,11 @@ class TeamController extends Controller
 
         return view('teams.show', [
             'team' => $team,
+            'rosterStaff' => $rosterStaff,
             'stats' => [
                 'members' => $membersCount,
                 'available_now' => $availableNowCount,
+                'overwritten_count' => $overwrittenCount,
                 'open_leads' => $openLeadsCount,
                 'in_active_batches' => $inActiveBatchesCount,
                 'conversion_rate_30d' => $conversionRate,
@@ -440,7 +514,7 @@ class TeamController extends Controller
 
     public function create(Request $request): View
     {
-        $this->employeeFor($request);
+        $this->employeeFor($request, adminOnly: true);
 
         $supervisorsList = Employee::query()
             ->where('role', 'Supervisor')
@@ -473,7 +547,7 @@ class TeamController extends Controller
 
     public function edit(Request $request, Team $team): View
     {
-        $this->employeeFor($request);
+        $this->employeeFor($request, $team);
 
         $team->load(['teamLeader', 'supervisors', 'members', 'shift']);
 
@@ -515,7 +589,7 @@ class TeamController extends Controller
 
     public function store(Request $request): RedirectResponse
     {
-        $currentEmployee = $this->employeeFor($request);
+        $currentEmployee = $this->employeeFor($request, adminOnly: true);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100', 'unique:teams,name'],
@@ -570,7 +644,7 @@ class TeamController extends Controller
 
     public function update(Request $request, Team $team): RedirectResponse
     {
-        $currentEmployee = $this->employeeFor($request);
+        $currentEmployee = $this->employeeFor($request, $team);
 
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:100', Rule::unique('teams', 'name')->ignore($team->id)],
@@ -659,7 +733,7 @@ class TeamController extends Controller
 
     public function toggleStatus(Request $request, Team $team): RedirectResponse
     {
-        $currentEmployee = $this->employeeFor($request);
+        $currentEmployee = $this->employeeFor($request, $team, adminOnly: true);
 
         $team->update([
             'is_active' => ! $team->is_active,
@@ -674,7 +748,7 @@ class TeamController extends Controller
 
     public function removeMember(Request $request, Team $team, Employee $employee): RedirectResponse
     {
-        $this->employeeFor($request);
+        $this->employeeFor($request, $team);
 
         if ($employee->team_id === $team->id) {
             $employee->update(['team_id' => null]);
@@ -686,7 +760,7 @@ class TeamController extends Controller
 
     public function destroy(Request $request, Team $team): RedirectResponse
     {
-        $this->employeeFor($request);
+        $this->employeeFor($request, $team, adminOnly: true);
 
         $leadsCount = Lead::query()->where('team_id', $team->id)->count();
         if ($leadsCount > 0) {
@@ -705,7 +779,11 @@ class TeamController extends Controller
             ->with('status', "Team '{$team->name}' deleted successfully.");
     }
 
-    private function employeeFor(Request $request): Employee
+    /**
+     * Admins manage every team. Supervisors and team leaders may open and change only the teams they
+     * supervise or lead, and only admins may create, delete or switch a team on and off.
+     */
+    private function employeeFor(Request $request, ?Team $team = null, bool $adminOnly = false): Employee
     {
         $user = $request->user();
         $employee = $user instanceof User ? $user->employee : null;
@@ -715,6 +793,11 @@ class TeamController extends Controller
                 && in_array($employee->role, ['Admin', 'Supervisor', 'Team Leader'], true),
             403,
         );
+
+        if (! $employee->isAdmin()) {
+            abort_if($adminOnly, 403, 'Only an administrator can do this.');
+            abort_if($team !== null && ! in_array($team->id, $employee->managedTeamIds(), true), 403, 'This is not one of your teams.');
+        }
 
         return $employee;
     }

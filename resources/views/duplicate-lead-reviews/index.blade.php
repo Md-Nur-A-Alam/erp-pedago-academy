@@ -7,7 +7,7 @@
 @endsection
 
 @section('content')
-    <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm" aria-labelledby="review-filter-heading">
+    <section class="rounded-lg border border-pedago-line bg-white p-5" aria-labelledby="review-filter-heading">
         <div class="mb-4 flex flex-wrap items-baseline justify-between gap-3">
             <h2 class="text-base font-bold" id="review-filter-heading">Find reviews</h2>
             <a class="text-sm font-semibold text-pedago-blue-dark underline underline-offset-2" href="{{ route('duplicate-lead-reviews.index') }}">Clear filters</a>
@@ -28,7 +28,7 @@
     <section class="flex flex-col gap-4" aria-label="Duplicate lead reviews">
         @forelse ($reviews as $review)
             @php($incoming = $review->incoming_lead_data)
-            <article class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-6">
+            <article class="rounded-lg border border-pedago-line bg-white p-5 sm:p-6">
                 <div class="flex flex-wrap items-start justify-between gap-3 border-b border-pedago-line pb-4">
                     <div class="flex flex-col gap-1">
                         <h2 class="text-base font-bold">Possible match · {{ $review->match_reason }}</h2>
@@ -99,7 +99,7 @@
                 @endif
             </article>
         @empty
-            <div class="rounded-xl border border-dashed border-pedago-line bg-white px-5 py-12 text-center">
+            <div class="rounded-lg border border-dashed border-pedago-line bg-white px-5 py-12 text-center">
                 <p class="font-semibold text-pedago-ink">No duplicate reviews found</p>
                 <p class="mt-1 text-sm text-pedago-muted">Possible matches from lead uploads will appear here.</p>
             </div>

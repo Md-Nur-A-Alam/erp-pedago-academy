@@ -10,10 +10,10 @@
 
 @section('content')
     {{-- 1. Team Header Banner --}}
-    <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm sm:p-6" aria-labelledby="team-header-heading">
+    <section class="rounded-lg border border-pedago-line bg-white p-5 sm:p-6" aria-labelledby="team-header-heading">
         <div class="flex flex-wrap items-center justify-between gap-4">
             <div class="flex items-center gap-4">
-                <div class="flex size-14 shrink-0 items-center justify-center rounded-xl bg-pedago-tint text-xl font-bold text-pedago-blue-dark shadow-inner" aria-hidden="true">
+                <div class="flex size-14 shrink-0 items-center justify-center rounded-lg bg-pedago-tint text-xl font-bold text-pedago-blue-dark shadow-inner" aria-hidden="true">
                     {{ strtoupper(substr($team->name, 0, 1)) }}
                 </div>
                 <div>
@@ -21,15 +21,42 @@
                     <div class="mt-2 flex flex-wrap items-center gap-2 text-xs">
                         <span @class([
                             'inline-flex items-center gap-1 rounded-full px-2.5 py-0.5 font-semibold text-[11px]',
-                            'bg-emerald-100 text-emerald-800' => $team->is_active,
-                            'bg-slate-100 text-slate-700' => ! $team->is_active,
+                            'bg-pedago-green-tint text-pedago-green' => $team->is_active,
+                            'bg-pedago-slate-tint text-pedago-muted' => ! $team->is_active,
                         ])>
                             <span aria-hidden="true">●</span> {{ $team->is_active ? 'Active' : 'Inactive' }}
                         </span>
-                        <span class="rounded-full bg-pedago-tint px-2.5 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">
+                        <span class="inline-flex items-center gap-1.5 rounded-full bg-pedago-tint px-2.5 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">
                             Leader:
                             @if ($team->teamLeader)
-                                {{ $team->teamLeader->name }} ({{ $team->teamLeader->office_id ?? '#'.$team->teamLeader->id }})
+                                @php
+                                    $leaderAvail = $team->teamLeader->effectiveAvailabilityStatus();
+                                @endphp
+                                <span>{{ $team->teamLeader->name }} ({{ $team->teamLeader->office_id ?? '#'.$team->teamLeader->id }})</span>
+                                <span @class([
+                                    'inline-flex items-center gap-1 rounded-full px-2 py-0.2 text-[10px] font-semibold',
+                                    'bg-pedago-green-tint text-pedago-green' => $leaderAvail === 'Available',
+                                    'bg-blue-100 text-blue-800' => $leaderAvail === 'Busy',
+                                    'bg-purple-100 text-pedago-blue-dark' => $leaderAvail === 'Cut Off',
+                                    'bg-pedago-amber-tint text-pedago-amber' => $leaderAvail === 'Holiday',
+                                    'bg-pedago-slate-tint text-pedago-muted' => in_array($leaderAvail, ['Off Duty', 'Off duty'], true),
+                                    'bg-pedago-amber-tint text-pedago-amber' => in_array($leaderAvail, ['Unavailable', 'Break'], true),
+                                    'bg-pedago-red-tint text-pedago-red' => $leaderAvail === 'Lazy',
+                                    'bg-pedago-slate-tint text-pedago-muted' => $leaderAvail === 'Resigned',
+                                ])>
+                                    <span @class([
+                                        'size-1.5 rounded-full',
+                                        'bg-pedago-green' => $leaderAvail === 'Available',
+                                        'bg-blue-500' => $leaderAvail === 'Busy',
+                                        'bg-pedago-blue-soft' => $leaderAvail === 'Cut Off',
+                                        'bg-pedago-amber' => $leaderAvail === 'Holiday',
+                                        'bg-pedago-muted' => in_array($leaderAvail, ['Off Duty', 'Off duty'], true),
+                                        'bg-pedago-amber' => in_array($leaderAvail, ['Unavailable', 'Break'], true),
+                                        'bg-pedago-red' => $leaderAvail === 'Lazy',
+                                        'bg-pedago-muted' => $leaderAvail === 'Resigned',
+                                    ])></span>
+                                    {{ $leaderAvail }}
+                                </span>
                             @else
                                 None
                             @endif
@@ -42,12 +69,17 @@
                                 None
                             @endforelse
                         </span>
-                        <span class="rounded-full bg-indigo-50 px-2.5 py-0.5 text-[11px] font-semibold text-indigo-700">
+                        <span class="rounded-full bg-pedago-tint px-2.5 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">
                             Duty time:
                             @if ($team->shift)
                                 {{ \Carbon\Carbon::parse($team->shift->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($team->shift->shift_end_time)->format('h:i A') }} ({{ $team->shift->working_hours }}h)
                             @else
                                 Not set
+                            @endif
+                            @if (($stats['overwritten_count'] ?? 0) > 0)
+                                <span class="ml-1 rounded-full bg-pedago-amber-tint px-1.5 py-0.5 text-[10px] font-semibold text-pedago-amber border border-pedago-amber/30">
+                                    overwrite: {{ $stats['overwritten_count'] }}
+                                </span>
                             @endif
                         </span>
                     </div>
@@ -87,13 +119,13 @@
 
         <article @class([
             'rounded-lg border bg-white px-4 py-3',
-            'border-rose-200' => $stats['overdue_followups'] > 0,
+            'border-pedago-red-line' => $stats['overdue_followups'] > 0,
             'border-pedago-line' => $stats['overdue_followups'] === 0,
         ])>
             <p class="text-xs text-pedago-muted">Overdue follow-ups</p>
             <p @class([
                 'mt-1 text-2xl font-bold leading-none',
-                'text-rose-700' => $stats['overdue_followups'] > 0,
+                'text-pedago-red' => $stats['overdue_followups'] > 0,
                 'text-pedago-ink' => $stats['overdue_followups'] === 0,
             ])>{{ number_format($stats['overdue_followups']) }}</p>
             <p class="mt-1 text-[11px] text-pedago-muted">{{ $stats['lazy_executives'] }} executives Lazy</p>
@@ -109,18 +141,18 @@
     {{-- 3. Main Grid: Members Table + Right Column Cards --}}
     <div class="grid gap-5 xl:grid-cols-[1fr_340px]">
         {{-- Left: Members Table --}}
-        <section class="overflow-hidden rounded-lg border border-pedago-line bg-white shadow-sm" aria-labelledby="members-heading">
+        <section class="overflow-hidden rounded-lg border border-pedago-line bg-white" aria-labelledby="members-heading">
             <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
-                <h2 class="text-sm font-bold text-pedago-ink" id="members-heading">Members</h2>
-                <span class="text-xs text-pedago-muted">Showing {{ $team->members->count() }} of {{ $team->members->count() }}</span>
+                <h2 class="text-sm font-bold text-pedago-ink" id="members-heading">Team Roster &amp; Members</h2>
+                <span class="text-xs text-pedago-muted">Showing {{ $rosterStaff->count() }} of {{ $rosterStaff->count() }}</span>
             </div>
             <div class="overflow-x-auto">
                 <table class="w-full min-w-[700px] border-collapse text-left text-xs">
                     <thead class="border-b border-pedago-line bg-pedago-canvas/40 text-[10px] uppercase tracking-wide text-pedago-muted">
                         <tr>
-                            <th class="px-4 py-3 font-semibold">Executive</th>
-                            <th class="px-3 py-3 font-semibold">Shift</th>
-                            <th class="px-3 py-3 font-semibold">Status</th>
+                            <th class="px-4 py-3 font-semibold">Staff Member</th>
+                            <th class="px-3 py-3 font-semibold">Shift / Duty Time</th>
+                            <th class="px-3 py-3 font-semibold">Availability Status</th>
                             <th class="px-3 py-3 font-semibold">Batch</th>
                             <th class="px-3 py-3 font-semibold">Overdue</th>
                             <th class="px-3 py-3 font-semibold">Conversion (30d)</th>
@@ -128,62 +160,93 @@
                         </tr>
                     </thead>
                     <tbody class="divide-y divide-pedago-line">
-                        @forelse ($team->members as $member)
-                            @php($mStat = $memberStats[$member->id] ?? [])
+                        @forelse ($rosterStaff as $staff)
+                            @php($mStat = $memberStats[$staff->id] ?? [])
+                            @php($isLeader = ! empty($mStat['is_leader']))
                             <tr class="transition-colors hover:bg-pedago-canvas/60">
                                 <td class="px-4 py-3 font-semibold text-pedago-ink">
-                                    <span>{{ $member->name }}</span>
-                                    <span class="font-mono text-[11px] font-normal text-pedago-muted">({{ $member->office_id ?? '#'.$member->id }})</span>
+                                    <div class="flex items-center gap-1.5">
+                                        <span>{{ $staff->name }}</span>
+                                        @if ($isLeader)
+                                            <span class="rounded bg-pedago-tint px-1.5 py-0.5 text-[10px] font-semibold text-pedago-blue-dark">Leader</span>
+                                        @else
+                                            <span class="rounded bg-pedago-slate-tint px-1.5 py-0.5 text-[10px] font-semibold text-pedago-muted">Executive</span>
+                                        @endif
+                                    </div>
+                                    <div class="num text-[11px] font-normal text-pedago-muted">{{ $staff->office_id ?? '#'.$staff->id }}</div>
                                 </td>
                                 <td class="px-3 py-3 text-pedago-muted">
-                                    {{ $mStat['shift'] ?? 'Day off' }}
+                                    <div class="flex items-center gap-1.5">
+                                        <span class="num text-xs font-semibold text-pedago-ink">{{ $mStat['shift'] ?? 'Day off' }}</span>
+                                        @if (! empty($mStat['is_overridden']))
+                                            <span class="rounded bg-pedago-tint px-1.5 py-0.5 text-[9px] font-semibold text-pedago-blue-dark border border-pedago-line" title="Specific date override">Override</span>
+                                        @elseif ($team->shift)
+                                            <span class="rounded bg-pedago-tint px-1.5 py-0.5 text-[9px] font-semibold text-pedago-blue-dark border border-pedago-line" title="Inherited from team duty time">Team</span>
+                                        @endif
+                                    </div>
                                 </td>
                                 <td class="px-3 py-3">
-                                    @php($st = $mStat['status'] ?? 'Off duty')
+                                    @php($st = $mStat['status'] ?? 'Off Duty')
                                     <span @class([
-                                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-semibold',
-                                        'bg-emerald-100 text-emerald-800' => $st === 'Available',
-                                        'bg-blue-100 text-blue-800' => $st === 'Busy',
-                                        'bg-slate-100 text-slate-700' => $st === 'Off duty',
-                                        'bg-amber-100 text-amber-800' => $st === 'Unavailable',
-                                        'bg-rose-100 text-rose-800' => $st === 'Lazy',
+                                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold',
+                                        'bg-pedago-green-tint text-pedago-green' => $st === 'Available',
+                                        'bg-blue-50 text-blue-800' => $st === 'Busy',
+                                        'bg-pedago-tint text-pedago-blue-dark' => $st === 'Cut Off',
+                                        'bg-pedago-amber-tint text-pedago-amber' => $st === 'Holiday',
+                                        'bg-pedago-slate-tint text-pedago-muted' => in_array($st, ['Off Duty', 'Off duty'], true),
+                                        'bg-pedago-red-tint text-pedago-red' => $st === 'Lazy',
+                                        'bg-pedago-amber-tint text-pedago-amber' => in_array($st, ['Unavailable', 'Break'], true),
+                                        'bg-pedago-slate-tint text-pedago-muted' => $st === 'Resigned',
                                     ])>
+                                        <span @class([
+                                            'size-1.5 rounded-full',
+                                            'bg-pedago-green' => $st === 'Available',
+                                            'bg-blue-500' => $st === 'Busy',
+                                            'bg-pedago-blue-soft' => $st === 'Cut Off',
+                                            'bg-pedago-amber' => $st === 'Holiday',
+                                            'bg-pedago-muted' => in_array($st, ['Off Duty', 'Off duty'], true),
+                                            'bg-pedago-red' => $st === 'Lazy',
+                                            'bg-pedago-amber' => in_array($st, ['Unavailable', 'Break'], true),
+                                            'bg-pedago-muted' => $st === 'Resigned',
+                                        ])></span>
                                         {{ $st }}
                                     </span>
                                 </td>
-                                <td class="px-3 py-3 font-mono">
+                                <td class="px-3 py-3 num">
                                     {{ $mStat['batch'] ?? '—' }}
                                 </td>
-                                <td class="px-3 py-3 font-mono">
+                                <td class="px-3 py-3 num">
                                     @if (($mStat['overdue'] ?? 0) > 0)
-                                        <span class="font-bold text-rose-700">{{ $mStat['overdue'] }}</span>
+                                        <span class="font-bold text-pedago-red">{{ $mStat['overdue'] }}</span>
                                     @else
                                         <span>0</span>
                                     @endif
                                 </td>
-                                <td class="px-3 py-3 font-mono">
+                                <td class="px-3 py-3 num">
                                     {{ $mStat['conversion_rate_30d'] ?? 0 }}%
                                 </td>
                                 <td class="px-4 py-3">
                                     <div class="flex items-center gap-1.5">
-                                        {{-- View employee profile icon --}}
-                                        <a class="inline-flex size-7 items-center justify-center rounded-md border border-pedago-line text-pedago-ink transition hover:border-pedago-blue hover:bg-pedago-tint hover:text-pedago-blue-dark" href="{{ route('employees.edit', $member) }}" title="View profile" aria-label="View {{ $member->name }}">
+                                        {{-- View employee profile & calendar override icon --}}
+                                        <a class="inline-flex size-7 items-center justify-center rounded-md border border-pedago-line text-pedago-ink transition hover:border-pedago-blue hover:bg-pedago-tint hover:text-pedago-blue-dark" href="{{ route('employees.edit', $staff) }}" title="View profile & schedule" aria-label="View {{ $staff->name }}">
                                             <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor">
                                                 <path d="M10 12.5a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" />
                                                 <path fill-rule="evenodd" d="M.664 10.59a1.651 1.651 0 010-1.186A10.004 10.004 0 0110 3c4.257 0 7.893 2.66 9.336 6.41.147.381.146.804 0 1.186A10.004 10.004 0 0110 17c-4.257 0-7.893-2.66-9.336-6.41zM14 10a4 4 0 11-8 0 4 4 0 018 0z" clip-rule="evenodd" />
                                             </svg>
                                         </a>
 
-                                        {{-- Remove member from team icon --}}
-                                        <button class="inline-flex size-7 items-center justify-center rounded-md border border-rose-200 text-rose-700 transition hover:bg-rose-50" type="button" title="Remove member" aria-label="Remove {{ $member->name }} from {{ $team->name }}"
-                                            data-remove-member
-                                            data-id="{{ $member->id }}"
-                                            data-name="{{ $member->name }}"
-                                            data-office-id="{{ $member->office_id ?? '#'.$member->id }}">
-                                            <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor">
-                                                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-                                            </svg>
-                                        </button>
+                                        @if (! $isLeader)
+                                            {{-- Remove member from team icon --}}
+                                            <button class="inline-flex size-7 items-center justify-center rounded-md border border-pedago-red-line text-pedago-red transition hover:bg-pedago-red-tint" type="button" title="Remove member" aria-label="Remove {{ $staff->name }} from {{ $team->name }}"
+                                                data-remove-member
+                                                data-id="{{ $staff->id }}"
+                                                data-name="{{ $staff->name }}"
+                                                data-office-id="{{ $staff->office_id ?? '#'.$staff->id }}">
+                                                <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor">
+                                                    <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
+                                                </svg>
+                                            </button>
+                                        @endif
                                     </div>
                                 </td>
                             </tr>
@@ -200,7 +263,7 @@
         {{-- Right: Executive Performance + Pipeline Funnel --}}
         <aside class="flex flex-col gap-4">
             {{-- Performance by executive card --}}
-            <section class="rounded-lg border border-pedago-line bg-white p-4 shadow-sm" aria-labelledby="perf-heading">
+            <section class="rounded-lg border border-pedago-line bg-white p-4" aria-labelledby="perf-heading">
                 <div class="flex items-center justify-between border-b border-pedago-line pb-3">
                     <h2 class="text-sm font-bold text-pedago-ink" id="perf-heading">Performance by executive</h2>
                     <span class="text-[11px] text-pedago-muted">Last 30 days</span>
@@ -210,7 +273,7 @@
                         <div class="flex flex-col gap-1">
                             <div class="flex items-center justify-between text-xs">
                                 <span class="font-medium text-pedago-ink">{{ $exec['name'] }}</span>
-                                <span class="font-mono font-bold text-pedago-ink">{{ $exec['conversions'] }}</span>
+                                <span class="num font-bold text-pedago-ink">{{ $exec['conversions'] }}</span>
                             </div>
                             <div class="h-2 w-full overflow-hidden rounded-full bg-pedago-canvas">
                                 <div class="h-full rounded-full bg-pedago-blue transition-all" style="width: {{ $exec['width_percent'] }}%"></div>
@@ -226,7 +289,7 @@
             </section>
 
             {{-- Team pipeline card --}}
-            <section class="rounded-lg border border-pedago-line bg-white p-4 shadow-sm" aria-labelledby="pipeline-heading">
+            <section class="rounded-lg border border-pedago-line bg-white p-4" aria-labelledby="pipeline-heading">
                 <div class="flex items-center justify-between border-b border-pedago-line pb-3">
                     <h2 class="text-sm font-bold text-pedago-ink" id="pipeline-heading">Team pipeline</h2>
                     <span class="text-[11px] text-pedago-muted">Open leads</span>
@@ -236,14 +299,14 @@
                         <div class="flex flex-col gap-1">
                             <div class="flex items-center justify-between text-xs">
                                 <span class="font-medium text-pedago-ink">{{ $item['stage'] }}</span>
-                                <span class="font-mono font-bold text-pedago-ink">{{ number_format($item['count']) }}</span>
+                                <span class="num font-bold text-pedago-ink">{{ number_format($item['count']) }}</span>
                             </div>
                             <div class="h-2 w-full overflow-hidden rounded-full bg-pedago-canvas">
                                 <div @class([
                                     'h-full rounded-full transition-all',
                                     'bg-pedago-blue' => $item['stage'] === 'Follow-up' || $item['stage'] === 'Interested',
-                                    'bg-amber-500' => $item['stage'] === 'Pending payment',
-                                    'bg-emerald-600' => $item['stage'] === 'Converted',
+                                    'bg-pedago-amber' => $item['stage'] === 'Pending payment',
+                                    'bg-pedago-green' => $item['stage'] === 'Converted',
                                 ]) style="width: {{ $item['width_percent'] }}%"></div>
                             </div>
                         </div>
@@ -254,7 +317,7 @@
     </div>
 
     {{-- Edit Team Modal --}}
-    <dialog id="team-edit-modal" class="m-auto max-h-[92vh] w-[min(94vw,34rem)] overflow-y-auto rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+    <dialog id="team-edit-modal" class="m-auto max-h-[92vh] w-[min(94vw,34rem)] overflow-y-auto rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
         <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
             <h2 class="text-base font-bold">Edit team {{ $team->name }}</h2>
             <button class="rounded p-1 text-pedago-muted hover:bg-pedago-canvas hover:text-pedago-ink" type="button" data-close-dialog aria-label="Close">×</button>
@@ -277,7 +340,7 @@
             <div class="flex flex-col gap-3 border-t border-pedago-line pt-4">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Shift)</span>
-                    <span class="rounded bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
+                    <span class="rounded bg-pedago-tint px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
                 </div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div class="sm:col-span-1">
@@ -307,7 +370,7 @@
                     </div>
                 </div>
                 @if ($team->shift)
-                    <p class="text-[11px] text-emerald-700">Current primary duty time: <strong>{{ \Carbon\Carbon::parse($team->shift->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($team->shift->shift_end_time)->format('h:i A') }}</strong> ({{ $team->shift->working_hours }} hrs).</p>
+                    <p class="text-[11px] text-pedago-green">Current primary duty time: <strong>{{ \Carbon\Carbon::parse($team->shift->shift_start_time)->format('h:i A') }} - {{ \Carbon\Carbon::parse($team->shift->shift_end_time)->format('h:i A') }}</strong> ({{ $team->shift->working_hours }} hrs).</p>
                 @endif
                 <p class="text-[11px] text-pedago-muted">All team members will primarily inherit this duty time. Specific dates can be overridden from employee details calendar.</p>
             </div>
@@ -339,7 +402,7 @@
                         @foreach ($supervisors as $sup)
                             <label class="flex items-center gap-2 text-xs">
                                 <input class="size-4 rounded border-pedago-line text-pedago-blue focus:ring-pedago-blue" type="checkbox" name="supervisors[]" value="{{ $sup->id }}" @checked(in_array($sup->id, old('supervisors', $team->supervisors->pluck('id')->all()), false))>
-                                <span class="font-medium text-pedago-ink">{{ $sup->name }} <span class="font-mono text-[11px] text-pedago-muted">({{ $sup->office_id ?? '#'.$sup->id }})</span></span>
+                                <span class="font-medium text-pedago-ink">{{ $sup->name }} <span class="num text-[11px] text-pedago-muted">({{ $sup->office_id ?? '#'.$sup->id }})</span></span>
                                 <small class="text-pedago-muted">Supervises {{ $sup->supervisedTeams->pluck('name')->join(', ') ?: 'no teams' }}</small>
                             </label>
                         @endforeach
@@ -367,14 +430,14 @@
                             <span class="flex items-center gap-2">
                                 <input class="size-3.5 rounded border-pedago-line text-pedago-blue focus:ring-pedago-blue" type="checkbox" name="members[]" value="{{ $exec->id }}" @checked(in_array($exec->id, old('members', $team->members->pluck('id')->all()), false)) @disabled($isMemberOfOtherTeam) data-edit-member-checkbox>
                                 <span class="font-medium text-pedago-ink">{{ $exec->name }}</span>
-                                <span class="font-mono text-[11px] text-pedago-muted">({{ $exec->office_id ?? '#'.$exec->id }})</span>
+                                <span class="num text-[11px] text-pedago-muted">({{ $exec->office_id ?? '#'.$exec->id }})</span>
                             </span>
                             @if ($isMemberOfThisTeam)
                                 <span class="text-[10px] font-semibold text-pedago-blue-dark">In this team</span>
                             @elseif ($isMemberOfOtherTeam)
-                                <span class="text-[10px] font-semibold text-slate-500">In {{ $exec->team->name }}</span>
+                                <span class="text-[10px] font-semibold text-pedago-muted">In {{ $exec->team->name }}</span>
                             @else
-                                <span class="text-[10px] font-semibold text-emerald-700">No team</span>
+                                <span class="text-[10px] font-semibold text-pedago-green">No team</span>
                             @endif
                         </label>
                     @endforeach
@@ -382,14 +445,14 @@
                 <p class="text-[11px] text-pedago-muted">
                     <span data-edit-selected-member-count>{{ $team->members->count() }}</span> executives selected. Each executive belongs to one team. To move someone, remove them from their current team first.
                 </p>
-                <div class="rounded-md bg-amber-50 p-2.5 text-[11px] text-amber-800">
+                <div class="rounded-md bg-pedago-amber-tint p-2.5 text-[11px] text-pedago-amber">
                     Removing a member does not move their open leads. Reassign them from All leads.
                 </div>
             </div>
 
             <div class="flex flex-wrap items-center justify-between gap-3 border-t border-pedago-line pt-4">
                 <div class="flex flex-col gap-0.5">
-                    <button class="rounded-md border border-rose-200 px-3 py-1.5 text-xs font-semibold text-rose-700 transition hover:bg-rose-50" type="button" data-toggle-team-status>
+                    <button class="rounded-md border border-pedago-red-line px-3 py-1.5 text-xs font-semibold text-pedago-red transition hover:bg-pedago-red-tint" type="button" data-toggle-team-status>
                         {{ $team->is_active ? 'Deactivate team' : 'Activate team' }}
                     </button>
                     <span class="text-[10px] text-pedago-muted">
@@ -405,14 +468,14 @@
     </dialog>
 
     {{-- Remove Member Confirmation Modal --}}
-    <dialog id="member-remove-modal" class="m-auto w-[min(94vw,28rem)] rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+    <dialog id="member-remove-modal" class="m-auto w-[min(94vw,28rem)] rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
         <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
             <h2 class="text-sm font-bold text-pedago-ink">Remove member from team?</h2>
             <button class="rounded p-1 text-pedago-muted hover:bg-pedago-canvas hover:text-pedago-ink" type="button" data-close-dialog aria-label="Close">×</button>
         </div>
         <div class="flex flex-col gap-3 px-5 py-4 text-xs leading-5 text-pedago-muted">
-            <p>Are you sure you want to remove <strong class="text-pedago-ink" data-remove-member-name></strong> (<span class="font-mono text-pedago-ink" data-remove-member-id></span>) from <strong>{{ $team->name }}</strong>?</p>
-            <div class="rounded-md border border-amber-200 bg-amber-50 p-2.5 text-amber-800">
+            <p>Are you sure you want to remove <strong class="text-pedago-ink" data-remove-member-name></strong> (<span class="num text-pedago-ink" data-remove-member-id></span>) from <strong>{{ $team->name }}</strong>?</p>
+            <div class="rounded-md border border-pedago-amber/30 bg-pedago-amber-tint p-2.5 text-pedago-amber">
                 Their open leads will remain with them. You can reassign leads from the All Leads screen.
             </div>
         </div>
@@ -420,7 +483,7 @@
             @csrf
             @method('DELETE')
             <button class="rounded-md border border-pedago-line px-4 py-2 text-sm font-semibold text-pedago-ink hover:bg-pedago-canvas" type="button" data-close-dialog>Cancel</button>
-            <button class="rounded-md bg-rose-700 px-4 py-2 text-sm font-semibold text-white hover:bg-rose-800" type="submit">Remove member</button>
+            <button class="rounded-md bg-pedago-red px-4 py-2 text-sm font-semibold text-white hover:bg-pedago-red" type="submit">Remove member</button>
         </form>
     </dialog>
 @endsection

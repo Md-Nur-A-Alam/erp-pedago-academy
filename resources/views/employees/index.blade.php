@@ -20,7 +20,7 @@
         };
     @endphp
 
-    <section class="overflow-hidden rounded-xl border border-pedago-line bg-white shadow-sm" aria-labelledby="employee-list-heading">
+    <section class="overflow-hidden rounded-lg border border-pedago-line bg-white" aria-labelledby="employee-list-heading">
         <div class="border-b border-pedago-line px-5 py-4">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 class="text-base font-bold" id="employee-list-heading">Employee directory</h2>
@@ -64,7 +64,7 @@
                 <label class="sr-only" for="employee-availability">Filter by availability</label>
                 <select class="rounded-md border border-pedago-line bg-white px-3 py-2.5 text-sm transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="employee-availability" name="availability">
                     <option value="">All availability</option>
-                    @foreach (['Available', 'Busy', 'On Call', 'Break', 'Off Duty'] as $availOpt)
+                    @foreach (['Available', 'Busy', 'Cut Off', 'Holiday', 'Off Duty', 'Lazy', 'Unavailable'] as $availOpt)
                         <option value="{{ $availOpt }}" @selected(($filters['availability'] ?? '') === $availOpt)>{{ $availOpt }}</option>
                     @endforeach
                 </select>
@@ -104,7 +104,7 @@
                                                 </svg>
                                             @endif
                                         @else
-                                            <svg class="size-3 text-slate-300 opacity-60 transition group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                                            <svg class="size-3 text-pedago-muted opacity-60 transition group-hover:opacity-100" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                                                 <path d="m7 15 5 5 5-5" />
                                                 <path d="m7 9 5-5 5 5" />
                                             </svg>
@@ -123,7 +123,7 @@
                                 <p class="font-semibold text-pedago-ink">{{ $employee->name }}</p>
                                 <p class="mt-0.5 text-xs text-pedago-muted">Joined {{ $employee->joining_date?->format('M j, Y') ?? '—' }}</p>
                             </td>
-                            <td class="px-5 py-3 font-mono text-xs font-semibold text-pedago-ink">{{ $employee->office_id }}</td>
+                            <td class="px-5 py-3 num text-xs font-semibold text-pedago-ink">{{ $employee->office_id }}</td>
                             <td class="px-5 py-3">
                                 @if ($employee->team)
                                     <a class="font-medium text-pedago-blue-dark transition hover:underline" href="{{ route('teams.show', $employee->team) }}">
@@ -139,7 +139,7 @@
                                 @elseif ($employee->supervisedTeams->isNotEmpty())
                                     <div class="flex flex-wrap items-center gap-1">
                                         <span class="font-medium text-pedago-ink">{{ $employee->supervisedTeams->pluck('name')->join(', ') }}</span>
-                                        <span class="rounded bg-amber-50 px-1.5 py-0.5 text-[10px] font-semibold text-amber-800">Supervisor</span>
+                                        <span class="rounded bg-pedago-amber-tint px-1.5 py-0.5 text-[10px] font-semibold text-pedago-amber">Supervisor</span>
                                     </div>
                                 @else
                                     <span class="text-xs text-pedago-muted">—</span>
@@ -147,7 +147,7 @@
                             </td>
                             <td class="px-5 py-3">{{ $employee->designation }}</td>
                             <td class="px-5 py-3">{{ $employee->role }}</td>
-                            <td class="px-5 py-3 font-mono text-xs">{{ $employee->user?->phone_number ?? '—' }}</td>
+                            <td class="px-5 py-3 num text-xs">{{ $employee->user?->phone_number ?? '—' }}</td>
                             <td class="px-5 py-3">
                                 <span @class([
                                     'rounded-full px-2.5 py-1 text-xs font-semibold',
@@ -167,28 +167,34 @@
                                     <span @class([
                                         'inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-xs font-semibold',
                                         'bg-pedago-green-tint text-pedago-green' => $availStatus === 'Available',
-                                        'bg-pedago-tint text-pedago-blue-dark' => in_array($availStatus, ['Busy', 'On Call'], true),
-                                        'bg-pedago-amber-tint text-pedago-amber' => in_array($availStatus, ['Break', 'Unavailable', 'Off Duty'], true),
-                                        'bg-pedago-red-tint text-pedago-red' => in_array($availStatus, ['Lazy', 'Resigned'], true),
-                                        'bg-pedago-canvas text-pedago-muted' => ! in_array($availStatus, ['Available', 'Busy', 'On Call', 'Break', 'Unavailable', 'Off Duty', 'Lazy', 'Resigned'], true),
+                                        'bg-blue-50 text-blue-800' => $availStatus === 'Busy',
+                                        'bg-pedago-tint text-pedago-blue-dark' => $availStatus === 'Cut Off',
+                                        'bg-pedago-amber-tint text-pedago-amber' => $availStatus === 'Holiday',
+                                        'bg-pedago-slate-tint text-pedago-muted' => $availStatus === 'Off Duty',
+                                        'bg-pedago-red-tint text-pedago-red' => $availStatus === 'Lazy',
+                                        'bg-pedago-amber-tint text-pedago-amber' => in_array($availStatus, ['Unavailable', 'Break'], true),
+                                        'bg-pedago-slate-tint text-pedago-muted' => $availStatus === 'Resigned',
                                     ])>
                                         <span @class([
                                             'size-1.5 rounded-full',
-                                            'bg-emerald-500' => $availStatus === 'Available',
-                                            'bg-blue-500' => in_array($availStatus, ['Busy', 'On Call'], true),
-                                            'bg-amber-500' => in_array($availStatus, ['Break', 'Unavailable', 'Off Duty'], true),
-                                            'bg-red-500' => in_array($availStatus, ['Lazy', 'Resigned'], true),
-                                            'bg-slate-400' => ! in_array($availStatus, ['Available', 'Busy', 'On Call', 'Break', 'Unavailable', 'Off Duty', 'Lazy', 'Resigned'], true),
+                                            'bg-pedago-green' => $availStatus === 'Available',
+                                            'bg-blue-500' => $availStatus === 'Busy',
+                                            'bg-pedago-blue-soft' => $availStatus === 'Cut Off',
+                                            'bg-pedago-amber' => $availStatus === 'Holiday',
+                                            'bg-pedago-muted' => $availStatus === 'Off Duty',
+                                            'bg-pedago-red' => $availStatus === 'Lazy',
+                                            'bg-pedago-amber' => in_array($availStatus, ['Unavailable', 'Break'], true),
+                                            'bg-pedago-muted' => $availStatus === 'Resigned',
                                         ])></span>
                                         {{ $availStatus }}
                                     </span>
                                     @if ($shiftTime)
                                         <div class="mt-0.5 flex items-center gap-1">
-                                            <span class="text-[10.5px] font-mono text-pedago-muted">{{ $shiftTime }}</span>
+                                            <span class="text-[10.5px] num text-pedago-muted">{{ $shiftTime }}</span>
                                             @if ($isDateOverride)
-                                                <span class="rounded bg-indigo-50 px-1 py-0.2 text-[9px] font-semibold text-indigo-700" title="Specific date override">Override</span>
-                                            @elseif ($employee->team?->shift)
-                                                <span class="rounded bg-sky-50 px-1 py-0.2 text-[9px] font-semibold text-sky-700" title="Inherited from team duty time">Team</span>
+                                                <span class="rounded bg-pedago-tint px-1 py-0.2 text-[9px] font-semibold text-pedago-blue-dark" title="Specific date override">Override</span>
+                                            @elseif ($employee->effectiveTeam()?->shift)
+                                                <span class="rounded bg-pedago-tint px-1 py-0.2 text-[9px] font-semibold text-pedago-blue-dark" title="Inherited from team duty time">Team</span>
                                             @endif
                                         </div>
                                     @endif

@@ -7,7 +7,7 @@
 @endsection
 @section('content')
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-6">
-        <form class="grid gap-5 rounded-xl border border-pedago-line bg-white p-5 shadow-sm sm:grid-cols-2 sm:p-7" method="POST" action="{{ route('course-batches.update', $courseBatch) }}">
+        <form class="grid gap-5 rounded-lg border border-pedago-line bg-white p-5 sm:grid-cols-2 sm:p-7" method="POST" action="{{ route('course-batches.update', $courseBatch) }}">
             @csrf
             @method('PUT')
             <div class="flex flex-col gap-2 text-sm font-semibold">

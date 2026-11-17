@@ -21,6 +21,8 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'is_auto_transferred',
     'is_admin_override',
     'status',
+    'decided_by_employee_id',
+    'decision_note',
     'transferred_at',
 ])]
 class LeadTransfer extends Model
@@ -66,6 +68,11 @@ class LeadTransfer extends Model
     public function senderTeamLeader(): BelongsTo
     {
         return $this->belongsTo(Employee::class, 'sender_tl_employee_id');
+    }
+
+    public function decidedBy(): BelongsTo
+    {
+        return $this->belongsTo(Employee::class, 'decided_by_employee_id');
     }
 
     public function receiverTeamLeader(): BelongsTo

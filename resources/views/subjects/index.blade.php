@@ -5,7 +5,7 @@
 @section('content')
     <div class="grid gap-4 xl:grid-cols-[minmax(19rem,0.82fr)_minmax(34rem,1.8fr)]">
         <div class="flex flex-col gap-4">
-            <section class="rounded-lg border border-pedago-line bg-white p-4 shadow-sm" aria-labelledby="create-subject-heading">
+            <section class="rounded-lg border border-pedago-line bg-white p-4" aria-labelledby="create-subject-heading">
                 <h2 class="mb-3 text-sm font-bold" id="create-subject-heading">Add a subject</h2>
                 <form class="flex flex-col gap-3 sm:flex-row sm:items-end" method="POST" action="{{ route('subjects.store') }}">
                     @csrf
@@ -20,7 +20,7 @@
                 @enderror
             </section>
 
-            <section class="rounded-lg border border-pedago-line bg-white p-4 shadow-sm" aria-labelledby="subject-list-heading">
+            <section class="rounded-lg border border-pedago-line bg-white p-4" aria-labelledby="subject-list-heading">
                 <div class="mb-3 flex items-baseline justify-between gap-2">
                     <h2 class="text-sm font-bold" id="subject-list-heading">Subject catalogue</h2>
                     <span class="text-xs text-pedago-muted">{{ $subjects->count() }} subjects</span>
@@ -52,7 +52,7 @@
 
         @if ($selectedSubject)
             <div class="flex flex-col gap-4">
-                <section class="rounded-lg border border-pedago-line bg-white p-4 shadow-sm" aria-labelledby="subject-editor-heading">
+                <section class="rounded-lg border border-pedago-line bg-white p-4" aria-labelledby="subject-editor-heading">
                     <div class="mb-3 flex items-baseline justify-between gap-2">
                         <h2 class="text-sm font-bold" id="subject-editor-heading">Subject</h2>
                     </div>
@@ -69,7 +69,7 @@
                             @csrf
                             @method('DELETE')
                             <input type="hidden" name="selected_subject_id" value="{{ $selectedSubject->id }}">
-                            <button class="rounded-md border border-rose-200 px-3 py-2.5 text-sm font-semibold text-pedago-red transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50" type="submit" @disabled($selectedSubject->courses_count > 0 || $selectedSubject->campaigns_count > 0) title="{{ $selectedSubject->courses_count > 0 || $selectedSubject->campaigns_count > 0 ? 'A subject used by campaigns or courses cannot be deleted' : 'Delete subject' }}">Delete subject</button>
+                            <button class="rounded-md border border-pedago-red-line px-3 py-2.5 text-sm font-semibold text-pedago-red transition hover:bg-pedago-red-tint disabled:cursor-not-allowed disabled:opacity-50" type="submit" @disabled($selectedSubject->courses_count > 0 || $selectedSubject->campaigns_count > 0) title="{{ $selectedSubject->courses_count > 0 || $selectedSubject->campaigns_count > 0 ? 'A subject used by campaigns or courses cannot be deleted' : 'Delete subject' }}">Delete subject</button>
                         </form>
                     </div>
                     <p class="mt-2 text-xs text-pedago-muted">A subject used by campaigns or courses cannot be deleted.</p>
@@ -81,7 +81,7 @@
                     @enderror
                 </section>
 
-                <section class="rounded-lg border border-pedago-line bg-white p-4 shadow-sm" aria-labelledby="topic-list-heading">
+                <section class="rounded-lg border border-pedago-line bg-white p-4" aria-labelledby="topic-list-heading">
                     <div class="mb-3 flex flex-wrap items-baseline justify-between gap-2">
                         <h2 class="text-sm font-bold" id="topic-list-heading">Topics</h2>
                         <span class="text-xs text-pedago-muted">{{ $selectedSubject->topics_count }} topics · {{ $selectedSubject->courses_count }} courses</span>
@@ -111,7 +111,7 @@
                                 @csrf
                                 @method('DELETE')
                                 <input type="hidden" name="selected_subject_id" value="{{ $selectedSubject->id }}">
-                                <button class="rounded-md border border-rose-200 px-3 py-2 text-xs font-semibold text-pedago-red transition hover:bg-rose-50 disabled:cursor-not-allowed disabled:opacity-50" type="submit" @disabled($topic->courses_count > 0 || $topic->campaigns_count > 0) title="{{ $topic->courses_count > 0 || $topic->campaigns_count > 0 ? 'A topic used by campaigns or courses cannot be deleted' : 'Delete topic' }}">Delete topic</button>
+                                <button class="rounded-md border border-pedago-red-line px-3 py-2 text-xs font-semibold text-pedago-red transition hover:bg-pedago-red-tint disabled:cursor-not-allowed disabled:opacity-50" type="submit" @disabled($topic->courses_count > 0 || $topic->campaigns_count > 0) title="{{ $topic->courses_count > 0 || $topic->campaigns_count > 0 ? 'A topic used by campaigns or courses cannot be deleted' : 'Delete topic' }}">Delete topic</button>
                             </form>
                         </div>
                     @empty
@@ -136,7 +136,7 @@
                     @enderror
                 </section>
 
-                <section class="rounded-lg border border-pedago-line bg-white p-4 shadow-sm" aria-labelledby="lead-preview-heading">
+                <section class="rounded-lg border border-pedago-line bg-white p-4" aria-labelledby="lead-preview-heading">
                     <div class="mb-3 flex items-baseline justify-between gap-2">
                         <h2 class="text-sm font-bold" id="lead-preview-heading">How leads will see it</h2>
                         <span class="text-xs text-pedago-muted">Preview</span>
@@ -148,9 +148,9 @@
                             <span class="text-pedago-muted">{{ $previewLead->contact_number }}</span>
                             <span class="rounded-full bg-pedago-tint px-2.5 py-1 font-semibold text-pedago-blue-dark">● {{ $previewLead->source->course->subject->name }}</span>
                             @if ($previewLead->source->course->topic)
-                                <span class="rounded-full bg-emerald-100 px-2.5 py-1 font-semibold text-emerald-800">● {{ $previewLead->source->course->topic->name }}</span>
+                                <span class="rounded-full bg-pedago-green-tint px-2.5 py-1 font-semibold text-pedago-green">● {{ $previewLead->source->course->topic->name }}</span>
                             @endif
-                            <span class="rounded-full bg-slate-200 px-2.5 py-1 font-semibold text-slate-700">● {{ $previewLead->source->campaign_name }}</span>
+                            <span class="rounded-full bg-pedago-slate-tint px-2.5 py-1 font-semibold text-pedago-muted">● {{ $previewLead->source->campaign_name }}</span>
                         </div>
                     @else
                         <p class="text-xs leading-relaxed text-pedago-muted">Campaigns linked to a course under {{ $selectedSubject->name }} will show the subject and topic on each lead. No matching campaign leads are available to preview yet.</p>

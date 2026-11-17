@@ -1,0 +1,294 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="robots" content="noindex, nofollow">
+    <title>Pedago ERP Rule Book</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&amp;family=IBM+Plex+Sans:wght@400;500;600;700&amp;family=Noto+Sans+Bengali:wght@400;600&amp;display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<a class="skip" href="#content">Skip to content</a>
+<header class="top">
+    <button class="menu" id="menu" type="button" aria-controls="toc" aria-expanded="false" aria-label="Toggle contents">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 12h18M3 6h18M3 18h18"/></svg>
+    </button>
+    <div class="brand"><strong>Pedago ERP</strong><span>Rule book · 17 November 2026</span></div>
+    <label class="sr" for="search">Filter sections</label>
+    <input id="search" type="search" placeholder="Filter sections, e.g. transfer">
+</header>
+
+<div class="shell">
+    <nav class="toc" id="toc" aria-label="Contents">
+        <p class="toc-title">Contents</p>
+        <ol id="toc-list"></ol>
+        <p class="toc-note">Source documents: <a href="../00_README.md">analysis pack</a> · <a href="../10_Implementation_Update.md">implementation update</a></p>
+    </nav>
+
+    <main id="content">
+        <section id="purpose" data-title="Purpose">
+            <h1>How the Pedago ERP works</h1>
+            <p class="lead">The sales lead module takes every inquiry Pedago Academy receives, gives it to one sales executive, makes sure it is called quickly and followed up on time, and confirms the enrollment only when the money is verified.</p>
+            <div class="cards">
+                <div class="card"><b>One owner</b><span>A lead belongs to one executive at a time. Every move is deliberate and recorded.</span></div>
+                <div class="card"><b>Fresh first</b><span>The newest leads are served first, because a lead cools with every hour it waits.</span></div>
+                <div class="card"><b>Small batches</b><span>An executive holds a few leads, finishes them, and only then gets more.</span></div>
+                <div class="card"><b>Promises kept</b><span>A missed call-back is visible to managers and stops new leads.</span></div>
+            </div>
+            <p class="note">Figures such as “60 minutes” or “3 leads” are the default settings. An administrator can change them under Settings; the Documentation page inside the ERP always shows the current values.</p>
+        </section>
+
+        <section id="roles" data-title="Roles and permissions">
+            <h2>Roles and permissions</h2>
+            <p>Six roles. Each sees only what it needs.</p>
+            <div class="scroll"><table>
+                <thead><tr><th>Action</th><th>Admin</th><th>Supervisor</th><th>Team leader</th><th>Sales executive</th><th>Marketer</th><th>Accounts</th></tr></thead>
+                <tbody>
+                <tr><th>See leads</th><td class="y">All</td><td class="y">Own teams</td><td class="y">Own team</td><td class="y">Own leads</td><td class="y">All</td><td>—</td></tr>
+                <tr><th>Record call feedback</th><td>—</td><td>—</td><td>—</td><td class="y">Own leads</td><td>—</td><td>—</td></tr>
+                <tr><th>Upload leads, manage campaigns</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td class="y">Yes</td><td>—</td></tr>
+                <tr><th>Central queue, run distribution</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>Duplicate review</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>See follow-ups</th><td class="y">All</td><td class="y">Own teams</td><td class="y">Own team</td><td class="y">Own</td><td>—</td><td>—</td></tr>
+                <tr><th>Reassign a follow-up</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>Request a transfer</th><td>—</td><td>—</td><td>—</td><td class="y">Own leads</td><td>—</td><td>—</td></tr>
+                <tr><th>Decide a transfer</th><td class="y">Any</td><td>—</td><td class="y">Own team’s</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>Verify or reject payments</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td class="y">Yes</td></tr>
+                <tr><th>Change a team</th><td class="y">Any</td><td class="y">Own teams</td><td class="y">Own team</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>Create or delete a team</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>Employees, courses, settings, reports</th><td class="y">Yes</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                <tr><th>Read or reset staff passwords</th><td class="y">Yes, logged</td><td>—</td><td>—</td><td>—</td><td>—</td><td>—</td></tr>
+                </tbody>
+            </table></div>
+            <ul>
+                <li>Nobody can request a role or status change for themselves.</li>
+                <li>The last active administrator cannot be demoted or deactivated.</li>
+                <li>An inactive or suspended employee is signed out on their next click.</li>
+            </ul>
+        </section>
+
+        <section id="lifecycle" data-title="Lead life cycle">
+            <h2>Lead life cycle</h2>
+            <p>A lead has exactly one status.</p>
+            <ol class="flow">
+                <li><b>New</b><span>In the central queue, no owner</span></li>
+                <li><b>Assigned</b><span>With an executive, not yet called</span></li>
+                <li><b>Follow-up / Interested</b><span>Called; a call-back or a decision is pending</span></li>
+                <li><b>Pending payment</b><span>Enrollment created, money awaited</span></li>
+                <li><b>Under review</b><span>Payment submitted, Accounts checking</span></li>
+                <li class="ok"><b>Converted</b><span>Payment verified</span></li>
+            </ol>
+            <p>Closed outcomes at any point after a call: <span class="pill slate">Not Interested</span> <span class="pill slate">Unreachable</span> <span class="pill slate">Lost</span>. A lead returned to the queue becomes New again and remembers its previous owner.</p>
+        </section>
+
+        <section id="intake" data-title="Lead intake and duplicates">
+            <h2>Lead intake and duplicates</h2>
+            <ul>
+                <li>Leads arrive by CSV upload, single entry or quick-create, always under a <b>campaign</b> (channel, optional course, distribution mode).</li>
+                <li><b>Auto</b> campaigns feed the engine. <b>Manual</b> campaigns wait for an administrator to assign their leads.</li>
+                <li>A lead whose phone number already exists is not created. It is held in <b>Duplicate review</b>, where an administrator approves it as new, merges it or discards it.</li>
+                <li><b>High-intent channels</b> — phone, reference, WhatsApp, website, Google form — are served ahead of ad leads of the same temperature, because the person contacted Pedago first.</li>
+            </ul>
+        </section>
+
+        <section id="priority" data-title="Lead priority: hot, warm, cool, cold">
+            <h2>Lead priority: hot, warm, cool, cold</h2>
+            <p>Studies of sales response times agree on one thing: the chance of reaching and qualifying a person is highest in the first minutes after they ask, drops sharply within the first hour, and keeps falling over the following days. The system is built around that.</p>
+            <div class="temps">
+                <div class="temp hot"><b>Hot</b><span>up to 60 minutes old</span></div>
+                <div class="temp warm"><b>Warm</b><span>up to 24 hours</span></div>
+                <div class="temp cool"><b>Cool</b><span>up to 72 hours</span></div>
+                <div class="temp cold"><b>Cold</b><span>older than 72 hours</span></div>
+            </div>
+            <div class="tool" aria-labelledby="temp-tool-title">
+                <h3 id="temp-tool-title">Try it: how old is the lead?</h3>
+                <label for="age">Age of the lead: <output id="age-out">30 minutes</output></label>
+                <input id="age" type="range" min="0" max="100" value="18" step="1">
+                <p>This lead is <span class="pill" id="age-pill">Hot</span> <span id="age-text"></span></p>
+            </div>
+            <h3>What the temperature decides</h3>
+            <ul>
+                <li><b>Distribution:</b> hot leads go out first, then warm, newest first.</li>
+                <li><b>No lead is forgotten:</b> one slot in every four of a cycle is kept for the longest-waiting cool or cold lead.</li>
+                <li><b>Calling order:</b> on an executive’s task list, hot leads are at the top.</li>
+                <li><b>Supervision:</b> team leaders see assigned leads that have had no first call, longest wait first.</li>
+            </ul>
+        </section>
+
+        <section id="engine" data-title="Distribution engine">
+            <h2>Distribution engine</h2>
+            <p>Leads are handed out in batches of up to <b>n = 3</b>. Let <b>L</b> be the leads waiting in Auto campaigns and <b>S</b> the executives available right now.</p>
+            <ul>
+                <li><b>Available</b> means: active sales executive, on shift, not in the last 30 minutes of the shift, no unfinished batch, not flagged Lazy.</li>
+                <li>Each available executive gets <code>min(n, L ÷ S rounded down)</code> leads.</li>
+                <li>If that is fewer than n, the leftover leads go one each to the executives who have been idle longest.</li>
+                <li>Leads are dealt one at a time in rounds, hottest first, so hot leads are spread fairly.</li>
+            </ul>
+            <div class="tool" aria-labelledby="calc-title">
+                <h3 id="calc-title">Try it: one distribution cycle</h3>
+                <div class="inputs">
+                    <label>Queue leads (L)<input id="calc-l" type="number" min="0" max="200" value="14" inputmode="numeric"></label>
+                    <label>Available executives (S)<input id="calc-s" type="number" min="0" max="30" value="6" inputmode="numeric"></label>
+                    <label>Batch size (n)<input id="calc-n" type="number" min="1" max="10" value="3" inputmode="numeric"></label>
+                </div>
+                <p class="result" id="calc-summary" aria-live="polite"></p>
+                <div class="plan" id="calc-plan"></div>
+                <p class="legend"><i class="dot"></i> base share <i class="dot extra"></i> extra lead for the longest idle</p>
+            </div>
+            <h3>When a cycle runs</h3>
+            <div class="scroll"><table>
+                <thead><tr><th>Trigger</th><th>Condition</th></tr></thead>
+                <tbody>
+                <tr><th>Every minute, automatically</th><td>The “Distribution engine” switch is ON and the server scheduler is running</td></tr>
+                <tr><th>“Run distribution now”</th><td>An administrator presses it; works even when the switch is OFF</td></tr>
+                <tr><th>Manual assignment</th><td>An administrator selects leads in the central queue and an executive</td></tr>
+                </tbody>
+            </table></div>
+        </section>
+
+        <section id="working" data-title="Working a lead">
+            <h2>Working a lead</h2>
+            <p>The executive’s <b>My tasks</b> page is one ranked list. Start at number 1.</p>
+            <div class="scroll"><table>
+                <thead><tr><th>Order</th><th>What</th><th>Why</th></tr></thead>
+                <tbody>
+                <tr><th>1</th><td>Hot new leads</td><td>Minutes matter most here</td></tr>
+                <tr><th>2</th><td>Call-backs that are due — interested customers first, then longest overdue</td><td>A kept promise builds trust; a broken one loses the sale</td></tr>
+                <tr><th>3</th><td>Warm, then cool, then cold new leads</td><td>Remaining value falls with age</td></tr>
+                <tr><th>4</th><td>Call-backs due later today</td><td>So the day can be planned</td></tr>
+                </tbody>
+            </table></div>
+            <h3>After every call</h3>
+            <ul>
+                <li>Record the call result, the customer’s interest, a note, and the <b>next action</b>: Follow-up, Interested, Not Interested, Unreachable or Lost.</li>
+                <li><b>Follow-up</b> requires a call-back date and time in the future.</li>
+                <li>Saving feedback sets the lead’s status, closes any earlier open follow-up, schedules the new one and frees the batch slot.</li>
+                <li>When every lead of the batch has feedback, the batch is complete and the executive is available for the next one.</li>
+                <li>Only the owner records calls. Managers can read the history.</li>
+            </ul>
+        </section>
+
+        <section id="followups" data-title="Follow-ups and the Lazy rule">
+            <h2>Follow-ups and the Lazy rule</h2>
+            <ul>
+                <li>A follow-up is overdue the moment its time passes, and shows in red for the executive and their managers.</li>
+                <li>An executive with a follow-up overdue for more than <b>24 hours</b> is flagged <span class="pill red">Lazy</span> and receives no new leads until it is handled.</li>
+                <li>An administrator can move an open follow-up, with its lead, to another executive, or return the lead to the central queue.</li>
+            </ul>
+        </section>
+
+        <section id="transfers" data-title="Transfers">
+            <h2>Transfers</h2>
+            <ol class="steps">
+                <li>The owner requests a transfer to an executive who is in a team, with a reason. The lead stays with the owner meanwhile.</li>
+                <li>The leader of the sending team and the leader of the receiving team each approve. A team with no leader needs no approval from that side.</li>
+                <li>If nobody decides within <b>7 days</b>, the request is approved automatically.</li>
+                <li>On approval the lead, its open follow-ups and its team move to the new owner, and the old owner’s batch slot is freed.</li>
+            </ol>
+            <p>An administrator can approve or reject any request at once. Rejection always needs a reason.</p>
+        </section>
+
+        <section id="finance" data-title="Enrollment, payments and installments">
+            <h2>Enrollment, payments and installments</h2>
+            <ul>
+                <li>Money is confirmed by <b>Accounts</b> (or an administrator), never by sales.</li>
+                <li><b>Verify:</b> the installment becomes Paid, the student Enrolled, the lead Converted, and the executive’s batch slot is freed.</li>
+                <li><b>Reject:</b> a reason is required; the installment, enrollment and lead return to awaiting payment.</li>
+                <li>Installments due within <b>2 days</b> are listed as Due soon; unpaid installments past their date are Overdue.</li>
+            </ul>
+            <p class="note">The enrollment form, the customer payment page, online gateways and receipts are not built yet, so these screens fill only when that data exists.</p>
+        </section>
+
+        <section id="availability" data-title="Shifts and availability">
+            <h2>Shifts and availability</h2>
+            <p>An executive’s status is worked out from the shift and the clock.</p>
+            <div class="scroll"><table>
+                <thead><tr><th>Status</th><th>Meaning</th><th>Receives leads?</th></tr></thead>
+                <tbody>
+                <tr><th><span class="pill green">Available</span></th><td>On shift, free, no problem</td><td class="y">Yes</td></tr>
+                <tr><th><span class="pill blue">Busy</span></th><td>Has an unfinished batch</td><td>No</td></tr>
+                <tr><th><span class="pill amber">Cut Off</span></th><td>Last 30 minutes of the shift</td><td>No</td></tr>
+                <tr><th><span class="pill red">Lazy</span></th><td>A follow-up overdue more than 24 hours</td><td>No</td></tr>
+                <tr><th><span class="pill slate">Off Duty</span></th><td>Outside shift hours, or no shift set</td><td>No</td></tr>
+                <tr><th><span class="pill slate">Holiday / Unavailable</span></th><td>Set for a date by an administrator</td><td>No</td></tr>
+                </tbody>
+            </table></div>
+            <p>The shift used is, in order: a date override for that employee, the team’s shift, the employee’s own shift.</p>
+        </section>
+
+        <section id="passwords" data-title="Passwords and confidentiality">
+            <h2>Passwords and confidentiality</h2>
+            <ul>
+                <li>By company policy, staff passwords are stored in a form an administrator can read back.</li>
+                <li>Reading or resetting a password requires the administrator’s own password and a written reason, and is recorded in a log that cannot be edited.</li>
+                <li>A reset gives a temporary password that must be changed at the next sign-in.</li>
+                <li>The secret key that protects the passwords lives only in the server configuration. Whoever holds both the database and the key can read every password, so both must be guarded.</li>
+            </ul>
+            <p class="warn"><b>Open risk.</b> The folder <code>public/user_defined_assets</code> holds real customer contacts and interim staff PINs, is reachable from the web, and is in the Git repository. Move it out of <code>public/</code>, change the PINs and remove the files from the repository history.</p>
+        </section>
+
+        <section id="settings" data-title="Settings">
+            <h2>Settings</h2>
+            <div class="scroll"><table>
+                <thead><tr><th>Setting</th><th>Default</th><th>Effect</th></tr></thead>
+                <tbody>
+                <tr><th>Automatic distribution</th><td class="mono">Off</td><td>The engine runs a cycle every minute when on</td></tr>
+                <tr><th>Lead batch size</th><td class="mono">3</td><td>Most leads an executive holds at once</td></tr>
+                <tr><th>Assignment cutoff</th><td class="mono">30 min</td><td>No new leads this close to the end of a shift</td></tr>
+                <tr><th>Hot lead window</th><td class="mono">60 min</td><td>How long a new lead is Hot</td></tr>
+                <tr><th>Warm lead window</th><td class="mono">24 h</td><td>How long it stays Warm, and counts as fresh</td></tr>
+                <tr><th>Cold lead threshold</th><td class="mono">72 h</td><td>After this an uncalled lead is Cold</td></tr>
+                <tr><th>Lazy threshold</th><td class="mono">24 h</td><td>Overdue time that flags an executive Lazy</td></tr>
+                <tr><th>Transfer auto-approval</th><td class="mono">7 days</td><td>Wait before a pending transfer approves itself</td></tr>
+                <tr><th>Installment reminder</th><td class="mono">2 days</td><td>Window for “Due soon”</td></tr>
+                </tbody>
+            </table></div>
+        </section>
+
+        <section id="status" data-title="What is built, what is not">
+            <h2>What is built, what is not</h2>
+            <div class="two">
+                <div><h3>Built</h3><ul>
+                    <li>Sign-in, onboarding, employees, teams, shifts and date overrides</li>
+                    <li>Courses, subjects, course batches, campaigns</li>
+                    <li>Lead upload, single entry, duplicate review</li>
+                    <li>Central queue, distribution engine with priority, batches</li>
+                    <li>Task list, lead page, call feedback, follow-ups</li>
+                    <li>Lazy flag, reassignment, transfers with approvals</li>
+                    <li>Payment verification, installment views, reports</li>
+                    <li>Dashboards for five roles, in-app guides, password module</li>
+                </ul></div>
+                <div><h3>Not built yet</h3><ul>
+                    <li>Enrollment form with installment plan</li>
+                    <li>Customer payment page, bKash and SSLCommerz, receipts</li>
+                    <li>Notifications and SMS or WhatsApp messages</li>
+                    <li>Phone-number normalisation, inquiry log, automatic duplicate rules</li>
+                    <li>Lead history table and general audit log</li>
+                    <li>Excel import and partial import with an error file</li>
+                    <li>Migration of the Google Sheet data</li>
+                    <li>Bangla interface</li>
+                </ul></div>
+            </div>
+        </section>
+
+        <section id="glossary" data-title="Glossary">
+            <h2>Glossary</h2>
+            <dl>
+                <dt>Batch</dt><dd>The small set of leads an executive holds at one time.</dd>
+                <dt>Central queue</dt><dd>New leads that nobody owns yet.</dd>
+                <dt>Cycle</dt><dd>One run of the distribution engine.</dd>
+                <dt>Fresh / stale</dt><dd>Fresh is hot or warm; stale is cool or cold.</dd>
+                <dt>Follow-up</dt><dd>A scheduled call-back to a lead.</dd>
+                <dt>Lazy</dt><dd>The flag on an executive whose follow-up is badly overdue.</dd>
+                <dt>Slot</dt><dd>One place in a batch. It is freed by feedback, a transfer, or a verified payment.</dd>
+                <dt>Temperature</dt><dd>Hot, warm, cool or cold — how long ago the lead was received.</dd>
+            </dl>
+        </section>
+    </main>
+</div>
+<script src="app.js"></script>
+</body>
+</html>

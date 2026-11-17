@@ -51,18 +51,19 @@ class LeadController extends Controller
 
         // KPI Statistics
         $stats = [
-            'total_leads' => Lead::query()->count(),
-            'unassigned' => Lead::query()->whereNull('current_owner_id')->count(),
+            'total_leads' => $currentEmployee->visibleLeads()->count(),
+            'unassigned' => $currentEmployee->visibleLeads()->whereNull('current_owner_id')->count(),
             'overdue_followups' => LeadFollowup::query()
+                ->when($currentEmployee->managedExecutiveIds() !== null, fn ($followUps) => $followUps->whereIn('employee_id', $currentEmployee->managedExecutiveIds()))
                 ->where('is_done', false)
                 ->where('followup_date_time', '<', Carbon::now())
                 ->count(),
-            'follow_up' => Lead::query()->where('status', 'Follow-up')->count(),
-            'converted' => Lead::query()->where('status', 'Converted')->count(),
+            'follow_up' => $currentEmployee->visibleLeads()->where('status', 'Follow-up')->count(),
+            'converted' => $currentEmployee->visibleLeads()->where('status', 'Converted')->count(),
         ];
 
         // Base Query
-        $query = Lead::query()->with([
+        $query = $currentEmployee->visibleLeads()->with([
             'source',
             'interestedCourse.subject',
             'interestedCourse.topic',
@@ -140,12 +141,15 @@ class LeadController extends Controller
             'employee_id' => [
                 'required',
                 'integer',
-                Rule::exists('employees', 'id')->where('status', 'Active'),
+                Rule::exists('employees', 'id')->where('status', 'Active')->where('role', 'Sales Executive'),
             ],
         ]);
 
         $targetEmployee = Employee::query()->with('team')->findOrFail($validated['employee_id']);
 
+        if ($lead->current_owner_id !== null && $lead->current_owner_id !== $targetEmployee->id) {
+            $lead->previous_owner_id = $lead->current_owner_id;
+        }
         $lead->current_owner_id = $targetEmployee->id;
         $lead->team_id = $targetEmployee->team_id;
         $lead->assigned_by_employee_id = $currentEmployee->id;
@@ -225,28 +229,15 @@ class LeadController extends Controller
 
             if ($existingLead !== null) {
                 DuplicateLeadReview::query()->create([
-                    'matched_lead_id' => $existingLead->id,
-                    'source_id' => $source->source_id,
-                    'student_name' => $validated['student_name'],
-                    'contact_number' => $validated['contact_number'],
-                    'guardian_name' => $validated['guardian_name'] ?? null,
-                    'whatsapp_number' => $validated['whatsapp_number'] ?? null,
-                    'alternative_contact_number' => $validated['alternative_contact_number'] ?? null,
-                    'email' => $validated['email'] ?? null,
-                    'location' => $validated['location'] ?? null,
-                    'age' => $validated['age'] ?? null,
-                    'class' => $validated['class'] ?? null,
-                    'student_parent_type' => $validated['student_parent_type'] ?? null,
-                    'student_background' => $validated['student_background'] ?? null,
-                    'ad_set_id' => $validated['ad_set_id'] ?? null,
-                    'interested_course_id' => $courseId,
-                    'raw_payload' => [
+                    'incoming_lead_data' => [
                         ...$validated,
+                        'source_id' => $source->source_id,
+                        'interested_course_id' => $courseId,
                         'channel' => $channel,
                         'campaign_name' => $campaignName,
                     ],
-                    'match_criteria' => ['primary_phone' => $validated['contact_number']],
-                    'created_at' => Carbon::now(),
+                    'matched_lead_id' => $existingLead->id,
+                    'match_reason' => 'Matching contact number',
                 ]);
 
                 return true;
@@ -289,7 +280,7 @@ class LeadController extends Controller
      */
     public function export(Request $request): StreamedResponse
     {
-        $this->authenticatedEmployee($request);
+        $currentEmployee = $this->authenticatedEmployee($request);
 
         $filters = $request->validate([
             'search' => ['nullable', 'string', 'max:150'],
@@ -306,7 +297,7 @@ class LeadController extends Controller
             'overdue' => ['nullable', 'boolean'],
         ]);
 
-        $query = Lead::query()->with([
+        $query = $currentEmployee->visibleLeads()->with([
             'source',
             'interestedCourse.subject',
             'interestedCourse.topic',

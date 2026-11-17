@@ -9,7 +9,7 @@
 @endsection
 
 @section('content')
-    <section class="mx-auto w-full max-w-3xl rounded-xl border border-pedago-line bg-white shadow-sm" aria-labelledby="create-team-heading">
+    <section class="mx-auto w-full max-w-3xl rounded-lg border border-pedago-line bg-white" aria-labelledby="create-team-heading">
         <div class="border-b border-pedago-line px-6 py-4">
             <h2 class="text-base font-bold text-pedago-ink" id="create-team-heading">Create team</h2>
         </div>
@@ -31,7 +31,7 @@
             <div class="flex flex-col gap-3 border-t border-pedago-line pt-4">
                 <div class="flex items-center justify-between">
                     <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Shift)</span>
-                    <span class="rounded bg-sky-50 px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
+                    <span class="rounded bg-pedago-tint px-2 py-0.5 text-[11px] font-semibold text-pedago-blue-dark">Inherited by members</span>
                 </div>
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
                     <div class="sm:col-span-1">
@@ -90,7 +90,7 @@
                         @foreach ($supervisors as $sup)
                             <label class="flex items-center gap-2 text-xs">
                                 <input class="size-4 rounded border-pedago-line text-pedago-blue focus:ring-pedago-blue" type="checkbox" name="supervisors[]" value="{{ $sup->id }}" @checked(in_array($sup->id, old('supervisors', []), false))>
-                                <span class="font-medium text-pedago-ink">{{ $sup->name }} <span class="font-mono text-[11px] text-pedago-muted">({{ $sup->office_id ?? '#'.$sup->id }})</span></span>
+                                <span class="font-medium text-pedago-ink">{{ $sup->name }} <span class="num text-[11px] text-pedago-muted">({{ $sup->office_id ?? '#'.$sup->id }})</span></span>
                                 <small class="text-pedago-muted">Supervises {{ $sup->supervisedTeams->pluck('name')->join(', ') ?: 'no teams' }}</small>
                             </label>
                         @endforeach
@@ -117,12 +117,12 @@
                             <span class="flex items-center gap-2">
                                 <input class="size-3.5 rounded border-pedago-line text-pedago-blue focus:ring-pedago-blue" type="checkbox" name="members[]" value="{{ $exec->id }}" @disabled($isInOtherTeam) @checked(in_array($exec->id, old('members', []), false)) data-member-checkbox>
                                 <span class="font-medium text-pedago-ink">{{ $exec->name }}</span>
-                                <span class="font-mono text-[11px] text-pedago-muted">({{ $exec->office_id ?? '#'.$exec->id }})</span>
+                                <span class="num text-[11px] text-pedago-muted">({{ $exec->office_id ?? '#'.$exec->id }})</span>
                             </span>
                             @if ($isInOtherTeam)
-                                <span class="rounded bg-slate-100 px-1.5 py-0.5 text-[10px] font-semibold text-slate-600">In {{ $exec->team->name }}</span>
+                                <span class="rounded bg-pedago-slate-tint px-1.5 py-0.5 text-[10px] font-semibold text-pedago-muted">In {{ $exec->team->name }}</span>
                             @else
-                                <span class="rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-semibold text-emerald-700">No team</span>
+                                <span class="rounded bg-pedago-green-tint px-1.5 py-0.5 text-[10px] font-semibold text-pedago-green">No team</span>
                             @endif
                         </label>
                     @endforeach

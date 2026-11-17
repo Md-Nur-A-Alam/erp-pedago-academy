@@ -33,7 +33,7 @@ class EmployeeController extends Controller
         $direction = strtolower($filters['direction'] ?? 'asc') === 'desc' ? 'desc' : 'asc';
 
         $query = Employee::query()
-            ->with(['user', 'team.shift', 'teamsLed', 'supervisedTeams', 'todayRoster.shift', 'defaultShift'])
+            ->with(['user', 'team.shift', 'teamsLed.shift', 'supervisedTeams', 'todayRoster.shift', 'defaultShift', 'batches.items', 'leadFollowups'])
             ->when(
                 filled($filters['search'] ?? null),
                 function (Builder $query) use ($filters): void {
@@ -43,7 +43,8 @@ class EmployeeController extends Controller
                             ->orWhere('employees.office_id', 'like', $search)
                             ->orWhere('employees.designation', 'like', $search)
                             ->orWhereHas('user', fn (Builder $userQuery) => $userQuery->where('phone_number', 'like', $search))
-                            ->orWhereHas('team', fn (Builder $teamQuery) => $teamQuery->where('name', 'like', $search));
+                            ->orWhereHas('team', fn (Builder $teamQuery) => $teamQuery->where('name', 'like', $search))
+                            ->orWhereHas('teamsLed', fn (Builder $teamQuery) => $teamQuery->where('name', 'like', $search));
                     });
                 },
             )
@@ -61,6 +62,7 @@ class EmployeeController extends Controller
                                         ->where('employees.status', 'Active')
                                         ->where(function (Builder $q3): void {
                                             $q3->whereHas('team', fn (Builder $tq) => $tq->whereNotNull('shift_id'))
+                                                ->orWhereHas('teamsLed', fn (Builder $tq) => $tq->whereNotNull('shift_id'))
                                                 ->orWhereNotNull('employees.shift_id');
                                         });
                                 });
@@ -72,6 +74,7 @@ class EmployeeController extends Controller
                                     $q2->whereDoesntHave('todayRoster')
                                         ->where(function (Builder $q3): void {
                                             $q3->whereDoesntHave('team', fn (Builder $tq) => $tq->whereNotNull('shift_id'))
+                                                ->whereDoesntHave('teamsLed', fn (Builder $tq) => $tq->whereNotNull('shift_id'))
                                                 ->whereNull('employees.shift_id');
                                         });
                                 });
@@ -98,10 +101,11 @@ class EmployeeController extends Controller
                     $join->on('employees.id', '=', 'employee_rosters.employee_id')
                         ->whereDate('employee_rosters.roster_date', today());
                 })
-                ->leftJoin('teams', 'employees.team_id', '=', 'teams.id')
+                ->leftJoin('teams as member_teams', 'employees.team_id', '=', 'member_teams.id')
+                ->leftJoin('teams as led_teams', 'employees.id', '=', 'led_teams.team_leader_id')
                 ->orderByRaw('CASE 
                     WHEN employee_rosters.id IS NOT NULL THEN employee_rosters.availability_status
-                    WHEN employees.status = "Active" AND (teams.shift_id IS NOT NULL OR employees.shift_id IS NOT NULL) THEN "Available"
+                    WHEN employees.status = "Active" AND (member_teams.shift_id IS NOT NULL OR led_teams.shift_id IS NOT NULL OR employees.shift_id IS NOT NULL) THEN "Available"
                     ELSE "Off Duty"
                 END '.$direction)
                 ->orderBy('employees.name', 'asc');
@@ -170,7 +174,7 @@ class EmployeeController extends Controller
             'shift_id' => ['nullable', 'integer', Rule::exists('shifts', 'id')],
             'shift_start_time' => ['nullable', 'date_format:H:i'],
             'shift_end_time' => ['nullable', 'date_format:H:i'],
-            'availability_status' => ['nullable', Rule::in(['Available', 'Busy', 'Unavailable', 'Off Duty', 'Lazy', 'Resigned'])],
+            'availability_status' => ['nullable', Rule::in(['Available', 'Busy', 'Cut Off', 'Holiday', 'Unavailable', 'Off Duty', 'Lazy', 'Resigned'])],
         ]);
 
         $resolvedShiftId = null;
@@ -196,11 +200,11 @@ class EmployeeController extends Controller
         } elseif (! empty($validated['shift_id'])) {
             $resolvedShiftId = (int) $validated['shift_id'];
         } elseif ((bool) $validated['is_on_duty']) {
-            $resolvedShiftId = $employee->team?->shift_id ?? $employee->shift_id;
+            $resolvedShiftId = $employee->effectiveTeam()?->shift_id ?? $employee->shift_id;
         }
 
         $isOnDuty = (bool) $validated['is_on_duty'];
-        $status = $validated['availability_status'] ?? ($isOnDuty ? 'Available' : 'Off Duty');
+        $status = $validated['availability_status'] ?? ($isOnDuty ? 'Available' : 'Holiday');
 
         EmployeeRoster::updateOrCreate(
             [

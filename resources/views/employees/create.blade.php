@@ -8,7 +8,7 @@
 
 @section('content')
     <div class="mx-auto flex w-full max-w-4xl flex-col gap-6">
-        <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-sm transition-shadow hover:shadow-md sm:p-7">
+        <section class="rounded-lg border border-pedago-line bg-white p-5 sm:p-7">
             <p class="mb-5 text-sm leading-6 text-pedago-muted">The employee signs in with their phone number and temporary password. They must change the password and complete their profile after signing in.</p>
             <form class="grid gap-5 sm:grid-cols-2" method="POST" action="{{ route('employees.store') }}">
                 @csrf
@@ -16,7 +16,7 @@
                     <input class="rounded-md border border-pedago-line px-3 py-2.5 font-normal transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="name" value="{{ old('name') }}" autocomplete="name" required>
                 </label>
                 <label class="flex flex-col gap-2 text-sm font-semibold">Office ID
-                    <input class="rounded-md border border-pedago-line bg-pedago-canvas px-3 py-2.5 font-mono font-medium text-pedago-ink transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="office_id" value="{{ old('office_id', $nextOfficeId) }}" readonly required>
+                    <input class="rounded-md border border-pedago-line bg-pedago-canvas px-3 py-2.5 num font-medium text-pedago-ink transition focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" name="office_id" value="{{ old('office_id', $nextOfficeId) }}" readonly required>
                     <span class="text-xs font-normal text-pedago-muted">Auto-incremented ID (e.g. PED-001, PED-002, PED-045).</span>
                     @error('office_id')<span class="text-xs text-pedago-red">{{ $message }}</span>@enderror
                 </label>

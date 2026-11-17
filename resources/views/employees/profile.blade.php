@@ -15,13 +15,13 @@
 
 @section('content')
     @if (session('status'))
-        <div class="rounded-xl border border-emerald-200 bg-emerald-50 p-4 text-sm font-medium text-emerald-800 shadow-sm">
+        <div class="rounded-lg border border-pedago-green/30 bg-pedago-green-tint p-4 text-sm font-medium text-pedago-green">
             {{ session('status') }}
         </div>
     @endif
 
     @if ($pendingRequest)
-        <section class="rounded-xl border border-pedago-amber/20 bg-pedago-amber-tint p-5">
+        <section class="rounded-lg border border-pedago-amber/20 bg-pedago-amber-tint p-5">
             <h2 class="font-semibold text-pedago-amber">Pending employment changes</h2>
             <dl class="mt-3 grid gap-2 text-sm sm:grid-cols-2">
                 @foreach ($pendingRequest->requested_changes as $field => $value)
@@ -41,7 +41,7 @@
         @csrf
         @method('PUT')
 
-        <section class="rounded-xl border border-pedago-line bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+        <section class="rounded-lg border border-pedago-line bg-white p-6">
             <div class="mb-5 flex flex-col gap-2">
                 <h2 class="text-lg font-semibold">Employment information</h2>
                 <p class="text-sm text-pedago-muted">Changes to these fields require review by a higher role. Admin changes take effect immediately.</p>
@@ -86,7 +86,7 @@
             </label>
         </section>
 
-        <section class="rounded-xl border border-pedago-line bg-white p-6 shadow-sm transition-shadow hover:shadow-md">
+        <section class="rounded-lg border border-pedago-line bg-white p-6">
             <div class="mb-5 flex flex-col gap-2">
                 <h2 class="text-lg font-semibold">Personal details</h2>
                 <p class="text-sm text-pedago-muted">Update these profile details directly. Fields marked required are needed to finish onboarding.</p>
@@ -132,40 +132,44 @@
     </form>
 
     {{-- Duty Time & Specific Date Override (Calendar) --}}
-    <section class="rounded-xl border border-pedago-line bg-white p-6 shadow-sm transition-shadow hover:shadow-md" aria-labelledby="duty-time-heading">
+    <section class="rounded-lg border border-pedago-line bg-white p-6" aria-labelledby="duty-time-heading">
         <div class="mb-5 flex flex-wrap items-center justify-between gap-3 border-b border-pedago-line pb-4">
             <div>
                 <h2 class="text-lg font-semibold text-pedago-ink" id="duty-time-heading">Duty Time & Schedule</h2>
                 <p class="text-sm text-pedago-muted">Primary duty time is inherited from the assigned team. Overrides can be scheduled for specific dates using the calendar.</p>
             </div>
-            @if ($employee->team)
+            @php($effectiveTeam = $employee->effectiveTeam())
+            @if ($effectiveTeam)
                 <span class="inline-flex items-center gap-1.5 rounded-full bg-pedago-tint px-3 py-1 text-xs font-semibold text-pedago-blue-dark">
-                    Team: {{ $employee->team->name }}
+                    Team: {{ $effectiveTeam->name }}
+                    @if ($employee->teamsLed->contains($effectiveTeam))
+                        <span class="rounded bg-pedago-blue-dark/10 px-1 text-[10px]">Leader</span>
+                    @endif
                 </span>
             @endif
         </div>
 
         {{-- 1. Primary Team Duty Time --}}
-        <div class="rounded-lg border border-slate-200 bg-slate-50/70 p-4">
+        <div class="rounded-lg border border-pedago-line bg-slate-50/70 p-4">
             <span class="text-xs font-bold uppercase tracking-wider text-pedago-muted">Primary Duty Time (Team Default)</span>
             <div class="mt-2 flex flex-wrap items-center justify-between gap-3">
                 <div class="flex items-center gap-3">
-                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-700">
+                    <div class="flex size-10 shrink-0 items-center justify-center rounded-lg bg-pedago-tint text-pedago-blue-dark">
                         <svg class="size-5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
                             <circle cx="12" cy="12" r="10"/>
                             <polyline points="12 6 12 12 16 14"/>
                         </svg>
                     </div>
                     <div>
-                        @if ($employee->team && $employee->team->shift)
+                        @if ($effectiveTeam && $effectiveTeam->shift)
                             <p class="font-bold text-pedago-ink">
-                                {{ \Carbon\Carbon::parse($employee->team->shift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($employee->team->shift->shift_end_time)->format('h:i A') }}
-                                <span class="ml-1 text-xs font-normal text-pedago-muted">({{ $employee->team->shift->working_hours }} hrs/day)</span>
+                                {{ \Carbon\Carbon::parse($effectiveTeam->shift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($effectiveTeam->shift->shift_end_time)->format('h:i A') }}
+                                <span class="ml-1 text-xs font-normal text-pedago-muted">({{ $effectiveTeam->shift->working_hours }} hrs/day)</span>
                             </p>
-                            <p class="text-xs text-pedago-muted">Inherited from <a class="text-pedago-blue hover:underline" href="{{ route('teams.show', $employee->team) }}">{{ $employee->team->name }}</a></p>
-                        @elseif ($employee->team)
-                            <p class="font-semibold text-pedago-ink">No primary duty time set on team {{ $employee->team->name }}</p>
-                            <p class="text-xs text-pedago-muted">Duty time can be fixed in <a class="text-pedago-blue hover:underline" href="{{ route('teams.edit', $employee->team) }}">Team edit</a>.</p>
+                            <p class="text-xs text-pedago-muted">Inherited from <a class="text-pedago-blue hover:underline" href="{{ route('teams.show', $effectiveTeam) }}">{{ $effectiveTeam->name }}</a></p>
+                        @elseif ($effectiveTeam)
+                            <p class="font-semibold text-pedago-ink">No primary duty time set on team {{ $effectiveTeam->name }}</p>
+                            <p class="text-xs text-pedago-muted">Duty time can be fixed in <a class="text-pedago-blue hover:underline" href="{{ route('teams.edit', $effectiveTeam) }}">Team edit</a>.</p>
                         @elseif ($employee->defaultShift)
                             <p class="font-bold text-pedago-ink">
                                 {{ \Carbon\Carbon::parse($employee->defaultShift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($employee->defaultShift->shift_end_time)->format('h:i A') }}
@@ -218,7 +222,7 @@
                                 Duty on that date <span class="text-pedago-red">*</span>
                                 <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-is-on-duty" name="is_on_duty">
                                     <option value="1" @selected(old('is_on_duty', '1') === '1')>On Duty (Work shift)</option>
-                                    <option value="0" @selected(old('is_on_duty') === '0')>Day Off / Off Duty</option>
+                                    <option value="0" @selected(old('is_on_duty') === '0')>Day Off / Holiday</option>
                                 </select>
                             </label>
                         </div>
@@ -245,8 +249,11 @@
                                 <select class="w-full rounded-md border border-pedago-line bg-white px-3 py-2 text-sm font-normal focus:border-pedago-blue focus:outline-none focus:ring-2 focus:ring-pedago-blue/20" id="roster-avail-status" name="availability_status">
                                     <option value="Available" @selected(old('availability_status') === 'Available')>Available</option>
                                     <option value="Busy" @selected(old('availability_status') === 'Busy')>Busy</option>
+                                    <option value="Cut Off" @selected(old('availability_status') === 'Cut Off')>Cut Off</option>
+                                    <option value="Holiday" @selected(old('availability_status') === 'Holiday')>Holiday</option>
                                     <option value="Unavailable" @selected(old('availability_status') === 'Unavailable')>Unavailable</option>
                                     <option value="Off Duty" @selected(old('availability_status') === 'Off Duty')>Off Duty</option>
+                                    <option value="Lazy" @selected(old('availability_status') === 'Lazy')>Lazy</option>
                                 </select>
                             </label>
                         </div>
@@ -269,7 +276,7 @@
                     </div>
 
                     <div class="flex items-center justify-end">
-                        <button class="inline-flex items-center gap-1.5 rounded-md bg-pedago-blue px-4 py-2 text-xs font-semibold text-white shadow-sm transition hover:bg-pedago-blue-dark focus-visible:outline-2 focus-visible:outline-pedago-blue" type="submit">
+                        <button class="inline-flex items-center gap-1.5 rounded-md bg-pedago-blue px-4 py-2 text-xs font-semibold text-white transition hover:bg-pedago-blue-dark focus-visible:outline-2 focus-visible:outline-pedago-blue" type="submit">
                             <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd" />
                             </svg>
@@ -310,16 +317,16 @@
                                 </td>
                                 <td class="px-4 py-3">
                                     @if ($override->is_on_duty)
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-emerald-50 px-2 py-0.5 text-[11px] font-semibold text-emerald-800">
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-pedago-green-tint px-2 py-0.5 text-[11px] font-semibold text-pedago-green">
                                             ● On Duty
                                         </span>
                                     @else
-                                        <span class="inline-flex items-center gap-1 rounded-full bg-rose-50 px-2 py-0.5 text-[11px] font-semibold text-rose-800">
-                                            ○ Day Off
+                                        <span class="inline-flex items-center gap-1 rounded-full bg-pedago-amber-tint px-2 py-0.5 text-[11px] font-semibold text-pedago-amber">
+                                            ○ Day Off / Holiday
                                         </span>
                                     @endif
                                 </td>
-                                <td class="px-4 py-3 font-mono">
+                                <td class="px-4 py-3 num">
                                     @if ($override->is_on_duty && $override->shift)
                                         {{ \Carbon\Carbon::parse($override->shift->shift_start_time)->format('h:i A') }} – {{ \Carbon\Carbon::parse($override->shift->shift_end_time)->format('h:i A') }}
                                         <span class="text-pedago-muted">({{ $override->shift->working_hours }}h)</span>
@@ -331,14 +338,27 @@
                                     @endif
                                 </td>
                                 <td class="px-4 py-3">
-                                    <span class="font-medium text-pedago-ink">{{ $override->availability_status }}</span>
+                                    @php($avSt = $override->availability_status ?? ($override->is_on_duty ? 'Available' : 'Holiday'))
+                                    <span @class([
+                                        'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10.5px] font-semibold',
+                                        'bg-pedago-green-tint text-pedago-green' => $avSt === 'Available',
+                                        'bg-blue-50 text-blue-800' => $avSt === 'Busy',
+                                        'bg-pedago-tint text-pedago-blue-dark' => $avSt === 'Cut Off',
+                                        'bg-pedago-amber-tint text-pedago-amber' => $avSt === 'Holiday',
+                                        'bg-pedago-slate-tint text-pedago-muted' => $avSt === 'Off Duty',
+                                        'bg-pedago-red-tint text-pedago-red' => $avSt === 'Lazy',
+                                        'bg-pedago-amber-tint text-pedago-amber' => in_array($avSt, ['Unavailable', 'Break'], true),
+                                        'bg-pedago-slate-tint text-pedago-muted' => $avSt === 'Resigned',
+                                    ])>
+                                        {{ $avSt }}
+                                    </span>
                                 </td>
                                 @if ($isAdminEdit)
                                     <td class="px-4 py-3 text-right">
                                         <form method="POST" action="{{ route('employees.roster-override.destroy', [$employee, $override]) }}" onsubmit="return confirm('Remove this date override and revert to team primary duty time?');">
                                             @csrf
                                             @method('DELETE')
-                                            <button class="rounded border border-pedago-line px-2.5 py-1 text-[11px] font-semibold text-rose-700 transition hover:bg-rose-50 hover:border-rose-300" type="submit">
+                                            <button class="rounded border border-pedago-line px-2.5 py-1 text-[11px] font-semibold text-pedago-red transition hover:bg-pedago-red-tint hover:border-pedago-red-line" type="submit">
                                                 Revert to team
                                             </button>
                                         </form>
@@ -372,7 +392,7 @@
                 if (shiftContainer) shiftContainer.style.display = isOnDuty ? 'block' : 'none';
                 if (customTimes) customTimes.style.display = isOnDuty ? 'grid' : 'none';
                 if (statusSelect) {
-                    statusSelect.value = isOnDuty ? 'Available' : 'Off Duty';
+                    statusSelect.value = isOnDuty ? 'Available' : 'Holiday';
                 }
             });
         }

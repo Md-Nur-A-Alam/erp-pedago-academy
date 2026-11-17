@@ -65,7 +65,19 @@ return [
     |
     */
 
-    'timezone' => 'UTC',
+    'timezone' => env('APP_TIMEZONE', 'Asia/Dhaka'),
+
+    /*
+    |--------------------------------------------------------------------------
+    | Staff Password Key
+    |--------------------------------------------------------------------------
+    |
+    | Secret used to store staff passwords in a form an administrator can read
+    | back. When it is empty the application falls back to one-way hashing.
+    |
+    */
+
+    'staff_password_key' => env('STAFF_PASSWORD_KEY'),
 
     /*
     |--------------------------------------------------------------------------

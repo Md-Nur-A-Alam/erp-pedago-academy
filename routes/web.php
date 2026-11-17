@@ -3,6 +3,7 @@
 use App\Http\Controllers\Auth\AuthenticatedSessionController;
 use App\Http\Controllers\Auth\PasswordController;
 use App\Http\Controllers\CampaignController;
+use App\Http\Controllers\CentralQueueController;
 use App\Http\Controllers\CourseBatchController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CourseTopicController;
@@ -11,8 +12,16 @@ use App\Http\Controllers\DuplicateLeadReviewController;
 use App\Http\Controllers\EmployeeChangeRequestController;
 use App\Http\Controllers\EmployeeController;
 use App\Http\Controllers\EmployeeProfileController;
+use App\Http\Controllers\FollowUpController;
+use App\Http\Controllers\GuideController;
+use App\Http\Controllers\InstallmentController;
 use App\Http\Controllers\LeadController;
+use App\Http\Controllers\LeadTransferController;
 use App\Http\Controllers\LeadUploadController;
+use App\Http\Controllers\PaymentReviewController;
+use App\Http\Controllers\ReportController;
+use App\Http\Controllers\SalesWorkspaceController;
+use App\Http\Controllers\StaffPasswordController;
 use App\Http\Controllers\SubjectController;
 use App\Http\Controllers\SystemSettingController;
 use App\Http\Controllers\TeamController;
@@ -33,6 +42,27 @@ Route::middleware(['auth', 'employee.onboarding'])->group(function (): void {
     Route::put('/profile', [EmployeeProfileController::class, 'update'])->name('profile.update');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+    Route::get('/guide', [GuideController::class, 'index'])->name('guide.index');
+    Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
+
+    Route::get('/my-tasks', [SalesWorkspaceController::class, 'tasks'])->name('sales.tasks');
+    Route::get('/leads/{lead}/workspace', [SalesWorkspaceController::class, 'show'])->name('leads.workspace');
+    Route::post('/leads/{lead}/feedback', [SalesWorkspaceController::class, 'feedback'])->name('leads.feedback');
+    Route::post('/leads/{lead}/transfer-request', [SalesWorkspaceController::class, 'requestTransfer'])->name('leads.transfer-request');
+
+    Route::get('/central-queue', [CentralQueueController::class, 'index'])->name('central-queue.index');
+    Route::post('/central-queue/distribute', [CentralQueueController::class, 'distribute'])->name('central-queue.distribute');
+    Route::post('/central-queue/assign', [CentralQueueController::class, 'assign'])->name('central-queue.assign');
+
+    Route::get('/follow-ups', [FollowUpController::class, 'index'])->name('follow-ups.index');
+    Route::post('/follow-ups/{leadFollowup}/reassign', [FollowUpController::class, 'reassign'])->name('follow-ups.reassign');
+
+    Route::get('/transfers', [LeadTransferController::class, 'index'])->name('lead-transfers.index');
+    Route::put('/transfers/{leadTransfer}', [LeadTransferController::class, 'update'])->name('lead-transfers.update');
+
+    Route::get('/payments', [PaymentReviewController::class, 'index'])->name('payments.index');
+    Route::put('/payments/{payment}', [PaymentReviewController::class, 'update'])->name('payments.update');
+    Route::get('/installments', [InstallmentController::class, 'index'])->name('installments.index');
 
     Route::get('/campaigns', [CampaignController::class, 'index'])->name('campaigns.index');
     Route::get('/campaigns/create', [CampaignController::class, 'create'])->name('campaigns.create');
@@ -69,6 +99,11 @@ Route::middleware(['auth', 'employee.onboarding'])->group(function (): void {
 
     Route::get('/settings', [SystemSettingController::class, 'index'])->name('settings.index');
     Route::put('/settings', [SystemSettingController::class, 'update'])->name('settings.update');
+    Route::post('/settings/distribution-engine', [SystemSettingController::class, 'toggleEngine'])->name('settings.engine');
+
+    Route::get('/staff-passwords', [StaffPasswordController::class, 'index'])->name('staff-passwords.index');
+    Route::post('/staff-passwords/{employee}/reveal', [StaffPasswordController::class, 'reveal'])->middleware('throttle:10,1')->name('staff-passwords.reveal');
+    Route::post('/staff-passwords/{employee}/reset', [StaffPasswordController::class, 'reset'])->middleware('throttle:10,1')->name('staff-passwords.reset');
 
     Route::get('/teams', [TeamController::class, 'index'])->name('teams.index');
     Route::get('/teams/create', [TeamController::class, 'create'])->name('teams.create');

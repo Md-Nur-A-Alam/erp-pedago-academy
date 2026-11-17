@@ -23,17 +23,17 @@
     <section class="grid gap-3 sm:grid-cols-2 xl:grid-cols-5" aria-label="Lead statistics">
         <article class="rounded-lg border border-pedago-line bg-white px-4 py-3 shadow-xs">
             <p class="text-xs font-medium text-pedago-muted">Total leads</p>
-            <p class="mt-1 font-mono text-2xl font-bold leading-none text-pedago-ink">{{ number_format($stats['total_leads']) }}</p>
+            <p class="mt-1 num text-2xl font-bold leading-none text-pedago-ink">{{ number_format($stats['total_leads']) }}</p>
             <p class="mt-1 text-[11px] text-pedago-muted">Lifetime registered</p>
         </article>
 
         <article @class([
             'rounded-lg border bg-white px-4 py-3 shadow-xs',
-            'border-amber-300 bg-amber-50/20' => $stats['unassigned'] > 0,
+            'border-pedago-amber/30 bg-pedago-amber-tint/20' => $stats['unassigned'] > 0,
             'border-pedago-line' => $stats['unassigned'] === 0,
         ])>
             <p class="text-xs font-medium text-pedago-muted">Unassigned</p>
-            <p class="mt-1 font-mono text-2xl font-bold leading-none text-amber-600">{{ number_format($stats['unassigned']) }}</p>
+            <p class="mt-1 num text-2xl font-bold leading-none text-pedago-amber">{{ number_format($stats['unassigned']) }}</p>
             <p class="mt-1 text-[11px] text-pedago-muted">Awaiting allocation</p>
         </article>
 
@@ -45,8 +45,8 @@
         <a href="{{ request()->fullUrlWithQuery(['overdue' => $isOverdueFilterActive ? null : 1]) }}" @class([
             'rounded-lg px-4 py-3 shadow-xs block transition relative',
             // Red Danger State when > 0
-            'bg-red-600 hover:bg-red-700 text-white border border-red-700 shadow-md' => $hasOverdue && ! $isOverdueFilterActive,
-            'bg-red-700 text-white border-2 border-white ring-2 ring-red-500 shadow-lg' => $hasOverdue && $isOverdueFilterActive,
+            'bg-pedago-red hover:bg-pedago-red text-white border border-pedago-red' => $hasOverdue && ! $isOverdueFilterActive,
+            'bg-pedago-red text-white border-2 border-white ring-2 ring-pedago-red' => $hasOverdue && $isOverdueFilterActive,
             // Normal State when 0
             'border border-pedago-line bg-white text-pedago-ink hover:border-pedago-muted/60' => ! $hasOverdue && ! $isOverdueFilterActive,
             'border-2 border-pedago-blue bg-pedago-tint/50 text-pedago-ink' => ! $hasOverdue && $isOverdueFilterActive,
@@ -73,7 +73,7 @@
             </div>
 
             <p @class([
-                'mt-1.5 font-mono text-2xl font-bold leading-none',
+                'mt-1.5 num text-2xl font-bold leading-none',
                 'text-white' => $hasOverdue,
                 'text-pedago-ink' => ! $hasOverdue,
             ])>
@@ -91,19 +91,19 @@
 
         <article class="rounded-lg border border-pedago-line bg-white px-4 py-3 shadow-xs">
             <p class="text-xs font-medium text-pedago-muted">Follow-up</p>
-            <p class="mt-1 font-mono text-2xl font-bold leading-none text-blue-700">{{ number_format($stats['follow_up']) }}</p>
+            <p class="mt-1 num text-2xl font-bold leading-none text-blue-700">{{ number_format($stats['follow_up']) }}</p>
             <p class="mt-1 text-[11px] text-pedago-muted">Active conversations</p>
         </article>
 
         <article class="rounded-lg border border-pedago-line bg-white px-4 py-3 shadow-xs">
             <p class="text-xs font-medium text-pedago-muted">Converted</p>
-            <p class="mt-1 font-mono text-2xl font-bold leading-none text-emerald-700">{{ number_format($stats['converted']) }}</p>
+            <p class="mt-1 num text-2xl font-bold leading-none text-pedago-green">{{ number_format($stats['converted']) }}</p>
             <p class="mt-1 text-[11px] text-pedago-muted">Successful admissions</p>
         </article>
     </section>
 
     {{-- 2. Filter Leads Section --}}
-    <section class="rounded-xl border border-pedago-line bg-white p-5 shadow-xs">
+    <section class="rounded-lg border border-pedago-line bg-white p-5 shadow-xs">
         <div class="mb-4 flex items-center justify-between border-b border-pedago-line pb-3">
             <h2 class="text-sm font-bold text-pedago-ink">Filter leads</h2>
             <a class="text-xs font-medium text-pedago-blue hover:underline" href="{{ route('leads.index') }}">Reset filters</a>
@@ -269,7 +269,7 @@
     </section>
 
     {{-- 3. Leads Table Section --}}
-    <section class="rounded-xl border border-pedago-line bg-white shadow-xs">
+    <section class="rounded-lg border border-pedago-line bg-white shadow-xs">
         <div class="flex flex-wrap items-center justify-between gap-3 border-b border-pedago-line px-5 py-4">
             <div>
                 <h2 class="text-sm font-bold text-pedago-ink">All leads</h2>
@@ -319,26 +319,26 @@
                     @forelse ($leads as $lead)
                         @php
                             $statusPillClasses = match($lead->status) {
-                                'New' => 'bg-sky-50 text-sky-800 border-sky-200',
-                                'Assigned' => 'bg-indigo-50 text-indigo-800 border-indigo-200',
-                                'Follow-up' => 'bg-amber-50 text-amber-900 border-amber-200',
-                                'Interested' => 'bg-emerald-50 text-emerald-800 border-emerald-200',
-                                'Enrolled - Pending Payment', 'Payment Under Review' => 'bg-purple-50 text-purple-800 border-purple-200',
-                                'Converted' => 'bg-emerald-100 text-emerald-900 border-emerald-300 font-bold',
-                                'Not Interested', 'Unreachable' => 'bg-slate-100 text-slate-700 border-slate-200',
-                                'Lost' => 'bg-rose-50 text-rose-800 border-rose-200',
-                                default => 'bg-slate-100 text-slate-700 border-slate-200',
+                                'New' => 'bg-pedago-tint text-pedago-blue-dark border-pedago-line',
+                                'Assigned' => 'bg-pedago-tint text-pedago-blue-dark border-pedago-line',
+                                'Follow-up' => 'bg-pedago-amber-tint text-pedago-amber border-pedago-amber/30',
+                                'Interested' => 'bg-pedago-green-tint text-pedago-green border-pedago-green/30',
+                                'Enrolled - Pending Payment', 'Payment Under Review' => 'bg-pedago-tint text-pedago-blue-dark border-purple-200',
+                                'Converted' => 'bg-pedago-green-tint text-pedago-green border-pedago-green/30 font-bold',
+                                'Not Interested', 'Unreachable' => 'bg-pedago-slate-tint text-pedago-muted border-pedago-line',
+                                'Lost' => 'bg-pedago-red-tint text-pedago-red border-pedago-red-line',
+                                default => 'bg-pedago-slate-tint text-pedago-muted border-pedago-line',
                             };
                             $statusDotClasses = match($lead->status) {
                                 'New' => 'bg-sky-500',
                                 'Assigned' => 'bg-indigo-500',
-                                'Follow-up' => 'bg-amber-500',
-                                'Interested' => 'bg-emerald-500',
-                                'Enrolled - Pending Payment', 'Payment Under Review' => 'bg-purple-500',
-                                'Converted' => 'bg-emerald-600',
-                                'Not Interested', 'Unreachable' => 'bg-slate-400',
-                                'Lost' => 'bg-rose-500',
-                                default => 'bg-slate-400',
+                                'Follow-up' => 'bg-pedago-amber',
+                                'Interested' => 'bg-pedago-green',
+                                'Enrolled - Pending Payment', 'Payment Under Review' => 'bg-pedago-blue-soft',
+                                'Converted' => 'bg-pedago-green',
+                                'Not Interested', 'Unreachable' => 'bg-pedago-muted',
+                                'Lost' => 'bg-pedago-red',
+                                default => 'bg-pedago-muted',
                             };
                             $displayStatus = match($lead->status) {
                                 'Enrolled - Pending Payment' => 'Pending payment',
@@ -351,15 +351,15 @@
                             <td class="px-4 py-3">
                                 <span class="font-bold text-pedago-ink">{{ $lead->student_name }}</span>
                                 <br>
-                                <span class="font-mono text-[11px] text-pedago-muted">L-{{ $lead->id }}</span>
+                                <span class="num text-[11px] text-pedago-muted">L-{{ $lead->id }}</span>
                             </td>
 
                             {{-- 2. Phone --}}
                             <td class="px-3 py-3">
-                                <span class="font-mono text-xs text-pedago-ink">{{ $lead->contact_number }}</span>
+                                <span class="num text-xs text-pedago-ink">{{ $lead->contact_number }}</span>
                                 @if (filled($lead->whatsapp_number) || filled($lead->alternative_contact_number))
                                     <br>
-                                    <span class="font-mono text-[11px] text-pedago-muted">
+                                    <span class="num text-[11px] text-pedago-muted">
                                         {{ filled($lead->whatsapp_number) ? $lead->whatsapp_number : $lead->alternative_contact_number }}
                                     </span>
                                 @endif
@@ -372,7 +372,7 @@
                                     <br>
                                     <span class="text-[11px] text-pedago-muted">{{ $lead->interestedCourse?->topic?->name ?? 'All topics' }}</span>
                                 @else
-                                    <span class="inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-[11px] font-medium text-slate-600">
+                                    <span class="inline-flex items-center gap-1 rounded-full bg-pedago-slate-tint px-2 py-0.5 text-[11px] font-medium text-pedago-muted">
                                         Not linked
                                     </span>
                                 @endif
@@ -405,7 +405,7 @@
                                 @if ($lead->currentOwner)
                                     <div class="leading-tight">
                                         <span class="font-medium text-pedago-ink">{{ $lead->currentOwner->name }}</span>
-                                        <span class="font-mono text-[11px] text-pedago-muted">({{ $lead->currentOwner->office_id }})</span>
+                                        <span class="num text-[11px] text-pedago-muted">({{ $lead->currentOwner->office_id }})</span>
                                         <br>
                                         <span class="text-[11px] text-pedago-muted">{{ $lead->team?->name ?? $lead->currentOwner->team?->name ?? 'No team' }}</span>
                                     </div>
@@ -435,12 +435,12 @@
                                     @endphp
                                     <br>
                                     <span @class([
-                                        'inline-flex items-center gap-1 font-mono text-[11px]',
-                                        'font-semibold text-rose-600' => $isOverdue,
+                                        'inline-flex items-center gap-1 num text-[11px]',
+                                        'font-semibold text-pedago-red' => $isOverdue,
                                         'text-pedago-muted' => ! $isOverdue,
                                     ]) title="{{ $isOverdue ? 'Overdue follow-up date' : 'Scheduled follow-up date' }}">
                                         @if ($isOverdue)
-                                            <svg class="size-3 shrink-0 text-rose-500" fill="currentColor" viewBox="0 0 20 20">
+                                            <svg class="size-3 shrink-0 text-pedago-red" fill="currentColor" viewBox="0 0 20 20">
                                                 <path fill-rule="evenodd" d="M8.485 2.495c.673-1.167 2.357-1.167 3.03 0l6.28 10.875c.673 1.167-.17 2.625-1.516 2.625H3.72c-1.347 0-2.189-1.458-1.515-2.625L8.485 2.495zM10 5a.75.75 0 01.75.75v3.5a.75.75 0 01-1.5 0v-3.5A.75.75 0 0110 5zm0 9a1 1 0 100-2 1 1 0 000 2z" clip-rule="evenodd" />
                                             </svg>
                                             Overdue: {{ $lead->latestPendingFollowup->followup_date_time->format('d M, g:i A') }}
@@ -518,11 +518,11 @@
     </section>
 
     {{-- 4. Lead Details Modal (Opened via Eye Icon) --}}
-    <dialog id="lead-detail-modal" class="m-auto max-h-[92vh] w-[min(94vw,42rem)] overflow-y-auto rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+    <dialog id="lead-detail-modal" class="m-auto max-h-[92vh] w-[min(94vw,42rem)] overflow-y-auto rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
         <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
             <div class="flex items-center gap-2">
                 <h2 class="text-base font-bold text-pedago-ink">Lead Details</h2>
-                <span id="dt-code" class="rounded bg-pedago-tint px-2 py-0.5 font-mono text-xs font-semibold text-pedago-blue-dark"></span>
+                <span id="dt-code" class="rounded bg-pedago-tint px-2 py-0.5 num text-xs font-semibold text-pedago-blue-dark"></span>
             </div>
             <button class="rounded-md p-1.5 text-pedago-muted hover:bg-pedago-canvas hover:text-pedago-ink focus-visible:outline-2 focus-visible:outline-pedago-blue" type="button" data-close-dialog aria-label="Close dialog">
                 <svg class="size-5" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
@@ -550,15 +550,15 @@
                     </div>
                     <div>
                         <span class="text-pedago-muted block">Primary Phone</span>
-                        <span id="dt-phone" class="font-mono font-semibold text-pedago-ink"></span>
+                        <span id="dt-phone" class="num font-semibold text-pedago-ink"></span>
                     </div>
                     <div>
                         <span class="text-pedago-muted block">WhatsApp</span>
-                        <span id="dt-whatsapp" class="font-mono text-pedago-ink"></span>
+                        <span id="dt-whatsapp" class="num text-pedago-ink"></span>
                     </div>
                     <div>
                         <span class="text-pedago-muted block">Alternative Phone</span>
-                        <span id="dt-altphone" class="font-mono text-pedago-ink"></span>
+                        <span id="dt-altphone" class="num text-pedago-ink"></span>
                     </div>
                     <div>
                         <span class="text-pedago-muted block">Email</span>
@@ -649,7 +649,7 @@
 
     {{-- 5. Add Lead Modal --}}
     @if ($canAssign || in_array($currentEmployee->role, ['Supervisor', 'Team Leader'], true))
-        <dialog id="lead-create-modal" class="m-auto max-h-[92vh] w-[min(94vw,38rem)] overflow-y-auto rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+        <dialog id="lead-create-modal" class="m-auto max-h-[92vh] w-[min(94vw,38rem)] overflow-y-auto rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
             <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
                 <div>
                     <h2 class="text-base font-bold text-pedago-ink">Add New Lead</h2>
@@ -667,14 +667,14 @@
                 <div class="grid grid-cols-1 gap-3 sm:grid-cols-2">
                     {{-- Student Name --}}
                     <div class="flex flex-col gap-1">
-                        <label class="font-semibold text-pedago-muted" for="c_student_name">Student Name <span class="text-rose-500">*</span></label>
+                        <label class="font-semibold text-pedago-muted" for="c_student_name">Student Name <span class="text-pedago-red">*</span></label>
                         <input class="h-9 rounded-md border border-pedago-line bg-white px-3 text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_student_name" name="student_name" type="text" required placeholder="e.g. Mehedi Hasan">
                     </div>
 
                     {{-- Contact Number --}}
                     <div class="flex flex-col gap-1">
-                        <label class="font-semibold text-pedago-muted" for="c_contact_number">Primary Phone <span class="text-rose-500">*</span></label>
-                        <input class="h-9 rounded-md border border-pedago-line bg-white px-3 font-mono text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_contact_number" name="contact_number" type="text" required placeholder="017xxxxxxxx">
+                        <label class="font-semibold text-pedago-muted" for="c_contact_number">Primary Phone <span class="text-pedago-red">*</span></label>
+                        <input class="h-9 rounded-md border border-pedago-line bg-white px-3 num text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_contact_number" name="contact_number" type="text" required placeholder="017xxxxxxxx">
                     </div>
 
                     {{-- Guardian Name --}}
@@ -686,13 +686,13 @@
                     {{-- WhatsApp Number --}}
                     <div class="flex flex-col gap-1">
                         <label class="font-semibold text-pedago-muted" for="c_whatsapp_number">WhatsApp Number</label>
-                        <input class="h-9 rounded-md border border-pedago-line bg-white px-3 font-mono text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_whatsapp_number" name="whatsapp_number" type="text" placeholder="018xxxxxxxx">
+                        <input class="h-9 rounded-md border border-pedago-line bg-white px-3 num text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_whatsapp_number" name="whatsapp_number" type="text" placeholder="018xxxxxxxx">
                     </div>
 
                     {{-- Alternative Contact Number --}}
                     <div class="flex flex-col gap-1">
                         <label class="font-semibold text-pedago-muted" for="c_alt_contact">Alternative Phone</label>
-                        <input class="h-9 rounded-md border border-pedago-line bg-white px-3 font-mono text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_alt_contact" name="alternative_contact_number" type="text" placeholder="Second contact number">
+                        <input class="h-9 rounded-md border border-pedago-line bg-white px-3 num text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_alt_contact" name="alternative_contact_number" type="text" placeholder="Second contact number">
                     </div>
 
                     {{-- Email --}}
@@ -715,7 +715,7 @@
 
                     {{-- Channel --}}
                     <div class="flex flex-col gap-1">
-                        <label class="font-semibold text-pedago-muted" for="c_channel">Channel <span class="text-rose-500">*</span></label>
+                        <label class="font-semibold text-pedago-muted" for="c_channel">Channel <span class="text-pedago-red">*</span></label>
                         <select class="h-9 rounded-md border border-pedago-line bg-white px-2.5 text-xs text-pedago-ink focus:border-pedago-blue focus:outline-none focus:ring-1 focus:ring-pedago-blue" id="c_channel" name="channel" required>
                             @foreach ($channels as $code => $chName)
                                 <option value="{{ $code }}">{{ $chName }}</option>
@@ -832,7 +832,7 @@
                 if (followupEl) {
                     followupEl.textContent = data.followup_date || '—';
                     if (data.is_overdue) {
-                        followupEl.className = 'font-semibold text-rose-600';
+                        followupEl.className = 'font-semibold text-pedago-red';
                         if (data.followup_date && data.followup_date !== '—') {
                             followupEl.textContent += ' (OVERDUE)';
                         }

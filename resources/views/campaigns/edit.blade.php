@@ -33,7 +33,7 @@
                 <span class="text-pedago-muted">Leads will show</span>
                 <span class="text-pedago-muted" data-preview-empty>Select a course to view subject and topic.</span>
                 <span class="hidden rounded-full bg-pedago-tint px-2 py-1 font-semibold text-pedago-blue-dark" data-preview-subject></span>
-                <span class="hidden rounded-full bg-emerald-100 px-2 py-1 font-semibold text-emerald-800" data-preview-topic></span>
+                <span class="hidden rounded-full bg-pedago-green-tint px-2 py-1 font-semibold text-pedago-green" data-preview-topic></span>
                 @if (auth()->user()->employee?->isAdmin())
                     <a class="ml-auto text-[11px] font-semibold text-pedago-blue-dark underline" href="{{ route('courses.index') }}">Manage courses</a>
                 @endif

@@ -10,7 +10,7 @@
 @endsection
 
 @section('content')
-    <section class="overflow-hidden rounded-xl border border-pedago-line bg-white shadow-sm" aria-labelledby="course-list-heading">
+    <section class="overflow-hidden rounded-lg border border-pedago-line bg-white" aria-labelledby="course-list-heading">
         <div class="border-b border-pedago-line px-5 py-4">
             <div class="flex flex-wrap items-baseline justify-between gap-2">
                 <h2 class="text-base font-bold" id="course-list-heading">Course catalogue</h2>
@@ -51,7 +51,7 @@
                             </td>
                             <td class="px-5 py-3">{{ $course->subject?->name }}{{ $course->topic ? ' · '.$course->topic->name : '' }}</td>
                             <td class="px-5 py-3">{{ $course->version }}</td>
-                            <td class="px-5 py-3 font-mono">৳ {{ number_format((float) $course->base_fee, 2) }}</td>
+                            <td class="px-5 py-3 num">৳ {{ number_format((float) $course->base_fee, 2) }}</td>
                             <td class="px-5 py-3">{{ number_format($course->leads_count) }}</td>
                             <td class="px-5 py-3">{{ number_format($course->enrollments_count) }}</td>
                             <td class="px-5 py-3">
@@ -72,7 +72,7 @@
                                     <form method="POST" action="{{ route('courses.destroy', $course) }}" onsubmit="return confirm('Delete this course? Referenced courses cannot be deleted.')">
                                         @csrf
                                         @method('DELETE')
-                                        <button class="inline-flex size-7 items-center justify-center rounded-md border border-rose-200 text-rose-700 transition hover:bg-rose-50" type="submit" title="Delete course" aria-label="Delete {{ $course->title }}">
+                                        <button class="inline-flex size-7 items-center justify-center rounded-md border border-pedago-red-line text-pedago-red transition hover:bg-pedago-red-tint" type="submit" title="Delete course" aria-label="Delete {{ $course->title }}">
                                             <svg class="size-3.5" viewBox="0 0 20 20" fill="currentColor">
                                                 <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022.841 10.518A2.75 2.75 0 007.596 19h4.807a2.75 2.75 0 002.742-2.53l.841-10.52.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
                                             </svg>
@@ -92,7 +92,7 @@
         @endif
     </section>
 
-    <dialog id="course-create-modal" class="m-auto max-h-[92vh] w-[min(94vw,40rem)] overflow-y-auto rounded-xl border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-slate-950/50">
+    <dialog id="course-create-modal" class="m-auto max-h-[92vh] w-[min(94vw,40rem)] overflow-y-auto rounded-lg border border-pedago-line bg-white p-0 text-pedago-ink shadow-2xl backdrop:bg-pedago-ink/45">
         <div class="flex items-center justify-between border-b border-pedago-line px-5 py-4">
             <div>
                 <h2 class="text-sm font-bold" id="create-course-heading">Add a course</h2>

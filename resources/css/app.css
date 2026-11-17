@@ -4,19 +4,65 @@
 @source '../../storage/framework/views/*.php';
 
 @theme {
-    --font-sans: 'Instrument Sans', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji',
-        'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-sans: 'IBM Plex Sans', 'Noto Sans Bengali', ui-sans-serif, system-ui, sans-serif, 'Apple Color Emoji',
+        'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji';
+    --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
     --color-pedago-blue: #233f96;
     --color-pedago-blue-dark: #1a2f73;
+    --color-pedago-blue-soft: #8c9ac8;
     --color-pedago-tint: #e8edfa;
     --color-pedago-ink: #14203f;
     --color-pedago-muted: #55617d;
     --color-pedago-canvas: #f3f5fa;
+    --color-pedago-row: #f8f9fd;
     --color-pedago-line: #dce1ee;
+    --color-pedago-slate-tint: #eceef4;
     --color-pedago-red: #c92e18;
     --color-pedago-red-tint: #fdece8;
+    --color-pedago-red-line: #f2b8ac;
     --color-pedago-green: #0f6845;
     --color-pedago-green-tint: #e0f4ea;
     --color-pedago-amber: #7a4f00;
     --color-pedago-amber-tint: #fff2d1;
+}
+
+@layer base {
+    button:not(:disabled),
+    [role='switch']:not(:disabled),
+    summary,
+    select:not(:disabled),
+    label[for],
+    input[type='checkbox']:not(:disabled),
+    input[type='radio']:not(:disabled) {
+        cursor: pointer;
+    }
+
+    :disabled {
+        cursor: not-allowed;
+    }
+
+    :focus-visible {
+        outline: 2px solid var(--color-pedago-blue);
+        outline-offset: 2px;
+    }
+
+    dialog::backdrop {
+        background: rgb(20 32 63 / 0.45);
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+        *,
+        ::before,
+        ::after {
+            animation-duration: 0.01ms !important;
+            animation-iteration-count: 1 !important;
+            scroll-behavior: auto !important;
+            transition-duration: 0.01ms !important;
+        }
+    }
+}
+
+@utility num {
+    font-family: var(--font-mono);
+    font-variant-numeric: tabular-nums;
 }
