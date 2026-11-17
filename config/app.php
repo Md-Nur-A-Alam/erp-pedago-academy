@@ -81,6 +81,18 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Developer Panel
+    |--------------------------------------------------------------------------
+    |
+    | Lets employees with the Developer role open the system as any other
+    | employee for testing. Off in production unless switched on explicitly.
+    |
+    */
+
+    'developer_panel' => (bool) env('DEVELOPER_PANEL', env('APP_ENV', 'production') !== 'production'),
+
+    /*
+    |--------------------------------------------------------------------------
     | Application Locale Configuration
     |--------------------------------------------------------------------------
     |

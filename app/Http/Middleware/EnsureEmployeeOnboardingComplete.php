@@ -2,6 +2,7 @@
 
 namespace App\Http\Middleware;
 
+use App\Http\Controllers\DeveloperController;
 use App\Models\User;
 use Closure;
 use Illuminate\Http\Request;
@@ -18,7 +19,9 @@ class EnsureEmployeeOnboardingComplete
             return redirect()->route('login');
         }
 
-        if ($user->must_change_password && ! $request->routeIs('password.change.*', 'logout')) {
+        $isDeveloperView = $request->session()->has(DeveloperController::SESSION_KEY);
+
+        if (! $isDeveloperView && $user->must_change_password && ! $request->routeIs('password.change.*', 'logout')) {
             return redirect()->route('password.change.edit');
         }
 
@@ -37,7 +40,7 @@ class EnsureEmployeeOnboardingComplete
                 ->withErrors(['phone_number' => 'Your account is '.strtolower($employee->status).'. Contact an administrator.']);
         }
 
-        if (! $employee->isProfileComplete() && ! $request->routeIs('profile.*', 'password.change.*', 'logout')) {
+        if (! $isDeveloperView && ! $employee->isProfileComplete() && ! $request->routeIs('profile.*', 'password.change.*', 'logout')) {
             return redirect()->route('profile.edit')
                 ->with('status', 'Complete the required profile fields to continue.');
         }

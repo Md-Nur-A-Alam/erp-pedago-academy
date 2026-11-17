@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Employee;
 use App\Models\SystemSetting;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
 
@@ -22,11 +23,15 @@ class GuideController extends Controller
         'Admin' => 'Administrator',
     ];
 
-    public function index(Request $request): View
+    public function index(Request $request): View|RedirectResponse
     {
         $user = $request->user();
         $employee = $user instanceof User ? $user->employee : null;
         abort_unless($employee instanceof Employee, 403);
+
+        if ($employee->role === 'Developer') {
+            return redirect()->route('developer.guide');
+        }
 
         $manuals = $this->manuals();
         $chosen = $employee->isAdmin() ? (string) $request->query('view', 'rules') : $employee->role;

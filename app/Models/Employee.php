@@ -33,7 +33,7 @@ class Employee extends Model
 
     public const UPDATED_AT = 'edited_at';
 
-    public const ROLES = ['Admin', 'Supervisor', 'Team Leader', 'Sales Executive', 'Accounts', 'MarketingExecutive'];
+    public const ROLES = ['Admin', 'Supervisor', 'Team Leader', 'Sales Executive', 'Accounts', 'MarketingExecutive', 'Developer'];
 
     private const AUTHORITY_LEVELS = [
         'Admin' => 4,
@@ -42,6 +42,7 @@ class Employee extends Model
         'Sales Executive' => 1,
         'Accounts' => 1,
         'MarketingExecutive' => 1,
+        'Developer' => 0,
     ];
 
     protected function casts(): array

@@ -139,3 +139,18 @@ Not repaired: phone-number normalisation, the course on imported leads, Excel im
 4. Automatic duplicate rules and the inquiry log (decision Q-02).
 5. Second Lazy condition (decision Q-04) with the rule for leads awaiting payment (Q-04a).
 6. Notifications, receipts, payment gateways, data migration from the sheet.
+
+---
+
+## 10. Developer panel and icon rail (added 17 November 2026)
+
+| Item | Behaviour |
+| :--- | :--- |
+| Sidebar | Collapses to an icon rail instead of disappearing. Labels stay available to screen readers and as tooltips; count badges become a dot. Desktop remembers the choice; on phones the expanded sidebar overlays the page |
+| Developer role | New role with no authority level. Its sidebar has only the developer panel and the developer guide |
+| View as | Signs the developer in as any active, non-developer employee; a banner offers direct switching and the way back. First-sign-in and profile steps are skipped; everything else is real |
+| Tools | Run one distribution cycle, approve overdue transfers, clear compiled views |
+| Log | `developer_activity_logs` records every switch and tool run |
+| Switch | `DEVELOPER_PANEL`, on by default outside production |
+| Guide | In the ERP under **Developer guide**: setup, access, switching, architecture, rule locations, settings, scheduler, interface kit, recipes, testing, troubleshooting |
+

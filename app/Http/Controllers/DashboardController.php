@@ -16,6 +16,7 @@ use App\Models\Payment;
 use App\Models\SystemSetting;
 use App\Models\Team;
 use App\Models\User;
+use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
@@ -33,10 +34,14 @@ class DashboardController extends Controller
 
     private const OFF_DUTY_STATES = ['Off Duty', 'Holiday', 'Unavailable', 'Resigned'];
 
-    public function index(Request $request, DistributeLeads $engine): View
+    public function index(Request $request, DistributeLeads $engine): View|RedirectResponse
     {
         $user = $request->user();
         abort_unless($user instanceof User && $user->employee instanceof Employee, 403);
+
+        if ($user->employee->role === 'Developer') {
+            return redirect()->route('developer.index');
+        }
 
         $period = $this->reportingPeriod($request);
         $employee = $user->employee;

@@ -8,6 +8,7 @@ use App\Http\Controllers\CourseBatchController;
 use App\Http\Controllers\CourseController;
 use App\Http\Controllers\CourseTopicController;
 use App\Http\Controllers\DashboardController;
+use App\Http\Controllers\DeveloperController;
 use App\Http\Controllers\DuplicateLeadReviewController;
 use App\Http\Controllers\EmployeeChangeRequestController;
 use App\Http\Controllers\EmployeeController;
@@ -42,6 +43,12 @@ Route::middleware(['auth', 'employee.onboarding'])->group(function (): void {
     Route::put('/profile', [EmployeeProfileController::class, 'update'])->name('profile.update');
 
     Route::get('/dashboard', [DashboardController::class, 'index'])->name('dashboard');
+
+    Route::get('/developer', [DeveloperController::class, 'index'])->name('developer.index');
+    Route::get('/developer/guide', [DeveloperController::class, 'guide'])->name('developer.guide');
+    Route::post('/developer/view-as/{employee}', [DeveloperController::class, 'viewAs'])->name('developer.view-as');
+    Route::post('/developer/return', [DeveloperController::class, 'return'])->name('developer.return');
+    Route::post('/developer/tools/{tool}', [DeveloperController::class, 'tool'])->whereIn('tool', ['distribute', 'auto-approve', 'clear-views'])->name('developer.tools');
     Route::get('/guide', [GuideController::class, 'index'])->name('guide.index');
     Route::get('/reports', [ReportController::class, 'index'])->name('reports.index');
 

@@ -5,6 +5,7 @@ namespace App\Providers;
 use App\Actions\DistributeLeads;
 use App\Actions\StaffPasswordCipher;
 use App\Actions\StaffPasswordHasher;
+use App\Http\Controllers\DeveloperController;
 use App\Models\DuplicateLeadReview;
 use App\Models\Employee;
 use App\Models\EmployeeChangeRequest;
@@ -57,6 +58,9 @@ class AppServiceProvider extends ServiceProvider
             $employee = auth()->user()?->employee;
 
             $view->with('navCounts', $employee instanceof Employee ? $this->navigationCounts($employee) : []);
+            $view->with('impersonation', session()->has(DeveloperController::SESSION_KEY) && (bool) config('app.developer_panel')
+                ? ['targets' => DeveloperController::switchTargets()]
+                : null);
             $view->with('engineEnabled', $employee instanceof Employee && $employee->isAdmin()
                 ? SystemSetting::enabled('distribution_engine_enabled')
                 : null);

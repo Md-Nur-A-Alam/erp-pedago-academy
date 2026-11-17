@@ -118,6 +118,15 @@ php artisan schedule:work                       # development
 5. **Upload leads** — upload a CSV for a campaign, then decide anything held in **Duplicate review**.
 6. **Central queue** — press "Run distribution now", or turn the engine ON in the top bar.
 
+## Developer panel
+
+For testing, an administrator can give an employee the **Developer** role. A developer's sidebar holds:
+
+- **Developer panel** — open the system as any active employee with one click, switch between employees from the banner at the top of every page, and return to the developer account. It also shows the environment, the scheduled commands and record counts, and runs maintenance tools.
+- **Developer guide** — architecture, where each rule lives in the code, settings, interface components, recipes for common changes, testing and troubleshooting.
+
+Every switch and tool run is logged. The panel is on by default outside production; set `DEVELOPER_PANEL=true` to enable it in production, or `false` to turn it off anywhere.
+
 ## Useful commands
 
 | Command | Purpose |

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="{{ str_replace('_', '-', app()->getLocale()) }}">
+<html class="group/app" lang="{{ str_replace('_', '-', app()->getLocale()) }}" data-sidebar="closed">
 <head>
     <meta charset="utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -10,6 +10,18 @@
     @if (($title ?? null) === 'Sign in')
         <link href="https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,400;0,600;0,700;1,400&amp;display=swap" rel="stylesheet">
     @endif
+    <script>
+        (() => {
+            const desktop = window.matchMedia('(min-width: 1024px)').matches;
+            let saved = null;
+            try {
+                saved = window.localStorage.getItem('pedago.sidebar');
+            } catch (error) {
+                saved = null;
+            }
+            document.documentElement.dataset.sidebar = desktop && saved !== 'closed' ? 'open' : 'closed';
+        })();
+    </script>
     @vite(['resources/css/app.css', 'resources/js/app.js'])
 </head>
 <body class="min-h-screen bg-pedago-canvas font-sans text-pedago-ink antialiased">
@@ -22,11 +34,12 @@
             $managesIntake = $isAdmin || $role === 'MarketingExecutive';
             $seesFinance = $isAdmin || $role === 'Accounts';
             $navCounts ??= [];
+            $isDeveloper = $role === 'Developer';
 
             // label, route, active route patterns, icon, visible, count key, count is urgent
             $navigation = [
                 'Overview' => [
-                    ['Dashboard', 'dashboard', ['dashboard'], 'grid', true, null, false],
+                    ['Dashboard', 'dashboard', ['dashboard'], 'grid', ! $isDeveloper, null, false],
                     ['Reports', 'reports.index', ['reports.*'], 'bar-chart', $isAdmin, null, false],
                 ],
                 'Sales' => [
@@ -53,8 +66,12 @@
                     ['Subjects', 'subjects.index', ['subjects.*', 'course-topics.*'], 'tag', $isAdmin, null, false],
                     ['Course batches', 'course-batches.index', ['course-batches.*'], 'layers', $isAdmin, null, false],
                 ],
+                'Developer' => [
+                    ['Developer panel', 'developer.index', ['developer.index'], 'terminal', $isDeveloper, null, false],
+                    ['Developer guide', 'developer.guide', ['developer.guide'], 'code', $isDeveloper, null, false],
+                ],
                 'Help' => [
-                    [$isAdmin ? 'Documentation' : 'My guide', 'guide.index', ['guide.*'], 'help', true, null, false],
+                    [$isAdmin ? 'Documentation' : 'My guide', 'guide.index', ['guide.*'], 'help', ! $isDeveloper, null, false],
                 ],
                 'System' => [
                     ['Settings', 'settings.index', ['settings.*'], 'sliders', $isAdmin, null, false],
@@ -70,38 +87,41 @@
 
         <a class="sr-only z-50 rounded-md bg-pedago-blue px-4 py-2 text-sm font-semibold text-white focus:not-sr-only focus:fixed focus:left-3 focus:top-3" href="#main-content">Skip to content</a>
 
-        <div class="min-h-screen lg:flex">
-            <div class="fixed inset-0 z-30 hidden bg-pedago-ink/40 data-[open=true]:block" id="app-sidebar-backdrop" aria-hidden="true"></div>
+        <div class="min-h-screen">
+            <div class="fixed inset-0 z-30 hidden bg-pedago-ink/40 group-data-[sidebar=open]/app:block lg:group-data-[sidebar=open]/app:hidden" id="app-sidebar-backdrop" aria-hidden="true"></div>
 
-            <aside class="fixed inset-y-0 left-0 z-40 flex w-64 max-w-[85vw] -translate-x-full flex-col border-r border-pedago-line bg-white shadow-xl transition-transform duration-200 ease-out data-[open=true]:translate-x-0" id="app-sidebar" aria-label="Primary navigation">
-                <div class="flex items-center justify-between gap-2 px-4 pb-2 pt-4">
-                    <a class="block rounded-md" href="{{ route('dashboard') }}" aria-label="Pedago Academy dashboard">
-                        <img class="h-auto w-full max-w-44" src="{{ asset('user_defined_assets/img/horizontal%20logo%201%20on%20whtie%20bg.png') }}" alt="Pedago Academy" width="176" height="48">
+            <aside class="fixed inset-y-0 left-0 z-40 flex w-16 flex-col border-r border-pedago-line bg-white transition-[width] duration-200 ease-out group-data-[sidebar=open]/app:w-64 max-lg:group-data-[sidebar=open]/app:shadow-xl" id="app-sidebar" aria-label="Primary navigation">
+                <div class="flex h-16 shrink-0 items-center border-b border-pedago-line px-3 group-data-[sidebar=closed]/app:justify-center group-data-[sidebar=closed]/app:px-0">
+                    <a class="block rounded-md" href="{{ route($isDeveloper ? 'developer.index' : 'dashboard') }}" aria-label="Pedago Academy home">
+                        <img class="h-auto w-full max-w-44 group-data-[sidebar=closed]/app:hidden" src="{{ asset('user_defined_assets/img/horizontal%20logo%201%20on%20whtie%20bg.png') }}" alt="Pedago Academy" width="176" height="48">
+                        <img class="hidden size-9 group-data-[sidebar=closed]/app:block" src="{{ asset('user_defined_assets/img/only%20logo%20icon.png') }}" alt="" width="36" height="36">
                     </a>
-                    <button class="inline-flex size-11 items-center justify-center rounded-md text-pedago-muted transition-colors duration-150 hover:bg-pedago-canvas hover:text-pedago-ink" id="app-sidebar-close" type="button" aria-label="Close navigation">
-                        <x-ui.icon name="x" class="size-5" />
-                    </button>
                 </div>
 
-                <nav class="flex flex-1 flex-col gap-4 overflow-y-auto px-3 py-3">
+                <nav class="flex flex-1 flex-col gap-4 overflow-y-auto overflow-x-hidden px-3 py-3 group-data-[sidebar=closed]/app:gap-2 group-data-[sidebar=closed]/app:px-2">
                     @foreach ($navigation as $group => $items)
                         @php $visibleItems = array_filter($items, fn (array $item): bool => (bool) $item[4]); @endphp
                         @continue($visibleItems === [])
-                        <div class="flex flex-col gap-0.5">
-                            <p class="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-pedago-muted">{{ $group }}</p>
+                        <div class="flex flex-col gap-0.5 group-data-[sidebar=closed]/app:border-t group-data-[sidebar=closed]/app:border-pedago-line group-data-[sidebar=closed]/app:pt-2 group-data-[sidebar=closed]/app:first:border-t-0 group-data-[sidebar=closed]/app:first:pt-0">
+                            <p class="mb-1 px-2.5 text-[11px] font-semibold uppercase tracking-[0.08em] text-pedago-muted group-data-[sidebar=closed]/app:sr-only">{{ $group }}</p>
                             @foreach ($visibleItems as [$label, $routeName, $patterns, $icon, $visible, $countKey, $urgent])
                                 @php $active = request()->routeIs(...$patterns); @endphp
                                 @php $count = $countKey !== null ? ($navCounts[$countKey] ?? 0) : 0; @endphp
                                 <a @class([
-                                    'flex min-h-10 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors duration-150 lg:min-h-9',
+                                    'relative flex min-h-10 items-center gap-2.5 rounded-md px-2.5 text-sm transition-colors duration-150 lg:min-h-9 group-data-[sidebar=closed]/app:justify-center group-data-[sidebar=closed]/app:px-0',
                                     'bg-pedago-tint font-semibold text-pedago-blue-dark' => $active,
                                     'font-medium text-pedago-ink hover:bg-pedago-canvas' => ! $active,
-                                ]) href="{{ route($routeName) }}" @if ($active) aria-current="page" @endif>
+                                ]) href="{{ route($routeName) }}" title="{{ $label }}{{ $count > 0 ? ' ('.number_format($count).')' : '' }}" @if ($active) aria-current="page" @endif>
                                     <x-ui.icon :name="$icon" @class(['text-pedago-blue' => $active, 'text-pedago-muted' => ! $active]) />
-                                    <span class="min-w-0 flex-1 truncate">{{ $label }}</span>
+                                    <span class="min-w-0 flex-1 truncate group-data-[sidebar=closed]/app:sr-only">{{ $label }}</span>
                                     @if ($count > 0)
                                         <span @class([
-                                            'num rounded-full px-1.5 text-xs font-medium',
+                                            'absolute right-2 top-1.5 hidden size-2 rounded-full group-data-[sidebar=closed]/app:block',
+                                            'bg-pedago-red' => $urgent,
+                                            'bg-pedago-blue' => ! $urgent,
+                                        ]) aria-hidden="true"></span>
+                                        <span @class([
+                                            'num rounded-full px-1.5 text-xs font-medium group-data-[sidebar=closed]/app:sr-only',
                                             'bg-pedago-red-tint text-pedago-red' => $urgent,
                                             'bg-white text-pedago-blue-dark' => ! $urgent && $active,
                                             'bg-pedago-canvas text-pedago-ink' => ! $urgent && ! $active,
@@ -113,10 +133,10 @@
                     @endforeach
                 </nav>
 
-                <div class="flex items-center gap-2 border-t border-pedago-line px-3 py-3">
-                    <a class="flex min-w-0 flex-1 items-center gap-2.5 rounded-md p-1.5 transition-colors duration-150 hover:bg-pedago-canvas" href="{{ route('profile.edit') }}" aria-label="My profile" title="My profile">
+                <div class="flex items-center gap-2 border-t border-pedago-line px-3 py-3 group-data-[sidebar=closed]/app:flex-col group-data-[sidebar=closed]/app:px-2">
+                    <a class="flex min-w-0 flex-1 items-center gap-2.5 rounded-md p-1.5 transition-colors duration-150 hover:bg-pedago-canvas group-data-[sidebar=closed]/app:flex-none" href="{{ route('profile.edit') }}" aria-label="My profile" title="My profile">
                         <span class="flex size-9 shrink-0 items-center justify-center rounded-full bg-pedago-tint text-xs font-bold text-pedago-blue-dark" aria-hidden="true">{{ $initials }}</span>
-                        <span class="min-w-0">
+                        <span class="min-w-0 group-data-[sidebar=closed]/app:sr-only">
                             <span class="block truncate text-sm font-semibold text-pedago-ink">{{ $currentEmployee?->name }}</span>
                             <span class="block truncate text-xs text-pedago-muted">{{ $currentEmployee?->designation }} · {{ $currentEmployee?->role }}</span>
                         </span>
@@ -130,7 +150,34 @@
                 </div>
             </aside>
 
-            <div class="flex min-w-0 flex-1 flex-col">
+            <div class="flex min-h-screen min-w-0 flex-col pl-16 transition-[padding] duration-200 ease-out lg:group-data-[sidebar=open]/app:pl-64">
+                @if ($impersonation ?? null)
+                    <div class="flex flex-wrap items-center gap-x-4 gap-y-2 bg-pedago-ink px-4 py-2 text-sm text-white sm:px-6" role="region" aria-label="Developer view">
+                        <p class="mr-auto min-w-0">
+                            <span class="font-semibold">Developer view</span>
+                            <span class="text-white/75">— you are seeing the system as <span class="font-semibold text-white">{{ $currentEmployee?->name }}</span> ({{ $role }}). Actions are real.</span>
+                        </p>
+                        <form class="flex items-center gap-2" method="POST" action="" id="developer-switch-form">
+                            @csrf
+                            <label class="sr-only" for="developer-switch">Switch to another employee</label>
+                            <select class="h-9 max-w-60 rounded-md border border-white/30 bg-pedago-ink px-2 text-sm text-white" id="developer-switch" required>
+                                <option value="">Switch panel…</option>
+                                @foreach ($impersonation['targets'] as $targetRole => $targets)
+                                    <optgroup label="{{ $targetRole }}">
+                                        @foreach ($targets as $target)
+                                            <option value="{{ route('developer.view-as', $target) }}" @selected($target->id === $currentEmployee?->id)>{{ $target->name }}</option>
+                                        @endforeach
+                                    </optgroup>
+                                @endforeach
+                            </select>
+                            <button class="inline-flex h-9 items-center rounded-md border border-white/30 px-3 text-sm font-semibold transition-colors duration-150 hover:bg-white/10" type="submit">Switch</button>
+                        </form>
+                        <form method="POST" action="{{ route('developer.return') }}">
+                            @csrf
+                            <button class="inline-flex h-9 items-center rounded-md bg-white px-3 text-sm font-semibold text-pedago-ink transition-colors duration-150 hover:bg-pedago-tint" type="submit">Return to developer panel</button>
+                        </form>
+                    </div>
+                @endif
                 <header class="sticky top-0 z-20 flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-pedago-line bg-white px-4 py-2.5 sm:px-6 lg:min-h-16">
                     <button class="inline-flex size-11 shrink-0 items-center justify-center rounded-md border border-pedago-line text-pedago-ink transition-colors duration-150 hover:bg-pedago-canvas" id="app-sidebar-toggle" type="button" aria-controls="app-sidebar" aria-expanded="false" aria-label="Toggle navigation">
                         <x-ui.icon name="menu" class="size-5" />
@@ -196,38 +243,58 @@
 
         <script>
             (() => {
-                const sidebar = document.getElementById('app-sidebar');
+                const root = document.documentElement;
                 const backdrop = document.getElementById('app-sidebar-backdrop');
                 const toggle = document.getElementById('app-sidebar-toggle');
-
-                const setOpen = (open) => {
-                    sidebar.dataset.open = String(open);
-                    backdrop.dataset.open = String(open);
+                const desktop = window.matchMedia('(min-width: 1024px)');
+                const isOpen = () => root.dataset.sidebar === 'open';
+                const remember = (open) => {
+                    try {
+                        window.localStorage.setItem('pedago.sidebar', open ? 'open' : 'closed');
+                    } catch (error) {
+                        // Storage may be blocked; the rail still works for this page.
+                    }
+                };
+                const setOpen = (open, persist) => {
+                    root.dataset.sidebar = open ? 'open' : 'closed';
                     toggle.setAttribute('aria-expanded', String(open));
-                    sidebar.inert = !open;
-                    document.body.classList.toggle('overflow-hidden', open);
+                    toggle.setAttribute('aria-label', open ? 'Collapse navigation to icons' : 'Expand navigation');
+                    document.body.classList.toggle('overflow-hidden', open && !desktop.matches);
+                    if (persist && desktop.matches) {
+                        remember(open);
+                    }
                 };
 
-                setOpen(false);
-                toggle.addEventListener('click', () => {
-                    if (sidebar.dataset.open === 'true') {
-                        setOpen(false);
-                        return;
-                    }
-                    setOpen(true);
-                    sidebar.querySelector('nav a')?.focus();
-                });
-                const close = () => {
-                    setOpen(false);
-                    toggle.focus();
-                };
-                document.getElementById('app-sidebar-close').addEventListener('click', close);
-                backdrop.addEventListener('click', close);
+                setOpen(isOpen(), false);
+                toggle.addEventListener('click', () => setOpen(!isOpen(), true));
+                backdrop.addEventListener('click', () => setOpen(false, false));
                 document.addEventListener('keydown', (event) => {
-                    if (event.key === 'Escape' && sidebar.dataset.open === 'true') {
-                        close();
+                    if (event.key === 'Escape' && isOpen() && !desktop.matches) {
+                        setOpen(false, false);
+                        toggle.focus();
                     }
                 });
+                desktop.addEventListener('change', () => {
+                    let saved = null;
+                    try {
+                        saved = window.localStorage.getItem('pedago.sidebar');
+                    } catch (error) {
+                        saved = null;
+                    }
+                    setOpen(desktop.matches && saved !== 'closed', false);
+                });
+
+                const switcher = document.getElementById('developer-switch-form');
+                if (switcher) {
+                    switcher.addEventListener('submit', (event) => {
+                        const target = document.getElementById('developer-switch').value;
+                        if (!target) {
+                            event.preventDefault();
+                            return;
+                        }
+                        switcher.action = target;
+                    });
+                }
 
                 document.addEventListener('submit', (event) => {
                     const message = event.target.dataset ? event.target.dataset.confirm : null;

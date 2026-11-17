@@ -1,0 +1,135 @@
+<?php
+
+use App\Http\Controllers\DeveloperController;
+use App\Models\DeveloperActivityLog;
+use App\Models\Employee;
+use App\Models\EmployeeDetails;
+use App\Models\Lead;
+use App\Models\LeadSource;
+use App\Models\Shift;
+use App\Models\User;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Carbon;
+
+uses(RefreshDatabase::class);
+
+function createDeveloperPanelUser(string $role, array $userAttributes = [], bool $withDetails = true): User
+{
+    $user = User::factory()->create(['must_change_password' => false] + $userAttributes);
+    $employee = Employee::factory()->for($user)->create(['role' => $role]);
+    if ($withDetails) {
+        EmployeeDetails::factory()->for($employee)->create();
+    }
+
+    return $user;
+}
+
+it('opens the developer panel and guide for developers only', function () {
+    $developer = createDeveloperPanelUser('Developer');
+    createDeveloperPanelUser('Sales Executive');
+
+    $this->actingAs($developer)->get(route('dashboard'))->assertRedirect(route('developer.index'));
+    $this->actingAs($developer)->get(route('guide.index'))->assertRedirect(route('developer.guide'));
+    $this->actingAs($developer)->get(route('developer.index'))->assertOk()->assertSee('Switch panel')->assertSee('Environment')->assertSee('Sales executive');
+    $this->actingAs($developer)->get(route('developer.guide'))->assertOk()->assertSee('Where each rule lives')->assertSee('distribution_engine_enabled');
+});
+
+it('keeps every other role out of the developer panel', function (string $role) {
+    $user = createDeveloperPanelUser($role);
+    $target = createDeveloperPanelUser('Sales Executive');
+
+    $this->actingAs($user)->get(route('developer.index'))->assertForbidden();
+    $this->actingAs($user)->get(route('developer.guide'))->assertForbidden();
+    $this->actingAs($user)->post(route('developer.view-as', $target->employee))->assertForbidden();
+    $this->actingAs($user)->post(route('developer.tools', 'distribute'))->assertForbidden();
+
+    $this->assertAuthenticatedAs($user);
+})->with(['Admin', 'Supervisor', 'Team Leader', 'Sales Executive', 'MarketingExecutive', 'Accounts']);
+
+it('switches between panels and returns to the developer account', function () {
+    $developer = createDeveloperPanelUser('Developer');
+    $admin = createDeveloperPanelUser('Admin');
+    $executive = createDeveloperPanelUser('Sales Executive');
+
+    $this->actingAs($developer)->post(route('developer.view-as', $admin->employee))->assertRedirect(route('dashboard'));
+    $this->assertAuthenticatedAs($admin);
+    $this->get(route('dashboard'))->assertOk()->assertSee('Admin dashboard')->assertSee('Developer view')->assertSee('Return to developer panel');
+
+    $this->post(route('developer.view-as', $executive->employee))->assertRedirect(route('dashboard'));
+    $this->assertAuthenticatedAs($executive);
+    $this->get(route('sales.tasks'))->assertOk()->assertSee('Developer view');
+    expect(session(DeveloperController::SESSION_KEY))->toBe($developer->id);
+
+    $this->post(route('developer.return'))->assertRedirect(route('developer.index'));
+    $this->assertAuthenticatedAs($developer);
+    expect(session()->has(DeveloperController::SESSION_KEY))->toBeFalse()
+        ->and(DeveloperActivityLog::query()->where('action', 'Viewed as')->pluck('target_employee_id')->all())
+        ->toBe([$admin->employee->id, $executive->employee->id]);
+
+    $this->get(route('developer.index'))->assertOk()->assertDontSee('Return to developer panel');
+});
+
+it('opens accounts that still need a password change or profile', function () {
+    $developer = createDeveloperPanelUser('Developer');
+    $fresh = createDeveloperPanelUser('Team Leader', ['must_change_password' => true], withDetails: false);
+
+    $this->actingAs($developer)->post(route('developer.view-as', $fresh->employee));
+
+    $this->get(route('dashboard'))->assertOk()->assertSee('Developer view');
+});
+
+it('refuses to open other developers or inactive employees', function () {
+    $developer = createDeveloperPanelUser('Developer');
+    $otherDeveloper = createDeveloperPanelUser('Developer');
+    $suspended = createDeveloperPanelUser('Sales Executive');
+    $suspended->employee->update(['status' => 'Suspended']);
+
+    $this->actingAs($developer)->post(route('developer.view-as', $otherDeveloper->employee))->assertForbidden();
+    $this->actingAs($developer)->post(route('developer.view-as', $suspended->employee))->assertStatus(422);
+
+    $this->assertAuthenticatedAs($developer);
+    expect(DeveloperActivityLog::query()->count())->toBe(0);
+});
+
+it('does not let anyone return without a developer session', function () {
+    $executive = createDeveloperPanelUser('Sales Executive');
+
+    $this->actingAs($executive)->post(route('developer.return'))->assertForbidden();
+    $this->assertAuthenticatedAs($executive);
+});
+
+it('runs the distribution tool even with the engine off and logs it', function () {
+    $this->travelTo(Carbon::parse('2026-10-10 12:00:00'));
+    $developer = createDeveloperPanelUser('Developer');
+    $shift = Shift::factory()->create(['shift_start_time' => '09:00:00', 'shift_end_time' => '18:00:00']);
+    Employee::factory()->create(['role' => 'Sales Executive', 'shift_id' => $shift->id]);
+    $source = LeadSource::factory()->create(['distribution_mode' => 'Auto', 'is_active' => true]);
+    Lead::factory()->count(2)->create(['source_id' => $source->source_id]);
+
+    $this->actingAs($developer)->post(route('developer.tools', 'distribute'))
+        ->assertRedirect()
+        ->assertSessionHas('status', 'Distribution cycle finished: 2 leads in 1 batches.');
+
+    expect(Lead::query()->where('status', 'Assigned')->count())->toBe(2)
+        ->and(DeveloperActivityLog::query()->where('action', 'Run one distribution cycle')->count())->toBe(1);
+});
+
+it('hides the developer panel when it is switched off', function () {
+    config(['app.developer_panel' => false]);
+    $developer = createDeveloperPanelUser('Developer');
+    $target = createDeveloperPanelUser('Admin');
+
+    $this->actingAs($developer)->get(route('developer.index'))->assertNotFound();
+    $this->actingAs($developer)->post(route('developer.view-as', $target->employee))->assertNotFound();
+});
+
+it('renders the collapsible icon rail with labels for screen readers', function () {
+    $admin = createDeveloperPanelUser('Admin');
+
+    $this->actingAs($admin)->get(route('dashboard'))
+        ->assertOk()
+        ->assertSee('data-sidebar="closed"', false)
+        ->assertSee('id="app-sidebar-toggle"', false)
+        ->assertSee('title="Central queue"', false)
+        ->assertSee('only%20logo%20icon.png', false);
+});
